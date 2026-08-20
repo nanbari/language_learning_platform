@@ -1,0 +1,18 @@
+# Netlify configuration for Monte & Souris (Next.js 16)
+# Le plugin officiel @netlify/plugin-nextjs est auto-installé par Netlify
+# lorsqu'un projet Next.js est détecté.
+
+[build]
+  command  = "npm run build"
+  publish  = ".next"
+
+[build.environment]
+  # Node 20 LTS — requis par Next.js 16
+  NODE_VERSION = "20"
+  # Évite que le linter casse le build sur des warnings non bloquants
+  NEXT_TELEMETRY_DISABLED = "1"
+
+# Netlify détecte automatiquement Next.js et applique son plugin, mais on
+# le déclare explicitement pour la traçabilité.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
