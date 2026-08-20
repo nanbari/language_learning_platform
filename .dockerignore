@@ -1,0 +1,13 @@
+node_modules
+.next
+.netlify
+.git
+.gitignore
+.env*
+*.md
+Dockerfile
+.dockerignore
+k8s
+.github
+charte-graphique.*
+coverage

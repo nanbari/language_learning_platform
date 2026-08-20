@@ -33,6 +33,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Build autonome pour le déploiement Docker/Kubernetes : .next/standalone
+  // contient le serveur et les seuls node_modules nécessaires.
+  output: "standalone",
   turbopack: {
     root: __dirname,
   },

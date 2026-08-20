@@ -4,7 +4,10 @@ import { COOKIE_NAME, verifySession } from "@/lib/auth";
 
 // Client service-role : la RLS est contournée, l'autorisation est faite ici
 // même (session + rôle) — ne jamais exposer ce client au navigateur.
-const supabase = supabaseAdmin();
+// Initialisation paresseuse : la clé service-role n'est disponible qu'à
+// l'exécution, pas au build (où Next évalue les modules des routes).
+let adminClient: ReturnType<typeof supabaseAdmin> | null = null;
+const supabase = () => (adminClient ??= supabaseAdmin());
 
 async function getSession(req: NextRequest) {
   return verifySession(req.cookies.get(COOKIE_NAME)?.value);
@@ -17,7 +20,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const authorId = searchParams.get("authorId");
 
-  let query = supabase.from("lessons").select("*").order("created_at", { ascending: false });
+  let query = supabase().from("lessons").select("*").order("created_at", { ascending: false });
   // Teachers can filter by authorId (typically their own); students see everything published.
   if (authorId) {
     // Prevent a teacher from listing another teacher's drafts.
@@ -43,7 +46,7 @@ export async function POST(req: NextRequest) {
   const { title, subject, age_group, exercises } = body;
 
   // Identity is derived from the session — the body's author_id is ignored.
-  const { data, error } = await supabase
+  const { data, error } = await supabase()
     .from("lessons")
     .insert({ title, subject, age_group, author_id: session.id, exercises })
     .select()
@@ -65,7 +68,7 @@ export async function PATCH(req: NextRequest) {
   void _ignoredAuthorId; // never trust the client-supplied author_id
   if (!id) return NextResponse.json({ error: "id requis" }, { status: 400 });
 
-  let query = supabase.from("lessons").update(updates).eq("id", id);
+  let query = supabase().from("lessons").update(updates).eq("id", id);
   // Teachers can only patch their own lessons; admins can patch any.
   if (session.role === "teacher") query = query.eq("author_id", session.id);
 

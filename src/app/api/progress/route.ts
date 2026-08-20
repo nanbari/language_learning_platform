@@ -4,7 +4,10 @@ import { COOKIE_NAME, verifySession } from "@/lib/auth";
 
 // Client service-role : la RLS est contournée, l'autorisation est faite ici
 // même (session + rôle) — ne jamais exposer ce client au navigateur.
-const supabase = supabaseAdmin();
+// Initialisation paresseuse : la clé service-role n'est disponible qu'à
+// l'exécution, pas au build (où Next évalue les modules des routes).
+let adminClient: ReturnType<typeof supabaseAdmin> | null = null;
+const supabase = () => (adminClient ??= supabaseAdmin());
 
 async function getSession(req: NextRequest) {
   return verifySession(req.cookies.get(COOKIE_NAME)?.value);
@@ -24,7 +27,7 @@ export async function GET(req: NextRequest) {
   }
   const effectiveUserId = session.role === "student" ? session.id : userId;
 
-  let query = supabase.from("progress").select("*");
+  let query = supabase().from("progress").select("*");
   if (effectiveUserId) query = query.eq("user_id", effectiveUserId);
   if (lessonId)        query = query.eq("lesson_id", lessonId);
 
@@ -51,7 +54,7 @@ export async function POST(req: NextRequest) {
   // user_id always comes from the session, never the body.
   const userId = session.id;
 
-  const { data: existing } = await supabase
+  const { data: existing } = await supabase()
     .from("progress")
     .select("id, score")
     .eq("user_id", userId)
@@ -60,7 +63,7 @@ export async function POST(req: NextRequest) {
 
   if (existing) {
     if (score > existing.score) {
-      const { data, error } = await supabase
+      const { data, error } = await supabase()
         .from("progress")
         .update({ score, completed_at: new Date().toISOString() })
         .eq("id", existing.id)
@@ -72,7 +75,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(existing);
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabase()
     .from("progress")
     .insert({ user_id: userId, lesson_id: lessonId, score })
     .select()
@@ -80,7 +83,7 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await supabase.rpc("increment_points", { user_id_param: userId, pts: Math.round(score / 10) });
+  await supabase().rpc("increment_points", { user_id_param: userId, pts: Math.round(score / 10) });
 
   return NextResponse.json(data, { status: 201 });
 }
