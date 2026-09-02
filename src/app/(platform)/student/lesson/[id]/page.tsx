@@ -593,9 +593,9 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
   if (currentBlock.type === "video") {
     const embedUrl = getYoutubeEmbedUrl(currentBlock.url);
     return (
-      <div className="min-h-screen bg-[#fffef9]">
+      <div className="min-h-screen bg-[#fffef9] flex flex-col">
         {nav}
-        <div className="max-w-2xl mx-auto px-4 py-8">
+        <div className="flex-1 flex flex-col justify-center w-full max-w-4xl mx-auto px-4 py-8">
           {currentBlock.title && (
             <h2 className="text-xl font-black text-[#2d2d2d] mb-4 text-center">{currentBlock.title}</h2>
           )}
@@ -635,9 +635,9 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
   /* ── Exercise block ── */
   const ex = currentBlock.exercise;
   return (
-    <div className="min-h-screen bg-[#fffef9]">
+    <div className="min-h-screen bg-[#fffef9] flex flex-col">
       {nav}
-      <div className="max-w-2xl mx-auto px-4 py-10">
+      <div className="flex-1 flex flex-col justify-center w-full max-w-2xl mx-auto px-4 py-10">
         {ex.type !== "wordorder" && (
           <div className="text-center mb-6">
             <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-bold text-white mb-3"
