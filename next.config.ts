@@ -10,11 +10,13 @@ const csp = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob: https:",
-  "media-src 'self' data: blob:",
+  // https: pour les vidéos/audios hébergés (bucket R2 public, liens directs).
+  "media-src 'self' data: blob: https:",
   "frame-src https://www.youtube-nocookie.com https://www.youtube.com https://www.google.com",
   // data:/blob: nécessaires : lessonStorage fait fetch() sur les data URLs
   // (images/audio) pour les convertir en Blob avant stockage IndexedDB.
-  "connect-src 'self' data: blob: https://*.supabase.co wss://*.supabase.co",
+  // *.r2.cloudflarestorage.com : PUT direct des médias vers R2 (URL signée).
+  "connect-src 'self' data: blob: https://*.supabase.co wss://*.supabase.co https://*.r2.cloudflarestorage.com",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",

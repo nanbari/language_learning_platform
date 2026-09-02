@@ -5,9 +5,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   Trash2, Save, ArrowLeft, HelpCircle, Shuffle, Layers,
   Mic, Square, Play, CheckCircle, ImagePlus, X, Type, Image, LayoutGrid,
-  Video, Plus, BookOpen, ChevronUp, ChevronDown, Copy, AlignJustify,
+  Video, Plus, BookOpen, ChevronUp, ChevronDown, Copy, AlignJustify, Upload,
 } from "lucide-react";
 import { saveLesson, loadLesson, releaseUrls } from "@/lib/lessonStorage";
+import { uploadMedia } from "@/lib/mediaUpload";
 
 /* ── Types ── */
 interface SlideItem { id: string; imageDataUrl: string; text?: string; audioDataUrl?: string; audioDuration?: number; }
@@ -242,6 +243,28 @@ function CreateLessonPageInner() {
     }));
   };
 
+  /* ── Video upload (R2) ── */
+  const [uploadingBlockId, setUploadingBlockId] = useState<string | null>(null);
+  const [uploadPct, setUploadPct] = useState(0);
+
+  const handleVideoFile = async (blockId: string, file: File) => {
+    if (uploadingBlockId !== null) return;
+    if (file.size > 200 * 1024 * 1024) { setError("Vidéo trop lourde (200 MB maximum)."); return; }
+    setError("");
+    setUploadingBlockId(blockId);
+    setUploadPct(0);
+    try {
+      const url = await uploadMedia(file, setUploadPct);
+      setBlocks((prev) => prev.map((b) =>
+        b.id === blockId && b.type === "video" ? { ...b, url } : b
+      ));
+    } catch (err) {
+      setError(`Téléversement impossible : ${(err as Error).message}`);
+    } finally {
+      setUploadingBlockId(null);
+    }
+  };
+
   /* ── Block operations ── */
   const addBlock = (type: "video" | "slideshow" | ExerciseType) => {
     if (type === "video") {
@@ -420,6 +443,27 @@ function CreateLessonPageInner() {
                     placeholder="URL YouTube ou lien vidéo direct..."
                     className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:border-[#74c2e8] outline-none text-sm font-mono"
                   />
+                  <div className="flex items-center gap-2 pt-1">
+                    <span className="text-xs text-gray-400 font-semibold">ou</span>
+                    {uploadingBlockId === block.id ? (
+                      <span className="text-xs font-bold text-[#74c2e8] animate-pulse">
+                        Téléversement… {uploadPct}%
+                      </span>
+                    ) : (
+                      <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#74c2e8] text-white text-xs font-bold shadow-sm transition-all ${
+                        uploadingBlockId !== null ? "opacity-40 cursor-not-allowed" : "hover:bg-[#5eb2de] hover:shadow-md cursor-pointer"
+                      }`}>
+                        <Upload size={12} /> Téléverser un fichier vidéo
+                        <input type="file" accept="video/*" className="hidden" disabled={uploadingBlockId !== null}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleVideoFile(block.id, file);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
                 </div>
               )}
 
