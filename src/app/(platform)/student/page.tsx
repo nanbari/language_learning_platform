@@ -6,7 +6,10 @@ import { useAuthStore } from "@/store/authStore";
 import { useRouter } from "next/navigation";
 import { fetchLessons, type ApiLesson } from "@/lib/lessonsApi";
 
-const LESSON_COLORS = ["#BB908E", "#8BA3B1", "#999B84", "#CCB9B5", "#7B868E", "#6B705C"];
+// Même ordre que COLORS de la page de leçon pour que la carte et la leçon
+// partagent la couleur. Le rose n'ouvre pas la rotation — il domine déjà
+// le logo et la charte l'entoure de Slate/Sage/Moss.
+const LESSON_COLORS = ["#8BA3B1", "#999B84", "#6B705C", "#BB908E", "#7B868E", "#CCB9B5"];
 const LESSON_EMOJIS = ["📖", "🌟", "🐾", "🔢", "🎨", "🌿", "🌙", "🦁"];
 
 function countExercises(lesson: { blocks: { type: string }[] }): number {
@@ -63,7 +66,7 @@ export default function StudentPage() {
 
       <div className="max-w-5xl mx-auto px-4 py-8">
         {/* Welcome hero */}
-        <div className="rounded-3xl p-8 text-white mb-8 relative overflow-hidden" style={{ background: "#BB908E" }}>
+        <div className="rounded-3xl p-8 text-white mb-8 relative overflow-hidden" style={{ background: "#8BA3B1" }}>
           <div className="absolute right-6 top-4 opacity-20 pointer-events-none">
             <svg width="120" height="80" viewBox="0 0 120 80" fill="none">
               <path d="M4,78 Q30,4 56,78" stroke="white" strokeWidth="4" strokeLinecap="round"/>
@@ -78,7 +81,7 @@ export default function StudentPage() {
 
         <div>
           <h2 className="text-xl font-black text-[#2D2D2D] mb-4 flex items-center gap-2">
-            <BookOpen size={20} style={{ color: "#BB908E" }} /> Mes leçons
+            <BookOpen size={20} style={{ color: "#6B705C" }} /> Mes leçons
           </h2>
           <div className="space-y-4">
             {lessons.length === 0 && (

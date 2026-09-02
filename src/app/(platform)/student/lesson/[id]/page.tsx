@@ -60,7 +60,9 @@ function getLessonBlocks(lesson: StoredLesson): ContentBlock[] {
   return blocks;
 }
 
-const COLORS = ["#BB908E", "#8BA3B1", "#6B705C", "#999B84", "#7B868E", "#CCB9B5"];
+// Même ordre que LESSON_COLORS du tableau de bord : la leçon garde la
+// couleur de sa carte.
+const COLORS = ["#8BA3B1", "#999B84", "#6B705C", "#BB908E", "#7B868E", "#CCB9B5"];
 
 /* ── Slideshow renderer ── */
 function SlideshowRenderer({ slides, onDone }: { slides: SlideItem[]; onDone: () => void }) {
@@ -249,8 +251,8 @@ function QuizRenderer({ ex, color, onNext, idx, total }: {
           <h2 className="text-xl font-black text-[#2d2d2d]">{ex.question}</h2>
           {ex.audioDataUrl && (
             <button onClick={playAudio}
-              className="w-10 h-10 rounded-full bg-[#BB908E]/10 hover:bg-[#BB908E]/20 flex items-center justify-center transition-colors shrink-0">
-              <Volume2 size={18} className="text-[#BB908E]" />
+              className="w-10 h-10 rounded-full bg-[#8BA3B1]/10 hover:bg-[#8BA3B1]/20 flex items-center justify-center transition-colors shrink-0">
+              <Volume2 size={18} className="text-[#8BA3B1]" />
             </button>
           )}
         </div>
@@ -262,7 +264,7 @@ function QuizRenderer({ ex, color, onNext, idx, total }: {
           {ex.options.map((opt) => {
             const isWrong   = wrongId === opt.id;
             const isAnswer  = opt.id === ex.correctId;
-            let border = "border-gray-200 hover:border-[#BB908E]";
+            let border = "border-gray-200 hover:border-[#8BA3B1]";
             let bg = "bg-white";
             if (correct && isAnswer)  { border = "border-[#95d5b2]"; bg = "bg-[#f0faf5]"; }
             else if (isWrong)         { border = "border-[#ff8fa3]"; bg = "bg-[#fff0f3]"; }
@@ -294,7 +296,7 @@ function QuizRenderer({ ex, color, onNext, idx, total }: {
           {ex.options.map((opt) => {
             const isWrong  = wrongId === opt.id;
             const isAnswer = opt.id === ex.correctId;
-            let cls = "border-gray-200 bg-white hover:border-[#BB908E] hover:bg-[#BB908E]/5";
+            let cls = "border-gray-200 bg-white hover:border-[#8BA3B1] hover:bg-[#8BA3B1]/5";
             if (correct && isAnswer) cls = "border-[#95d5b2] bg-[#f0faf5]";
             else if (isWrong)        cls = "border-[#ff8fa3] bg-[#fff0f3]";
 
@@ -523,7 +525,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-2xl font-black mb-4">Leçon introuvable 😅</p>
-          <Link href="/student" className="text-[#BB908E] hover:underline">← Retour au tableau de bord</Link>
+          <Link href="/student" className="text-[#8BA3B1] hover:underline">← Retour au tableau de bord</Link>
         </div>
       </div>
     );
@@ -546,12 +548,12 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
   /* ── Navbar shared ── */
   const nav = (
     <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
-      <Link href="/student" className="flex items-center gap-2 text-gray-600 hover:text-[#BB908E] transition-colors">
+      <Link href="/student" className="flex items-center gap-2 text-gray-600 hover:text-[#6B705C] transition-colors">
         <ArrowLeft size={18} /> Retour
       </Link>
       <p className="font-black text-[#2d2d2d] text-sm truncate max-w-[200px]">{lesson.title}</p>
-      <div className="flex items-center gap-1 font-bold text-[#BB908E]">
-        <Star size={14} fill="#BB908E" /> {score}
+      <div className="flex items-center gap-1 font-bold text-[#999B84]">
+        <Star size={14} fill="#999B84" /> {score}
       </div>
     </div>
   );
