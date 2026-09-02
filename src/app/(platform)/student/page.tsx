@@ -8,7 +8,14 @@ import { useRouter } from "next/navigation";
 const LESSON_COLORS = ["#BB908E", "#8BA3B1", "#999B84", "#CCB9B5", "#7B868E", "#6B705C"];
 const LESSON_EMOJIS = ["📖", "🌟", "🐾", "🔢", "🎨", "🌿", "🌙", "🦁"];
 
-interface StoredLesson { id: string; title: string; exercises: unknown[]; createdAt: string; }
+interface StoredLesson { id: string; title: string; exercises?: unknown[]; blocks?: { type: string }[]; createdAt: string; }
+
+// Les leçons récentes rangent tout dans `blocks` ; `exercises` n'existe que
+// dans l'ancien format.
+function countExercises(lesson: StoredLesson): number {
+  if (lesson.blocks?.length) return lesson.blocks.filter((b) => b.type === "exercise").length;
+  return lesson.exercises?.length ?? 0;
+}
 
 export default function StudentPage() {
   const { user, logout } = useAuthStore();
@@ -89,7 +96,7 @@ export default function StudentPage() {
             {lessons.map((lesson, idx) => {
               const color = LESSON_COLORS[idx % LESSON_COLORS.length];
               const emoji = LESSON_EMOJIS[idx % LESSON_EMOJIS.length];
-              const exCount = lesson.exercises?.length ?? 0;
+              const exCount = countExercises(lesson);
               return (
                 <div key={lesson.id} className="ms-card bg-[#FFFDF8] border border-[#EDE5D8] overflow-hidden">
                   <div className="flex items-center gap-4 p-4">

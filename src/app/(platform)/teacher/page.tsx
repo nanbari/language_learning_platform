@@ -8,7 +8,14 @@ import { Suspense } from "react";
 
 const LESSON_COLORS = ["#BB908E", "#8BA3B1", "#999B84", "#CCB9B5", "#7B868E", "#6B705C"];
 
-interface SavedLesson { id: string; title: string; exercises: unknown[]; createdAt: string; }
+interface SavedLesson { id: string; title: string; exercises?: unknown[]; blocks?: { type: string }[]; createdAt: string; }
+
+// Les leçons récentes rangent tout dans `blocks` ; `exercises` n'existe que
+// dans l'ancien format.
+function countExercises(lesson: SavedLesson): number {
+  if (lesson.blocks?.length) return lesson.blocks.filter((b) => b.type === "exercise").length;
+  return lesson.exercises?.length ?? 0;
+}
 
 function TeacherPageInner() {
   const { user, logout } = useAuthStore();
@@ -132,7 +139,7 @@ function TeacherPageInner() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {savedLessons.map((lesson, idx) => {
             const color = LESSON_COLORS[idx % LESSON_COLORS.length];
-            const exCount = lesson.exercises?.length ?? 0;
+            const exCount = countExercises(lesson);
             const date = new Date(lesson.createdAt).toLocaleDateString("fr-BE", { day: "numeric", month: "short" });
             return (
               <div key={lesson.id} className="ms-card bg-[#FFFDF8] border border-[#EDE5D8] overflow-hidden">
