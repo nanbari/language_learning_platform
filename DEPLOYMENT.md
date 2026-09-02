@@ -121,3 +121,74 @@ eksctl create iamidentitymapping \
 
 Tant que `DEPLOY_ENABLED` n'est pas définie à `true`, seul le workflow CI
 s'exécute — le dépôt reste utilisable sans infrastructure AWS.
+
+## Médias — Cloudflare R2 (vidéos, audios, images)
+
+Les médias lourds ne vont pas dans Supabase (1 GB gratuit) mais dans un
+bucket **Cloudflare R2** : 10 GB gratuits et **aucun frais de sortie**, le
+streaming vers les élèves ne coûte rien. Les fichiers sont téléversés
+directement du navigateur vers R2 via une URL signée (`POST /api/media`,
+réservé aux rôles `teacher`/`admin`) — le serveur ne voit jamais le fichier.
+
+### Mise en place (une seule fois)
+
+1. Créer un compte sur https://dash.cloudflare.com (gratuit, une carte est
+   demandée pour R2 mais rien n'est facturé sous 10 GB).
+2. **R2 → Create bucket** → nom : `monte-et-souris-media`.
+3. Dans le bucket → **Settings → Public access → Allow Access** (r2.dev) :
+   noter l'URL publique `https://pub-xxxx.r2.dev`.
+4. **R2 → Manage API tokens → Create API token** : permission
+   *Object Read & Write*, limité au bucket. Noter la clé et le secret.
+5. Renseigner les variables d'environnement (Netlify : Site configuration →
+   Environment variables ; K8s : voir `k8s/secrets.example.yaml`) :
+
+| Variable | Valeur |
+|---|---|
+| `R2_ACCOUNT_ID` | id du compte (visible dans l'URL du dashboard) |
+| `R2_ACCESS_KEY_ID` | clé du token API |
+| `R2_SECRET_ACCESS_KEY` | secret du token API |
+| `R2_BUCKET` | `monte-et-souris-media` |
+| `R2_PUBLIC_BASE_URL` | `https://pub-xxxx.r2.dev` (sans slash final) |
+
+6. **CORS du bucket** (Settings → CORS policy) — nécessaire pour le PUT
+   direct depuis le navigateur :
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://monte-et-souris.netlify.app", "http://localhost:3000"],
+    "AllowedMethods": ["PUT"],
+    "AllowedHeaders": ["content-type"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+### Utilisation côté client
+
+```ts
+// 1. Demander une URL signée
+const res = await fetch("/api/media", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size }),
+});
+const { uploadUrl, publicUrl } = await res.json();
+
+// 2. Téléverser directement vers R2
+await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+
+// 3. Enregistrer publicUrl dans la leçon (balise <video>/<audio> ensuite)
+```
+
+## Anti-pause Supabase
+
+Le plan gratuit Supabase met le projet en pause après 7 jours sans activité
+base de données. Le workflow `.github/workflows/keepalive.yml` appelle
+`https://monte-et-souris.netlify.app/api/health?deep=1` tous les 3 jours ;
+cette variante exécute une requête SQL réelle, ce qui compte comme de
+l'activité. En cas d'échec (base en pause, site down), le workflow échoue et
+GitHub envoie un e-mail de notification.
+
+> GitHub désactive les crons après 60 jours sans commit sur le dépôt : si le
+> projet reste dormant, réactiver le workflow depuis l'onglet **Actions**.
