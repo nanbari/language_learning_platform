@@ -1,0 +1,30 @@
+# Empêche la mise en pause du projet Supabase (plan gratuit : pause après
+# 7 jours sans activité base de données). Le ping /api/health?deep=1 exécute
+# une vraie requête SQL côté serveur, ce qui compte comme de l'activité.
+#
+# Note : GitHub désactive les workflows planifiés après 60 jours sans commit
+# sur le dépôt. Si le projet reste longtemps sans développement, réactiver le
+# workflow depuis l'onglet Actions (un simple clic) ou pousser un commit.
+name: Keepalive Supabase
+
+on:
+  schedule:
+    # Tous les 3 jours à 06h17 UTC (marge confortable sous les 7 jours,
+    # même si GitHub retarde parfois les crons de quelques heures).
+    - cron: "17 6 */3 * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /api/health?deep=1
+        run: |
+          set -euo pipefail
+          url="https://monte-et-souris.netlify.app/api/health?deep=1"
+          body=$(curl -sS --max-time 30 --retry 3 --retry-delay 10 "$url")
+          echo "Réponse : $body"
+          echo "$body" | grep -q '"db":"ok"' || {
+            echo "::error::La base ne répond pas correctement — vérifier Supabase/Netlify."
+            exit 1
+          }
