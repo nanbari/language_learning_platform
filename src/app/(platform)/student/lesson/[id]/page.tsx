@@ -3,7 +3,7 @@ import { useState, use, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { ArrowLeft, Star, Trophy, Volume2, ChevronRight, CheckCircle, XCircle } from "lucide-react";
 import { useGameStore } from "@/store/gameStore";
-import { loadLesson, listLessons, releaseUrls } from "@/lib/lessonStorage";
+import { fetchLessons, type ApiLesson } from "@/lib/lessonsApi";
 
 /* ── Types ── */
 interface QuizOption { id: string; text: string; imageDataUrl?: string; }
@@ -500,18 +500,18 @@ function WordOrderRenderer({ ex, color, onNext }: {
 export default function LessonPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [lesson,     setLesson]     = useState<StoredLesson | null | "loading">("loading");
+  const [allLessons, setAllLessons] = useState<ApiLesson[]>([]);
   const [blockIndex, setBlockIndex] = useState(0);
   const [completed,  setCompleted]  = useState(false);
   const { score, resetGame } = useGameStore();
 
   useEffect(() => {
-    let createdUrls: string[] = [];
     (async () => {
-      const { lesson, urls } = await loadLesson(id);
-      createdUrls = urls;
-      setLesson((lesson as unknown as StoredLesson) ?? null);
+      const all = await fetchLessons().catch(() => [] as ApiLesson[]);
+      setAllLessons(all);
+      const found = all.find((l) => l.id === id);
+      setLesson((found as unknown as StoredLesson) ?? null);
     })();
-    return () => { releaseUrls(createdUrls); };
   }, [id]);
 
   if (lesson === "loading") {
@@ -529,8 +529,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
     );
   }
 
-  const lessons_list = listLessons();
-  const lessonIdx = lessons_list.findIndex((l) => l.id === id);
+  const lessonIdx = allLessons.findIndex((l) => l.id === id);
   const color = COLORS[lessonIdx >= 0 ? lessonIdx % COLORS.length : 0];
 
   const blocks = getLessonBlocks(lesson);

@@ -16,7 +16,8 @@ const csp = [
   // data:/blob: nécessaires : lessonStorage fait fetch() sur les data URLs
   // (images/audio) pour les convertir en Blob avant stockage IndexedDB.
   // *.r2.cloudflarestorage.com : PUT direct des médias vers R2 (URL signée).
-  "connect-src 'self' data: blob: https://*.supabase.co wss://*.supabase.co https://*.r2.cloudflarestorage.com",
+  // *.r2.dev : le lecteur de diaporama fetch() les audios depuis le bucket public.
+  "connect-src 'self' data: blob: https://*.supabase.co wss://*.supabase.co https://*.r2.cloudflarestorage.com https://*.r2.dev",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",

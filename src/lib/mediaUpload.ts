@@ -38,3 +38,35 @@ export async function uploadMedia(
 
   return publicUrl;
 }
+
+const EXT_BY_MIME: Record<string, string> = {
+  "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif",
+  "audio/webm": "webm", "audio/ogg": "ogg", "audio/mpeg": "mp3",
+  "video/mp4": "mp4", "video/webm": "webm",
+};
+
+/**
+ * Parcourt récursivement une structure de leçon et téléverse vers R2 tout
+ * média encore inline (chaînes data: ou blob: — images des diapos/quiz,
+ * audios enregistrés). Chaque média est remplacé par son URL publique, si
+ * bien que la leçon peut être stockée en base sans binaire. Les URLs https
+ * déjà externalisées sont laissées telles quelles. Un blob: périmé (page
+ * rechargée depuis) est remplacé par undefined : l'enseignant re-téléverse.
+ */
+export async function externalizeMediaToR2(value: unknown): Promise<unknown> {
+  if (Array.isArray(value)) return Promise.all(value.map(externalizeMediaToR2));
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) out[k] = await externalizeMediaToR2(v);
+    return out;
+  }
+  if (typeof value === "string" && (value.startsWith("data:") || value.startsWith("blob:"))) {
+    let blob: Blob;
+    try { blob = await fetch(value).then((r) => r.blob()); }
+    catch { return undefined; }
+    const ext = EXT_BY_MIME[blob.type] ?? "bin";
+    const file = new File([blob], `media.${ext}`, { type: blob.type });
+    return uploadMedia(file);
+  }
+  return value;
+}

@@ -5,29 +5,25 @@ import { BookOpen, Plus, Users, BarChart2, Star, LogOut, CheckCircle } from "luc
 import { useAuthStore } from "@/store/authStore";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { fetchLessons, deleteLesson as apiDeleteLesson, type ApiLesson } from "@/lib/lessonsApi";
 
 const LESSON_COLORS = ["#BB908E", "#8BA3B1", "#999B84", "#CCB9B5", "#7B868E", "#6B705C"];
 
-interface SavedLesson { id: string; title: string; exercises?: unknown[]; blocks?: { type: string }[]; createdAt: string; }
-
-// Les leçons récentes rangent tout dans `blocks` ; `exercises` n'existe que
-// dans l'ancien format.
-function countExercises(lesson: SavedLesson): number {
-  if (lesson.blocks?.length) return lesson.blocks.filter((b) => b.type === "exercise").length;
-  return lesson.exercises?.length ?? 0;
+function countExercises(lesson: { blocks: { type: string }[] }): number {
+  return lesson.blocks.filter((b) => b.type === "exercise").length;
 }
 
 function TeacherPageInner() {
   const { user, logout } = useAuthStore();
   const router = useRouter();
   const params = useSearchParams();
-  const [savedLessons, setSavedLessons] = useState<SavedLesson[]>([]);
+  const [savedLessons, setSavedLessons] = useState<ApiLesson[]>([]);
   const [showToast, setShowToast] = useState(false);
 
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("ms_lessons") || "[]");
-    setSavedLessons(stored);
-  }, []);
+    if (!user) return;
+    fetchLessons(user.id).then(setSavedLessons).catch(() => setSavedLessons([]));
+  }, [user]);
 
   useEffect(() => {
     if (params.get("published") === "1") {
@@ -38,8 +34,7 @@ function TeacherPageInner() {
   }, [params, router]);
 
   const deleteLesson = async (id: string) => {
-    const { deleteLesson: del } = await import("@/lib/lessonStorage");
-    await del(id);
+    await apiDeleteLesson(id).catch(() => {});
     setSavedLessons((prev) => prev.filter((l) => l.id !== id));
   };
 

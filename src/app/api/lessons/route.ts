@@ -46,9 +46,10 @@ export async function POST(req: NextRequest) {
   const { title, subject, age_group, exercises } = body;
 
   // Identity is derived from the session — the body's author_id is ignored.
+  // published_at : les leçons sont visibles des élèves dès leur création.
   const { data, error } = await supabase()
     .from("lessons")
-    .insert({ title, subject, age_group, author_id: session.id, exercises })
+    .insert({ title, subject, age_group, author_id: session.id, exercises, published_at: new Date().toISOString() })
     .select()
     .single();
 
@@ -76,4 +77,23 @@ export async function PATCH(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!data) return NextResponse.json({ error: "Leçon introuvable" }, { status: 404 });
   return NextResponse.json(data);
+}
+
+export async function DELETE(req: NextRequest) {
+  const session = await getSession(req);
+  if (!session) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  if (session.role !== "teacher" && session.role !== "admin") {
+    return NextResponse.json({ error: "Interdit" }, { status: 403 });
+  }
+
+  const { id } = await req.json().catch(() => ({}) as { id?: string });
+  if (!id) return NextResponse.json({ error: "id requis" }, { status: 400 });
+
+  let query = supabase().from("lessons").delete().eq("id", id);
+  // Teachers can only delete their own lessons; admins can delete any.
+  if (session.role === "teacher") query = query.eq("author_id", session.id);
+
+  const { error } = await query;
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
 }

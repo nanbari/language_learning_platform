@@ -4,27 +4,22 @@ import Link from "next/link";
 import { LogOut, BookOpen } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { useRouter } from "next/navigation";
+import { fetchLessons, type ApiLesson } from "@/lib/lessonsApi";
 
 const LESSON_COLORS = ["#BB908E", "#8BA3B1", "#999B84", "#CCB9B5", "#7B868E", "#6B705C"];
 const LESSON_EMOJIS = ["📖", "🌟", "🐾", "🔢", "🎨", "🌿", "🌙", "🦁"];
 
-interface StoredLesson { id: string; title: string; exercises?: unknown[]; blocks?: { type: string }[]; createdAt: string; }
-
-// Les leçons récentes rangent tout dans `blocks` ; `exercises` n'existe que
-// dans l'ancien format.
-function countExercises(lesson: StoredLesson): number {
-  if (lesson.blocks?.length) return lesson.blocks.filter((b) => b.type === "exercise").length;
-  return lesson.exercises?.length ?? 0;
+function countExercises(lesson: { blocks: { type: string }[] }): number {
+  return lesson.blocks.filter((b) => b.type === "exercise").length;
 }
 
 export default function StudentPage() {
   const { user, logout } = useAuthStore();
   const router = useRouter();
-  const [lessons, setLessons] = useState<StoredLesson[]>([]);
+  const [lessons, setLessons] = useState<ApiLesson[]>([]);
 
   useEffect(() => {
-    const stored: StoredLesson[] = JSON.parse(localStorage.getItem("ms_lessons") || "[]");
-    setLessons(stored);
+    fetchLessons().then(setLessons).catch(() => setLessons([]));
   }, []);
 
   const handleLogout = async () => {

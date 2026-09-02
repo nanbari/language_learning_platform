@@ -7,8 +7,8 @@ import {
   Mic, Square, Play, CheckCircle, ImagePlus, X, Type, Image, LayoutGrid,
   Video, Plus, BookOpen, ChevronUp, ChevronDown, Copy, AlignJustify, Upload,
 } from "lucide-react";
-import { saveLesson, loadLesson, releaseUrls } from "@/lib/lessonStorage";
-import { uploadMedia } from "@/lib/mediaUpload";
+import { uploadMedia, externalizeMediaToR2 } from "@/lib/mediaUpload";
+import { fetchLesson, createLesson, updateLesson } from "@/lib/lessonsApi";
 
 /* ── Types ── */
 interface SlideItem { id: string; imageDataUrl: string; text?: string; audioDataUrl?: string; audioDuration?: number; }
@@ -88,19 +88,6 @@ function makeExercise(type: ExerciseType): Exercise {
   };
 }
 
-/* ── Old-format loader ── */
-function legacyToBlocks(data: {
-  videos?: { id: string; url: string; title: string }[];
-  slideshow?: SlideItem[];
-  exercises?: Exercise[];
-}): ContentBlock[] {
-  const blocks: ContentBlock[] = [];
-  for (const v of data.videos ?? []) blocks.push({ id: v.id, type: "video", url: v.url, title: v.title });
-  if (data.slideshow?.length) blocks.push({ id: uid(), type: "slideshow", slides: data.slideshow });
-  for (const ex of data.exercises ?? []) blocks.push({ id: uid(), type: "exercise", exercise: ex });
-  return blocks;
-}
-
 /* ════════════════════════════════════════════
    Main component
 ════════════════════════════════════════════ */
@@ -117,22 +104,12 @@ function CreateLessonPageInner() {
   /* ── Load for edit ── */
   useEffect(() => {
     if (!editId) return;
-    let createdUrls: string[] = [];
     (async () => {
-      const { lesson, urls } = await loadLesson(editId);
-      createdUrls = urls;
+      const lesson = await fetchLesson(editId);
       if (!lesson) return;
       setTitle(lesson.title);
-      const found = lesson as unknown as {
-        title: string;
-        blocks?: ContentBlock[];
-        videos?: { id: string; url: string; title: string }[];
-        slideshow?: SlideItem[];
-        exercises?: Exercise[];
-      };
-      setBlocks(found.blocks?.length ? found.blocks : legacyToBlocks(found));
+      setBlocks(lesson.blocks as ContentBlock[]);
     })();
-    return () => { releaseUrls(createdUrls); };
   }, [editId]);
 
   /* ── Recording state ── */
@@ -320,15 +297,11 @@ function CreateLessonPageInner() {
 
     setSaving(true);
     try {
-      await saveLesson(
-        {
-          id: editId ?? uid(),
-          title: title.trim(),
-          createdAt: new Date().toISOString(),
-          blocks: blocks as unknown[],
-        },
-        { editId: editId ?? undefined },
-      );
+      // Les images/audios encore inline partent vers R2 ; la base ne reçoit
+      // que du JSON avec des URLs.
+      const cleanBlocks = (await externalizeMediaToR2(blocks)) as unknown[];
+      if (editId) await updateLesson(editId, title.trim(), cleanBlocks);
+      else await createLesson(title.trim(), cleanBlocks);
       router.push("/teacher?published=1");
     } catch (err) {
       setError(`Erreur lors de la sauvegarde : ${(err as Error).message || "inconnue"}.`);
