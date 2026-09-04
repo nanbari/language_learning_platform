@@ -143,7 +143,7 @@ function CreateLessonPageInner() {
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       recorder.onstop = () => {
         const target = recordTargetRef.current!;
-        const blob   = new Blob(chunksRef.current, { type: "audio/webm" });
+        const blob   = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
         const reader = new FileReader();
         reader.onload = () => {
           setBlocks((prev) => prev.map((b) => {
@@ -184,7 +184,7 @@ function CreateLessonPageInner() {
       recorder.onstop = () => {
         const target   = recordTargetRef.current!;
         const duration = Date.now() - recordStartTime.current;
-        const blob     = new Blob(chunksRef.current, { type: "audio/webm" });
+        const blob     = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
         const reader   = new FileReader();
         reader.onload = () => {
           setBlocks((prev) => prev.map((b) => {

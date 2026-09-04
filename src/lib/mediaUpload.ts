@@ -7,6 +7,8 @@
  * XMLHttpRequest plutôt que fetch : nécessaire pour la progression d'envoi.
  * Retourne l'URL publique à enregistrer dans la leçon.
  */
+import { needsMp3Transcode, transcodeToMp3 } from "./audioTranscode";
+
 export async function uploadMedia(
   file: File,
   onProgress?: (percent: number) => void,
@@ -41,7 +43,7 @@ export async function uploadMedia(
 
 const EXT_BY_MIME: Record<string, string> = {
   "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif",
-  "audio/webm": "webm", "audio/ogg": "ogg", "audio/mpeg": "mp3",
+  "audio/webm": "webm", "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a",
   "video/mp4": "mp4", "video/webm": "webm",
 };
 
@@ -52,6 +54,11 @@ const EXT_BY_MIME: Record<string, string> = {
  * bien que la leçon peut être stockée en base sans binaire. Les URLs https
  * déjà externalisées sont laissées telles quelles. Un blob: périmé (page
  * rechargée depuis) est remplacé par undefined : l'enseignant re-téléverse.
+ *
+ * Les audios enregistrés (WebM/Opus sur Chrome, MP4 sur Safari) sont
+ * convertis en MP3 avant envoi : c'est le seul format lu par tous les
+ * navigateurs, iPhone et iPad compris. Si la conversion échoue, le fichier
+ * d'origine est envoyé tel quel plutôt que de perdre l'enregistrement.
  */
 export async function externalizeMediaToR2(value: unknown): Promise<unknown> {
   if (Array.isArray(value)) return Promise.all(value.map(externalizeMediaToR2));
@@ -64,6 +71,10 @@ export async function externalizeMediaToR2(value: unknown): Promise<unknown> {
     let blob: Blob;
     try { blob = await fetch(value).then((r) => r.blob()); }
     catch { return undefined; }
+    if (needsMp3Transcode(blob.type)) {
+      try { blob = await transcodeToMp3(blob); }
+      catch (e) { console.warn("Conversion MP3 impossible, envoi du format d'origine", e); }
+    }
     const ext = EXT_BY_MIME[blob.type] ?? "bin";
     const file = new File([blob], `media.${ext}`, { type: blob.type });
     return uploadMedia(file);
