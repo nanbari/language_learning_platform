@@ -41,6 +41,21 @@ export type Database = {
         Insert: { user_id: string; lesson_id: string; score: number };
         Update: { score?: number };
       };
+      exercise_events: {
+        Row: {
+          id: string; user_id: string; lesson_id: string; block_id: string;
+          exercise_type: string; event_type: string; correct: boolean | null;
+          answer: unknown; attempt_number: number | null; hint_count: number;
+          time_ms: number | null; created_at: string;
+        };
+        Insert: {
+          user_id: string; lesson_id: string; block_id: string;
+          exercise_type: string; event_type: string; correct?: boolean | null;
+          answer?: unknown; attempt_number?: number | null; hint_count?: number;
+          time_ms?: number | null;
+        };
+        Update: never;
+      };
     };
   };
 };

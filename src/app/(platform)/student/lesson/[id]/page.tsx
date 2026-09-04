@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, Star, Trophy, Volume2, ChevronRight, CheckCircle, XCircle } from "lucide-react";
 import { useGameStore } from "@/store/gameStore";
 import { fetchLessons, type ApiLesson } from "@/lib/lessonsApi";
+import { useExerciseTracker } from "@/lib/useExerciseTracker";
 
 /* ── Types ── */
 interface QuizOption { id: string; text: string; imageDataUrl?: string; }
@@ -178,13 +179,15 @@ function SlideshowRenderer({ slides, onDone }: { slides: SlideItem[]; onDone: ()
 /* ─────────────────────────────────────────────
    Quiz renderer — handles image / text / both
 ───────────────────────────────────────────── */
-function QuizRenderer({ ex, color, onNext, idx, total }: {
+function QuizRenderer({ ex, color, onNext, idx, total, lessonId, blockId }: {
   ex: QuizExercise; color: string; onNext: () => void; idx: number; total: number;
+  lessonId: string; blockId: string;
 }) {
   const [wrongId, setWrongId]   = useState<string | null>(null);
   const [correct, setCorrect]   = useState(false);
   const [shake, setShake]       = useState(false);
   const { addPoints } = useGameStore();
+  const track = useExerciseTracker({ lessonId, blockId, exerciseType: "quiz" });
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const playAudio = () => {
@@ -192,7 +195,8 @@ function QuizRenderer({ ex, color, onNext, idx, total }: {
     audioRef.current?.pause();
     const a = new Audio(ex.audioDataUrl);
     audioRef.current = a;
-    a.play();
+    // Un média illisible ne doit pas remonter en erreur non gérée
+    a.play().catch(() => {});
   };
 
   useEffect(() => {
@@ -218,6 +222,7 @@ function QuizRenderer({ ex, color, onNext, idx, total }: {
 
   const handleSelect = (id: string) => {
     if (correct) return;
+    track.attempt(id === ex.correctId, { optionId: id });
     if (id === ex.correctId) {
       addPoints(10);
       setWrongId(null);
@@ -323,10 +328,11 @@ function QuizRenderer({ ex, color, onNext, idx, total }: {
 /* ─────────────────────────────────────────────
    Word-order renderer — reorder words to form a sentence
 ───────────────────────────────────────────── */
-function WordOrderRenderer({ ex, color, onNext }: {
-  ex: WordOrderExercise; color: string; onNext: () => void;
+function WordOrderRenderer({ ex, color, onNext, lessonId, blockId }: {
+  ex: WordOrderExercise; color: string; onNext: () => void; lessonId: string; blockId: string;
 }) {
   const { addPoints } = useGameStore();
+  const track = useExerciseTracker({ lessonId, blockId, exerciseType: "wordorder" });
   const targetWords = ex.sentence.split(/\s+/).filter(Boolean);
   // Detect Arabic so the answer zone reads right-to-left
   const isRTL = /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/.test(ex.sentence);
@@ -410,6 +416,7 @@ function WordOrderRenderer({ ex, color, onNext }: {
   const validate = () => {
     if (chosen.length !== targetWords.length || targetWords.length === 0) return;
     const ok = chosen.every((c, i) => c.word === targetWords[i]);
+    track.attempt(ok, { words: chosen.map((c) => c.word) });
     if (ok) {
       addPoints(10);
       setFeedback("correct");
@@ -491,6 +498,65 @@ function WordOrderRenderer({ ex, color, onNext }: {
         className="w-full py-3 rounded-2xl text-white font-bold flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         style={{ background: color }}>
         {feedback === "correct" ? (<><CheckCircle size={16} /> Bravo !</>) : "Vérifier"}
+      </button>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   Matching / drag-drop — rendus non interactifs pour l'instant :
+   on journalise un simple affichage (« view ») quand l'élève continue.
+───────────────────────────────────────────── */
+function MatchingRenderer({ ex, color, onNext, lessonId, blockId }: {
+  ex: MatchExercise; color: string; onNext: () => void; lessonId: string; blockId: string;
+}) {
+  const track = useExerciseTracker({ lessonId, blockId, exerciseType: "matching" });
+  return (
+    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+      <p className="font-bold text-center text-[#2d2d2d] mb-6">Associe les paires</p>
+      <div className="space-y-3">
+        {ex.pairs.map((p) => (
+          <div key={p.id} className="flex items-center gap-3">
+            <div className="flex-1 bg-[#fff8ee] rounded-xl px-4 py-2 text-sm font-semibold text-center">{p.left}</div>
+            <span className="text-gray-400">↔</span>
+            <div className="flex-1 bg-[#f0faf5] rounded-xl px-4 py-2 text-sm font-semibold text-center">{p.right}</div>
+          </div>
+        ))}
+      </div>
+      <button onClick={() => { track.view(); onNext(); }}
+        className="mt-6 w-full py-3 rounded-2xl text-white font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all"
+        style={{ background: color }}>
+        Continuer <ChevronRight size={16} />
+      </button>
+    </div>
+  );
+}
+
+function DragDropRenderer({ ex, color, onNext, lessonId, blockId }: {
+  ex: DragExercise; color: string; onNext: () => void; lessonId: string; blockId: string;
+}) {
+  const track = useExerciseTracker({ lessonId, blockId, exerciseType: "dragdrop" });
+  return (
+    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+      <p className="font-bold text-center text-[#2d2d2d] mb-6">Classe les éléments</p>
+      <div className="flex gap-3 flex-wrap justify-center mb-4">
+        {ex.items.map((item) => (
+          <div key={item.id} className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm font-semibold">
+            {item.text}
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-3">
+        {ex.categories.map((cat) => (
+          <div key={cat.id} className="flex-1 rounded-2xl border-2 border-dashed border-gray-300 p-4 text-center">
+            <p className="font-bold text-sm text-gray-600">{cat.label}</p>
+          </div>
+        ))}
+      </div>
+      <button onClick={() => { track.view(); onNext(); }}
+        className="mt-6 w-full py-3 rounded-2xl text-white font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all"
+        style={{ background: color }}>
+        Continuer <ChevronRight size={16} />
       </button>
     </div>
   );
@@ -660,31 +726,21 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
             onNext={advanceBlock}
             idx={exercisesDone}
             total={exerciseBlocks.length}
+            lessonId={lesson.id}
+            blockId={currentBlock.id}
           />
         )}
 
-        {ex.type === "matching" && (() => {
-          const m = ex as MatchExercise;
-          return (
-            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-              <p className="font-bold text-center text-[#2d2d2d] mb-6">Associe les paires</p>
-              <div className="space-y-3">
-                {m.pairs.map((p) => (
-                  <div key={p.id} className="flex items-center gap-3">
-                    <div className="flex-1 bg-[#fff8ee] rounded-xl px-4 py-2 text-sm font-semibold text-center">{p.left}</div>
-                    <span className="text-gray-400">↔</span>
-                    <div className="flex-1 bg-[#f0faf5] rounded-xl px-4 py-2 text-sm font-semibold text-center">{p.right}</div>
-                  </div>
-                ))}
-              </div>
-              <button onClick={advanceBlock}
-                className="mt-6 w-full py-3 rounded-2xl text-white font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all"
-                style={{ background: color }}>
-                Continuer <ChevronRight size={16} />
-              </button>
-            </div>
-          );
-        })()}
+        {ex.type === "matching" && (
+          <MatchingRenderer
+            key={blockIndex}
+            ex={ex as MatchExercise}
+            color={color}
+            onNext={advanceBlock}
+            lessonId={lesson.id}
+            blockId={currentBlock.id}
+          />
+        )}
 
         {ex.type === "wordorder" && (
           <WordOrderRenderer
@@ -692,36 +748,21 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
             ex={ex as WordOrderExercise}
             color={color}
             onNext={advanceBlock}
+            lessonId={lesson.id}
+            blockId={currentBlock.id}
           />
         )}
 
-        {ex.type === "dragdrop" && (() => {
-          const d = ex as DragExercise;
-          return (
-            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-              <p className="font-bold text-center text-[#2d2d2d] mb-6">Classe les éléments</p>
-              <div className="flex gap-3 flex-wrap justify-center mb-4">
-                {d.items.map((item) => (
-                  <div key={item.id} className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm font-semibold">
-                    {item.text}
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-3">
-                {d.categories.map((cat) => (
-                  <div key={cat.id} className="flex-1 rounded-2xl border-2 border-dashed border-gray-300 p-4 text-center">
-                    <p className="font-bold text-sm text-gray-600">{cat.label}</p>
-                  </div>
-                ))}
-              </div>
-              <button onClick={advanceBlock}
-                className="mt-6 w-full py-3 rounded-2xl text-white font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all"
-                style={{ background: color }}>
-                Continuer <ChevronRight size={16} />
-              </button>
-            </div>
-          );
-        })()}
+        {ex.type === "dragdrop" && (
+          <DragDropRenderer
+            key={blockIndex}
+            ex={ex as DragExercise}
+            color={color}
+            onNext={advanceBlock}
+            lessonId={lesson.id}
+            blockId={currentBlock.id}
+          />
+        )}
       </div>
     </div>
   );
