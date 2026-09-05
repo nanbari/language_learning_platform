@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { COOKIE_NAME, verifySession } from "@/lib/auth";
+import { COOKIE_NAME, verifySession, isStaff } from "@/lib/auth";
 
 // Client service-role : la RLS est contournée, l'autorisation est faite ici
 // même (session + rôle) — ne jamais exposer ce client au navigateur.
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   // Teachers can filter by authorId (typically their own); students see everything published.
   if (authorId) {
     // Prevent a teacher from listing another teacher's drafts.
-    if (session.role === "teacher" && authorId !== session.id) {
+    if (!session.isAdmin && authorId !== session.id) {
       return NextResponse.json({ error: "Interdit" }, { status: 403 });
     }
     query = query.eq("author_id", authorId);
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await getSession(req);
   if (!session) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-  if (session.role !== "teacher" && session.role !== "admin") {
+  if (!isStaff(session)) {
     return NextResponse.json({ error: "Seuls les enseignants peuvent créer des leçons" }, { status: 403 });
   }
 
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const session = await getSession(req);
   if (!session) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-  if (session.role !== "teacher" && session.role !== "admin") {
+  if (!isStaff(session)) {
     return NextResponse.json({ error: "Interdit" }, { status: 403 });
   }
 
@@ -71,7 +71,7 @@ export async function PATCH(req: NextRequest) {
 
   let query = supabase().from("lessons").update(updates).eq("id", id);
   // Teachers can only patch their own lessons; admins can patch any.
-  if (session.role === "teacher") query = query.eq("author_id", session.id);
+  if (!session.isAdmin) query = query.eq("author_id", session.id);
 
   const { data, error } = await query.select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -82,7 +82,7 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const session = await getSession(req);
   if (!session) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-  if (session.role !== "teacher" && session.role !== "admin") {
+  if (!isStaff(session)) {
     return NextResponse.json({ error: "Interdit" }, { status: 403 });
   }
 
@@ -91,7 +91,7 @@ export async function DELETE(req: NextRequest) {
 
   let query = supabase().from("lessons").delete().eq("id", id);
   // Teachers can only delete their own lessons; admins can delete any.
-  if (session.role === "teacher") query = query.eq("author_id", session.id);
+  if (!session.isAdmin) query = query.eq("author_id", session.id);
 
   const { error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

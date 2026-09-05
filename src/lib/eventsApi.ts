@@ -14,16 +14,22 @@ const queue: ExerciseEventInput[] = [];
 let timer: ReturnType<typeof setTimeout> | null = null;
 let listenersInstalled = false;
 
+// Envois en cours, pour pouvoir attendre leur fin avant de lire les événements.
+const inFlight = new Set<Promise<void>>();
+
 function flush(): void {
   if (timer) { clearTimeout(timer); timer = null; }
   if (queue.length === 0) return;
   const batch = queue.splice(0, MAX_BATCH);
-  fetch("/api/events", {
+  const p: Promise<void> = fetch("/api/events", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ events: batch }),
     keepalive: true,
-  }).catch(() => { /* perte silencieuse : ne jamais bloquer l'élève */ });
+  })
+    .then(() => undefined, () => { /* perte silencieuse : ne jamais bloquer l'élève */ })
+    .finally(() => { inFlight.delete(p); });
+  inFlight.add(p);
   if (queue.length > 0) flush();
 }
 
@@ -46,9 +52,13 @@ export function logExerciseEvent(event: ExerciseEventInput): void {
   if (!timer) timer = setTimeout(flush, FLUSH_DELAY_MS);
 }
 
-/** Force l'envoi immédiat de la file (utile avant de quitter une leçon). */
-export function flushExerciseEvents(): void {
+/**
+ * Force l'envoi immédiat de la file et attend que tous les envois soient
+ * terminés (utile avant de quitter une leçon ou de relire les événements).
+ */
+export async function flushExerciseEvents(): Promise<void> {
   flush();
+  await Promise.all([...inFlight]);
 }
 
 export interface FetchEventsParams {

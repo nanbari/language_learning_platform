@@ -6,6 +6,10 @@ create table public.users (
   email text not null,
   name text not null,
   role text not null check (role in ('teacher', 'student', 'admin')),
+  -- Droits d'administration, cumulables avec le rôle (un enseignant peut être
+  -- admin). L'ancienne valeur role = 'admin' reste acceptée et vaut
+  -- enseignant + admin (voir src/app/api/auth/route.ts).
+  is_admin boolean not null default false,
   points integer default 0,
   created_at timestamptz default now()
 );
@@ -54,7 +58,7 @@ create policy "Authenticated can read lessons" on public.lessons
 -- Lessons: seuls les enseignants peuvent créer/modifier
 create policy "Teachers can create lessons" on public.lessons
   for insert with check (
-    exists (select 1 from public.users where id = auth.uid() and role = 'teacher')
+    exists (select 1 from public.users where id = auth.uid() and (role = 'teacher' or is_admin))
   );
 
 -- Progress: chacun peut lire/écrire sa propre progression
@@ -96,5 +100,64 @@ create policy "Students manage own events" on public.exercise_events
 -- Enseignants et admins : lecture de tous les événements
 create policy "Teachers can read events" on public.exercise_events
   for select using (
-    exists (select 1 from public.users where id = auth.uid() and role in ('teacher', 'admin'))
+    exists (select 1 from public.users where id = auth.uid() and (role = 'teacher' or is_admin))
   );
+
+-- ─────────────────────────────────────────────────────────────
+-- Séries de révision générées par l’agent (voir src/lib/practiceGenerator.ts)
+-- blocks  = blocs d’exercices au format des leçons, id préfixé "gen-" ;
+--           leurs événements vont dans exercise_events avec lesson_id =
+--           leçon d’origine.
+-- sources = points faibles à l’origine de la série (block_id, réponses fausses).
+-- ─────────────────────────────────────────────────────────────
+create table public.practice_sets (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.users(id) on delete cascade,
+  lesson_id uuid not null references public.lessons(id) on delete cascade,
+  blocks jsonb not null,
+  sources jsonb not null default '[]'::jsonb,
+  model text,
+  input_tokens integer,
+  output_tokens integer,
+  created_at timestamptz not null default now()
+);
+
+-- Dernière série d’un élève pour une leçon
+create index practice_sets_user_lesson_idx on public.practice_sets (user_id, lesson_id, created_at desc);
+
+alter table public.practice_sets enable row level security;
+
+-- Élèves : lecture de leurs propres séries (l’écriture passe par le serveur)
+create policy "Students read own practice sets" on public.practice_sets
+  for select using (auth.uid() = user_id);
+
+-- Enseignants et admins : lecture de toutes les séries
+create policy "Teachers can read practice sets" on public.practice_sets
+  for select using (
+    exists (select 1 from public.users where id = auth.uid() and (role = 'teacher' or is_admin))
+  );
+
+-- ─────────────────────────────────────────────────────────────
+-- Demandes de compte élève (voir src/lib/signup.ts)
+-- Le formulaire public /inscription enregistre une demande ; un admin
+-- l’approuve ou la refuse depuis son tableau de bord. Le compte Auth et le
+-- profil `users` ne sont créés qu’à l’approbation, avec password_hash
+-- (bcrypt) fourni à l’inscription, puis effacé.
+-- ─────────────────────────────────────────────────────────────
+create table public.signup_requests (
+  id uuid primary key default gen_random_uuid(),
+  email text not null,
+  name text not null,
+  password_hash text,
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  created_at timestamptz not null default now(),
+  reviewed_at timestamptz,
+  reviewed_by uuid references public.users(id) on delete set null
+);
+
+-- Une seule demande en attente par adresse
+create unique index signup_requests_pending_email_idx
+  on public.signup_requests (email) where status = 'pending';
+
+-- Aucune policy : la table n’est accessible que par le serveur (service role)
+alter table public.signup_requests enable row level security;

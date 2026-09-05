@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.123.0",
     "@breezystack/lamejs": "^1.2.7",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -20,6 +21,7 @@
     "@radix-ui/react-toast": "^1.2.15",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.103.3",
+    "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
@@ -30,6 +32,7 @@
     "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "19.2.4",
     "tailwind-merge": "^3.5.0",
+    "zod": "^4.5.4",
     "zustand": "^5.0.12"
   },
   "devDependencies": {

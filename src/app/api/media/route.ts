@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { COOKIE_NAME, verifySession } from "@/lib/auth";
+import { COOKIE_NAME, verifySession, isStaff } from "@/lib/auth";
 import { presignUpload, publicUrl, UPLOAD_URL_TTL_SECONDS } from "@/lib/r2";
 
 // Téléversement de médias (vidéos, audios, images) vers Cloudflare R2.
@@ -24,7 +24,7 @@ function sanitize(filename: string): string {
 export async function POST(req: NextRequest) {
   const session = await verifySession(req.cookies.get(COOKIE_NAME)?.value);
   if (!session) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-  if (session.role !== "teacher" && session.role !== "admin") {
+  if (!isStaff(session)) {
     return NextResponse.json({ error: "Seuls les enseignants peuvent téléverser des médias" }, { status: 403 });
   }
 

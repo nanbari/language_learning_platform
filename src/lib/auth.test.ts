@@ -6,6 +6,7 @@ const user: SessionUser = {
   email: "eleve@example.com",
   name: "Élève Test",
   role: "student",
+  isAdmin: false,
 };
 
 beforeAll(() => {
@@ -46,6 +47,17 @@ describe("signSession / verifySession", () => {
     expect(await verifySession(null)).toBeNull();
     expect(await verifySession("")).toBeNull();
     expect(await verifySession("pas-un-token")).toBeNull();
+  });
+
+  it("convertit l'ancien rôle admin en enseignant + admin", async () => {
+    const token = await signSession({ ...user, role: "admin" as SessionUser["role"], isAdmin: false });
+    const session = await verifySession(token);
+    expect(session).toMatchObject({ role: "teacher", isAdmin: true });
+  });
+
+  it("conserve l'indicateur admin d'un enseignant", async () => {
+    const token = await signSession({ ...user, role: "teacher", isAdmin: true });
+    expect(await verifySession(token)).toMatchObject({ role: "teacher", isAdmin: true });
   });
 
   it("rejette un rôle inconnu même correctement signé", async () => {

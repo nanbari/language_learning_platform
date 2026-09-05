@@ -1,10 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { LogOut, BookOpen } from "lucide-react";
+import { LogOut, BookOpen, Sparkles } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { useRouter } from "next/navigation";
 import { fetchLessons, type ApiLesson } from "@/lib/lessonsApi";
+import { fetchPracticeSummary } from "@/lib/practiceApi";
+import type { LessonReviewSummary } from "@/lib/weakSpots";
 
 // Même ordre que COLORS de la page de leçon pour que la carte et la leçon
 // partagent la couleur. Le rose n'ouvre pas la rotation — il domine déjà
@@ -20,10 +22,23 @@ export default function StudentPage() {
   const { user, logout } = useAuthStore();
   const router = useRouter();
   const [lessons, setLessons] = useState<ApiLesson[]>([]);
+  // Leçons où l'élève a raté des exercices : la plateforme lui propose une
+  // révision ciblée (voir /api/practice/summary). Vide tant que rien n'est raté.
+  const [toReview, setToReview] = useState<LessonReviewSummary[]>([]);
 
   useEffect(() => {
     fetchLessons().then(setLessons).catch(() => setLessons([]));
+    fetchPracticeSummary().then(setToReview).catch(() => setToReview([]));
   }, []);
+
+  const reviewByLesson = new Map(toReview.map((s) => [s.lessonId, s.toReview]));
+  const colorOf = (lessonId: string) => {
+    const idx = lessons.findIndex((l) => l.id === lessonId);
+    return LESSON_COLORS[(idx >= 0 ? idx : 0) % LESSON_COLORS.length];
+  };
+  const proposals = toReview
+    .map((s) => ({ ...s, lesson: lessons.find((l) => l.id === s.lessonId) }))
+    .filter((s): s is typeof s & { lesson: ApiLesson } => Boolean(s.lesson));
 
   const handleLogout = async () => {
     await fetch("/api/auth", {
@@ -79,6 +94,43 @@ export default function StudentPage() {
           <p className="text-white/75 relative z-10">Prêt·e à apprendre aujourd'hui ?</p>
         </div>
 
+        {/* Révisions proposées d'après les exercices ratés */}
+        {proposals.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-black text-[#2D2D2D] mb-1 flex items-center gap-2">
+              <Sparkles size={20} style={{ color: "#BB908E" }} /> À réviser
+            </h2>
+            <p className="text-sm text-[#2D2D2D]/50 mb-4">
+              Des exercices que tu n&apos;as pas réussis du premier coup. Rejoue-les pour t&apos;entraîner !
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {proposals.map(({ lesson, toReview: n }) => {
+                const color = colorOf(lesson.id);
+                return (
+                  <Link
+                    key={lesson.id}
+                    href={`/student/practice/${lesson.id}`}
+                    className="ms-card bg-[#FFFDF8] border-2 p-4 flex items-center gap-3 hover:scale-[1.01] transition-all"
+                    style={{ borderColor: `${color}60` }}
+                  >
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 text-white"
+                      style={{ background: color }}>
+                      <Sparkles size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-[#2D2D2D] truncate">{lesson.title}</h3>
+                      <p className="text-xs text-[#2D2D2D]/50">
+                        {n} exercice{n > 1 ? "s" : ""} à revoir
+                      </p>
+                    </div>
+                    <span className="text-sm font-bold flex-shrink-0" style={{ color }}>Réviser →</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div>
           <h2 className="text-xl font-black text-[#2D2D2D] mb-4 flex items-center gap-2">
             <BookOpen size={20} style={{ color: "#6B705C" }} /> Mes leçons
@@ -95,6 +147,7 @@ export default function StudentPage() {
               const color = LESSON_COLORS[idx % LESSON_COLORS.length];
               const emoji = LESSON_EMOJIS[idx % LESSON_EMOJIS.length];
               const exCount = countExercises(lesson);
+              const failed  = reviewByLesson.get(lesson.id) ?? 0;
               return (
                 <div key={lesson.id} className="ms-card bg-[#FFFDF8] border border-[#EDE5D8] overflow-hidden">
                   <div className="flex items-center gap-4 p-4">
@@ -108,6 +161,20 @@ export default function StudentPage() {
                         {exCount} exercice{exCount > 1 ? "s" : ""}
                       </p>
                     </div>
+                    {failed > 0 && (
+                      <Link
+                        href={`/student/practice/${lesson.id}`}
+                        title={`${failed} exercice${failed > 1 ? "s" : ""} à revoir`}
+                        className="relative flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center hover:scale-105 transition-all"
+                        style={{ background: `${color}20`, color }}
+                      >
+                        <Sparkles size={16} />
+                        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-black text-white flex items-center justify-center"
+                          style={{ background: "#BB908E" }}>
+                          {failed}
+                        </span>
+                      </Link>
+                    )}
                     <Link
                       href={`/student/lesson/${lesson.id}`}
                       className="flex-shrink-0 px-4 py-2 rounded-xl text-white text-sm font-bold hover:opacity-90 hover:scale-105 transition-all"

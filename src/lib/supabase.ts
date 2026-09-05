@@ -27,9 +27,9 @@ export type Database = {
   public: {
     Tables: {
       users: {
-        Row: { id: string; email: string; name: string; role: string; points: number; created_at: string };
-        Insert: { email: string; name: string; role: string };
-        Update: { name?: string; points?: number };
+        Row: { id: string; email: string; name: string; role: string; is_admin: boolean; points: number; created_at: string };
+        Insert: { id?: string; email: string; name: string; role: string; is_admin?: boolean };
+        Update: { name?: string; points?: number; is_admin?: boolean };
       };
       lessons: {
         Row: { id: string; title: string; subject: string; age_group: string; author_id: string; exercises: unknown; published_at: string | null; created_at: string };
@@ -53,6 +53,25 @@ export type Database = {
           exercise_type: string; event_type: string; correct?: boolean | null;
           answer?: unknown; attempt_number?: number | null; hint_count?: number;
           time_ms?: number | null;
+        };
+        Update: never;
+      };
+      signup_requests: {
+        Row: {
+          id: string; email: string; name: string; password_hash: string | null;
+          status: string; created_at: string; reviewed_at: string | null; reviewed_by: string | null;
+        };
+        Insert: { email: string; name: string; password_hash: string; status?: string };
+        Update: { status?: string; password_hash?: string | null; reviewed_at?: string; reviewed_by?: string };
+      };
+      practice_sets: {
+        Row: {
+          id: string; user_id: string; lesson_id: string; blocks: unknown; sources: unknown;
+          model: string | null; input_tokens: number | null; output_tokens: number | null; created_at: string;
+        };
+        Insert: {
+          user_id: string; lesson_id: string; blocks: unknown; sources?: unknown;
+          model?: string | null; input_tokens?: number | null; output_tokens?: number | null;
         };
         Update: never;
       };

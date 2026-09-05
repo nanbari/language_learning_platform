@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { COOKIE_NAME, verifySession } from "@/lib/auth";
+import { COOKIE_NAME, verifySession, isStaff } from "@/lib/auth";
 
 /**
  * Route protection.
  *
- *  /teacher/*   → role === "teacher" (or admin)
- *  /student/*   → role === "student" (or admin)
+ *  /teacher/*   → enseignants et admins
+ *  /student/*   → élèves et admins (aperçu des leçons)
  *
  * Unauthenticated users are redirected to /login with a ?next= param so they
  * land back on the requested page after signing in. Authenticated users
@@ -21,7 +21,7 @@ export async function proxy(req: NextRequest) {
   const isLoginPage   = pathname === "/login";
 
   if (isLoginPage && session) {
-    const dest = session.role === "teacher" || session.role === "admin" ? "/teacher" : "/student";
+    const dest = isStaff(session) ? "/teacher" : "/student";
     return NextResponse.redirect(new URL(dest, req.url));
   }
 
@@ -31,11 +31,11 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (isTeacherArea && session && session.role !== "teacher" && session.role !== "admin") {
+  if (isTeacherArea && session && !isStaff(session)) {
     return NextResponse.redirect(new URL("/student", req.url));
   }
 
-  if (isStudentArea && session && session.role !== "student" && session.role !== "admin") {
+  if (isStudentArea && session && session.role !== "student" && !session.isAdmin) {
     return NextResponse.redirect(new URL("/teacher", req.url));
   }
 

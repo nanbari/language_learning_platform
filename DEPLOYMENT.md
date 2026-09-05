@@ -22,6 +22,7 @@ docker build \
 docker run --rm -p 3000:3000 \
   -e AUTH_SECRET=... \
   -e SUPABASE_SERVICE_ROLE_KEY=... \
+  -e ANTHROPIC_API_KEY=... `# optionnel, mode PRACTICE_MODE=claude` \
   monte-et-souris
 # → http://localhost:3000
 ```
@@ -77,6 +78,7 @@ kubectl apply -f k8s/namespace.yaml
 kubectl -n monte-et-souris create secret generic app-secrets \
   --from-literal=AUTH_SECRET='<aléatoire 32+ caractères>' \
   --from-literal=SUPABASE_SERVICE_ROLE_KEY='<clé service-role>' \
+  --from-literal=ANTHROPIC_API_KEY='<clé API Anthropic, optionnel>' \
   --from-literal=NEXT_PUBLIC_SUPABASE_URL='https://xxxx.supabase.co' \
   --from-literal=NEXT_PUBLIC_SUPABASE_ANON_KEY='<clé anon>'
 ```
@@ -192,3 +194,47 @@ GitHub envoie un e-mail de notification.
 
 > GitHub désactive les crons après 60 jours sans commit sur le dépôt : si le
 > projet reste dormant, réactiver le workflow depuis l'onglet **Actions**.
+
+## Révision des exercices ratés
+
+La page « Révision » de l’espace élève (`/student/practice/<leçon>`) propose à
+l’élève les exercices qu’il n’a pas réussis du premier coup (ou qu’il a
+abandonnés). L’analyse se fait côté serveur à partir de `exercise_events`
+(voir `src/lib/weakSpots.ts`) ; chaque série est enregistrée dans
+`practice_sets` (schéma dans `supabase-schema.sql`, à appliquer dans
+l’éditeur SQL Supabase).
+
+La plateforme propose ces révisions d’elle-même : `GET /api/practice/summary`
+liste les leçons où l’élève a des exercices à revoir, et le tableau de bord
+ainsi que l’écran de fin de leçon n’affichent le bouton « Réviser » que dans
+ce cas.
+
+Deux modes, choisis par la variable `PRACTICE_MODE` :
+
+| Valeur | Comportement |
+|---|---|
+| `replay` (défaut) | Les exercices ratés d’origine sont rejoués tels quels (réponses des quiz mélangées). Aucun service externe, aucun coût. Une réussite du premier coup en révision efface le point faible. |
+| `claude` | Claude génère des variantes de chaque exercice raté (`src/lib/practiceGenerator.ts`). Nécessite `ANTHROPIC_API_KEY` (console.anthropic.com) ; `ANTHROPIC_MODEL` optionnel, défaut `claude-opus-5`. Sans clé, la route répond 503 et le reste du site fonctionne normalement. |
+
+Garde-fous du mode `claude` : au plus 4 exercices ratés traités par série,
+2 variantes chacun, une génération par minute et par élève et par leçon. Les
+jetons consommés sont enregistrés dans `practice_sets` (`input_tokens`,
+`output_tokens`).
+
+## Inscription des élèves
+
+Un visiteur demande un compte élève sur `/inscription` (nom, e-mail, mot de
+passe). Rien n’est créé à ce moment : la demande est stockée dans
+`signup_requests` avec le mot de passe haché (bcrypt), et un administrateur
+l’approuve ou la refuse depuis son tableau de bord `/teacher`. Les droits
+admin sont la colonne `is_admin` de la table `users`, cumulable avec le rôle
+enseignant. Un admin nomme ou révoque d’autres admins depuis la section
+« Enseignants » de son tableau de bord (`/api/admin/staff`) ; seul le tout
+premier admin se définit dans le Table Editor Supabase en passant `is_admin`
+à `true` (l’ancien rôle `admin` reste accepté et vaut enseignant + admin).
+À l’approbation, le compte Supabase Auth et le profil `users` sont créés avec
+ce hachage ; le hachage est ensuite effacé de la demande.
+
+Le schéma de `signup_requests` est dans `supabase-schema.sql` (à appliquer dans
+l’éditeur SQL Supabase). Aucune variable d’environnement supplémentaire.
+Aucun e-mail n’est envoyé : l’admin doit consulter son tableau de bord.

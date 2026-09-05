@@ -131,7 +131,11 @@ function LoginForm() {
 
         </div>
 
-        <p className="text-center text-sm text-[#2D2D2D]/40 mt-6">
+        <p className="text-center text-sm text-[#2D2D2D]/50 mt-6">
+          Pas encore de compte élève ?{" "}
+          <Link href="/inscription" className="text-[#6B705C] hover:underline font-semibold">Faire une demande</Link>
+        </p>
+        <p className="text-center text-sm text-[#2D2D2D]/40 mt-2">
           <Link href="/" className="text-[#6B705C] hover:underline font-semibold">← Retour au site</Link>
         </p>
       </div>

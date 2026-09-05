@@ -14,8 +14,17 @@ export type SessionUser = {
   id: string;
   email: string;
   name: string;
-  role: "student" | "teacher" | "admin";
+  /** Espace principal de la personne. */
+  role: "student" | "teacher";
+  /** Droits d'administration (approbation des comptes, toutes les leçons…),
+   *  cumulables avec le rôle : un enseignant peut aussi être admin. */
+  isAdmin: boolean;
 };
+
+/** Accès aux fonctions enseignant : enseignants et admins. */
+export function isStaff(user: Pick<SessionUser, "role" | "isAdmin">): boolean {
+  return user.role === "teacher" || user.isAdmin;
+}
 
 export type Session = SessionUser & {
   exp: number; // unix seconds
@@ -92,9 +101,13 @@ export async function verifySession(token: string | undefined | null): Promise<S
   if (!timingSafeEqual(sig, expected)) return null;
   try {
     const json = new TextDecoder().decode(b64urlDecode(payload));
-    const parsed = JSON.parse(json) as Session;
+    const parsed = JSON.parse(json) as Omit<Session, "role"> & { role: string };
     if (typeof parsed.exp !== "number" || parsed.exp < Math.floor(Date.now() / 1000)) return null;
-    if (parsed.role !== "student" && parsed.role !== "teacher" && parsed.role !== "admin") return null;
-    return parsed;
+    // Anciens cookies : le rôle "admin" devient enseignant + admin.
+    let role = parsed.role;
+    let isAdmin = parsed.isAdmin === true;
+    if (role === "admin") { role = "teacher"; isAdmin = true; }
+    if (role !== "student" && role !== "teacher") return null;
+    return { ...parsed, role, isAdmin };
   } catch { return null; }
 }

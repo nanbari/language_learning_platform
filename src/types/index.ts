@@ -1,10 +1,12 @@
-export type UserRole = "teacher" | "student" | "admin";
+export type UserRole = "teacher" | "student";
 
 export interface User {
   id: string;
   email: string;
   name: string;
   role: UserRole;
+  /** Droits d'administration, cumulables avec le rôle (enseignant admin). */
+  isAdmin?: boolean;
   avatar?: string;
   points?: number;
   badges?: Badge[];
