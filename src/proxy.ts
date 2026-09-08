@@ -8,8 +8,9 @@ import { COOKIE_NAME, verifySession, isStaff } from "@/lib/auth";
  *  /student/*   → élèves et admins (aperçu des leçons)
  *
  * Unauthenticated users are redirected to /login with a ?next= param so they
- * land back on the requested page after signing in. Authenticated users
- * landing on /login are redirected to their dashboard.
+ * land back on the requested page after signing in. /login stays reachable
+ * when a session exists: the page itself offers to continue or to switch
+ * account (shared computers), like most authenticated sites.
  */
 export async function proxy(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
@@ -18,12 +19,6 @@ export async function proxy(req: NextRequest) {
 
   const isTeacherArea = pathname.startsWith("/teacher");
   const isStudentArea = pathname.startsWith("/student");
-  const isLoginPage   = pathname === "/login";
-
-  if (isLoginPage && session) {
-    const dest = isStaff(session) ? "/teacher" : "/student";
-    return NextResponse.redirect(new URL(dest, req.url));
-  }
 
   if ((isTeacherArea || isStudentArea) && !session) {
     const url = new URL("/login", req.url);
@@ -43,5 +38,5 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/teacher/:path*", "/student/:path*", "/login"],
+  matcher: ["/teacher/:path*", "/student/:path*"],
 };

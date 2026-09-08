@@ -28,10 +28,36 @@ export function isStaff(user: Pick<SessionUser, "role" | "isAdmin">): boolean {
 
 export type Session = SessionUser & {
   exp: number; // unix seconds
+  /** Session persistante (« Rester connecté ») : cookie conservé après la
+   *  fermeture du navigateur. Absent = session de navigateur. */
+  remember?: boolean;
 };
 
 export const COOKIE_NAME = "ms_session";
-export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
+/** Session de navigateur : le cookie disparaît à la fermeture du navigateur
+ *  et, dans tous les cas, la signature expire après 8 heures. */
+export const SESSION_TTL_SECONDS = 60 * 60 * 8;
+/** « Rester connecté » : cookie persistant, 7 jours. */
+export const REMEMBER_TTL_SECONDS = 60 * 60 * 24 * 7;
+
+export type SessionCookieOptions = {
+  httpOnly: true;
+  secure: boolean;
+  sameSite: "lax";
+  path: "/";
+  maxAge?: number;
+};
+
+/**
+ * Options du cookie de session. Sans « rester connecté », aucun maxAge :
+ * le navigateur supprime le cookie à sa fermeture (session cookie), ce qui
+ * protège les ordinateurs partagés. La durée réelle est de toute façon
+ * bornée par `exp` dans la signature.
+ */
+export function sessionCookieOptions(remember: boolean, secure: boolean): SessionCookieOptions {
+  const base: SessionCookieOptions = { httpOnly: true, secure, sameSite: "lax", path: "/" };
+  return remember ? { ...base, maxAge: REMEMBER_TTL_SECONDS } : base;
+}
 
 let warned = false;
 
@@ -84,8 +110,15 @@ function timingSafeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-export async function signSession(user: SessionUser, ttl = SESSION_TTL_SECONDS): Promise<string> {
+export async function signSession(
+  user: SessionUser,
+  ttlOrOptions: number | { remember?: boolean; ttl?: number } = {},
+): Promise<string> {
+  const opts = typeof ttlOrOptions === "number" ? { ttl: ttlOrOptions } : ttlOrOptions;
+  const remember = opts.remember === true;
+  const ttl = opts.ttl ?? (remember ? REMEMBER_TTL_SECONDS : SESSION_TTL_SECONDS);
   const session: Session = { ...user, exp: Math.floor(Date.now() / 1000) + ttl };
+  if (remember) session.remember = true;
   const payload = b64urlEncode(new TextEncoder().encode(JSON.stringify(session)));
   const sig = await hmac(payload);
   return `${payload}.${sig}`;
@@ -108,6 +141,6 @@ export async function verifySession(token: string | undefined | null): Promise<S
     let isAdmin = parsed.isAdmin === true;
     if (role === "admin") { role = "teacher"; isAdmin = true; }
     if (role !== "student" && role !== "teacher") return null;
-    return { ...parsed, role, isAdmin };
+    return { ...parsed, role, isAdmin, remember: parsed.remember === true };
   } catch { return null; }
 }

@@ -65,3 +65,25 @@ describe("signSession / verifySession", () => {
     expect(await verifySession(token)).toBeNull();
   });
 });
+
+describe("session de navigateur vs « rester connecté »", () => {
+  it("par défaut : pas de flag remember, expire dans 8 h au plus", async () => {
+    const { SESSION_TTL_SECONDS } = await import("./auth");
+    const session = await verifySession(await signSession(user));
+    expect(session!.remember).toBe(false);
+    expect(session!.exp - Math.floor(Date.now() / 1000)).toBeLessThanOrEqual(SESSION_TTL_SECONDS);
+  });
+
+  it("remember : flag conservé dans la signature, expire dans 7 jours", async () => {
+    const { REMEMBER_TTL_SECONDS } = await import("./auth");
+    const session = await verifySession(await signSession(user, { remember: true }));
+    expect(session!.remember).toBe(true);
+    expect(session!.exp - Math.floor(Date.now() / 1000)).toBeGreaterThan(REMEMBER_TTL_SECONDS - 60);
+  });
+
+  it("cookie : sans maxAge par défaut (session de navigateur), maxAge 7 jours avec remember", async () => {
+    const { sessionCookieOptions, REMEMBER_TTL_SECONDS } = await import("./auth");
+    expect(sessionCookieOptions(false, true)).toEqual({ httpOnly: true, secure: true, sameSite: "lax", path: "/" });
+    expect(sessionCookieOptions(true, true).maxAge).toBe(REMEMBER_TTL_SECONDS);
+  });
+});

@@ -1,9 +1,15 @@
 "use client";
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Eye, EyeOff, LogIn } from "lucide-react";
+import { Eye, EyeOff, LogIn, LogOut, ArrowRight } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
+import type { SessionUser } from "@/lib/auth";
+
+/** Espace d'une personne connectée. */
+function dashboardFor(u: Pick<SessionUser, "role" | "isAdmin">): string {
+  return u.role === "teacher" || u.isAdmin ? "/teacher" : "/student";
+}
 
 function LoginForm() {
   const params = useSearchParams();
@@ -12,10 +18,34 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
+  const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // Session déjà ouverte dans ce navigateur (undefined = pas encore vérifié)
+  const [current, setCurrent] = useState<SessionUser | null | undefined>(undefined);
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
+  const clearStore = useAuthStore((s) => s.logout);
+
+  // Vérifie côté serveur si une session est encore valide dans ce navigateur.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/auth", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d: { user: SessionUser | null }) => { if (!cancelled) setCurrent(d.user ?? null); })
+      .catch(() => { if (!cancelled) setCurrent(null); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleSwitchAccount = async () => {
+    await fetch("/api/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "logout" }),
+    }).catch(() => {});
+    clearStore();
+    setCurrent(null);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +55,7 @@ function LoginForm() {
       const res = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "login", email, password }),
+        body: JSON.stringify({ action: "login", email, password, remember }),
       });
       const data = await res.json();
       if (!res.ok || !data.user) {
@@ -36,8 +66,7 @@ function LoginForm() {
       // Mirror server-validated user into Zustand for UI use
       login({ ...data.user, points: 0, badges: [] });
       const next = params.get("next");
-      const fallback = data.user.role === "teacher" ? "/teacher" : "/student";
-      router.push(next && next.startsWith("/") ? next : fallback);
+      router.push(next && next.startsWith("/") ? next : dashboardFor(data.user));
     } catch {
       setError("Erreur réseau. Réessayez.");
       setLoading(false);
@@ -74,6 +103,39 @@ function LoginForm() {
           <p className="text-[#2D2D2D]/50 text-sm mt-1">Accédez à votre espace d'apprentissage</p>
         </div>
 
+        {current ? (
+          <div className="bg-[#FFFDF8] rounded-3xl shadow-lg p-8 border border-[#EDE5D8] space-y-4">
+            <p className="text-sm text-[#2D2D2D]/60">Vous êtes déjà connecté·e en tant que</p>
+            <p className="font-black text-lg text-[#2D2D2D]">
+              {current.name}
+              <span className="ml-2 text-xs font-semibold text-[#6B705C] bg-[#EDE5D8] rounded-full px-2 py-0.5 align-middle">
+                {current.role === "teacher" ? "Enseignant" : "Élève"}
+              </span>
+            </p>
+            <p className="text-xs text-[#2D2D2D]/40 break-all">{current.email}</p>
+            <button
+              type="button"
+              onClick={() => {
+                const next = params.get("next");
+                router.push(next && next.startsWith("/") ? next : dashboardFor(current));
+              }}
+              className="w-full py-3 rounded-xl text-white font-bold flex items-center justify-center gap-2 hover:shadow-md hover:scale-[1.02] transition-all"
+              style={{ background: "#6B705C" }}
+            >
+              Continuer <ArrowRight size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={handleSwitchAccount}
+              className="w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 border border-[#EDE5D8] text-[#2D2D2D]/70 hover:bg-[#F5EEE8] transition-all"
+            >
+              <LogOut size={16} /> Se déconnecter et changer de compte
+            </button>
+            <p className="text-xs text-center text-[#2D2D2D]/40">
+              Ordinateur partagé ? Pensez à vous déconnecter après usage.
+            </p>
+          </div>
+        ) : (
         <div className="bg-[#FFFDF8] rounded-3xl shadow-lg p-8 border border-[#EDE5D8]">
           {/* Role selector */}
           <div className="flex rounded-2xl bg-[#EDE5D8] p-1 mb-6">
@@ -117,11 +179,21 @@ function LoginForm() {
               </div>
             </div>
 
+            <label className="flex items-center gap-2 text-sm text-[#2D2D2D]/70 select-none cursor-pointer">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                className="w-4 h-4 rounded border-[#EDE5D8] accent-[#6B705C]"
+              />
+              Rester connecté·e sur cet appareil (7 jours)
+            </label>
+
             {error && <div className="bg-red-50 text-red-500 text-sm rounded-xl px-4 py-2 border border-red-100">{error}</div>}
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || current === undefined}
               className="w-full py-3 rounded-xl text-white font-bold flex items-center justify-center gap-2 hover:shadow-md hover:scale-[1.02] transition-all disabled:opacity-70"
               style={{ background: "#6B705C" }}
             >
@@ -130,6 +202,7 @@ function LoginForm() {
           </form>
 
         </div>
+        )}
 
         <p className="text-center text-sm text-[#2D2D2D]/50 mt-6">
           Pas encore de compte élève ?{" "}

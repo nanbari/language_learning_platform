@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { COOKIE_NAME, SESSION_TTL_SECONDS, signSession, verifySession, type SessionUser } from "@/lib/auth";
+import { COOKIE_NAME, sessionCookieOptions, signSession, verifySession, type SessionUser } from "@/lib/auth";
 import { supabase, supabaseAdmin } from "@/lib/supabase";
 
 function isProd(): boolean { return process.env.NODE_ENV === "production"; }
@@ -80,19 +80,14 @@ export async function GET(req: NextRequest) {
 
   const res = NextResponse.json({ user });
   if (changed) {
-    res.cookies.set(COOKIE_NAME, await signSession(user), {
-      httpOnly: true,
-      secure: isProd(),
-      sameSite: "lax",
-      path: "/",
-      maxAge: SESSION_TTL_SECONDS,
-    });
+    const remember = session.remember === true;
+    res.cookies.set(COOKIE_NAME, await signSession(user, { remember }), sessionCookieOptions(remember, isProd()));
   }
   return res;
 }
 
 export async function POST(req: NextRequest) {
-  let body: { action?: string; email?: string; password?: string } = {};
+  let body: { action?: string; email?: string; password?: string; remember?: boolean } = {};
   try { body = await req.json(); } catch { /* tolerate empty body */ }
   const action = body.action ?? "login";
 
@@ -107,15 +102,12 @@ export async function POST(req: NextRequest) {
       // Same response shape for unknown email vs bad password — avoids enumeration
       return NextResponse.json({ error: "Identifiants invalides" }, { status: 401 });
     }
-    const token = await signSession(user);
+    // Par défaut : session de navigateur (fermée avec le navigateur, 8 h max).
+    // « Rester connecté » : cookie persistant 7 jours.
+    const remember = body.remember === true;
+    const token = await signSession(user, { remember });
     const res = NextResponse.json({ user });
-    res.cookies.set(COOKIE_NAME, token, {
-      httpOnly: true,
-      secure: isProd(),
-      sameSite: "lax",
-      path: "/",
-      maxAge: SESSION_TTL_SECONDS,
-    });
+    res.cookies.set(COOKIE_NAME, token, sessionCookieOptions(remember, isProd()));
     return res;
   }
 
