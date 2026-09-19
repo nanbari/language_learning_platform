@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { BookOpen, Plus, Users, BarChart2, Star, LogOut, CheckCircle, AlertTriangle, UserPlus, Check, X, ShieldCheck } from "lucide-react";
+import { BookOpen, Plus, Users, BarChart2, Star, LogOut, CheckCircle, AlertTriangle, UserPlus, Check, X, ShieldCheck, Presentation } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -340,11 +340,18 @@ function TeacherPageInner() {
         {/* Leçons */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-black text-[#2D2D2D]">Mes leçons</h2>
-          <Link href="/teacher/create"
-            className="flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm text-white hover:shadow-md hover:scale-105 transition-all"
-            style={{ background: "#BB908E" }}>
-            <Plus size={14} /> Nouvelle leçon
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/teacher/present"
+              className="flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm text-white hover:shadow-md hover:scale-105 transition-all"
+              style={{ background: "#6B705C" }}>
+              <Presentation size={14} /> Cours en direct
+            </Link>
+            <Link href="/teacher/create"
+              className="flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm text-white hover:shadow-md hover:scale-105 transition-all"
+              style={{ background: "#BB908E" }}>
+              <Plus size={14} /> Nouvelle leçon
+            </Link>
+          </div>
         </div>
 
         {savedLessons.length === 0 && (

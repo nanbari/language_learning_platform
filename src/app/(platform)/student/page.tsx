@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { LogOut, BookOpen, Sparkles } from "lucide-react";
+import { LogOut, BookOpen, Sparkles, Radio } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { useRouter } from "next/navigation";
 import { fetchLessons, type ApiLesson } from "@/lib/lessonsApi";
@@ -92,6 +92,10 @@ export default function StudentPage() {
             Bonjour, {user?.name?.split(" ")[0] || "Élève"} !
           </h1>
           <p className="text-white/75 relative z-10">Prêt·e à apprendre aujourd'hui ?</p>
+          <Link href="/student/live"
+            className="relative z-10 inline-flex items-center gap-2 mt-4 px-5 py-2.5 rounded-full bg-[#FFFDF8] text-[#2D2D2D] font-bold text-sm shadow hover:shadow-md hover:scale-105 transition-all">
+            <Radio size={15} className="text-[#BB908E]" /> Rejoindre le cours en direct
+          </Link>
         </div>
 
         {/* Révisions proposées d'après les exercices ratés */}
