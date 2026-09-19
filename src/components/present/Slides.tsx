@@ -219,16 +219,21 @@ function CountBadge({ count }: { count?: number }) {
   );
 }
 
-function FindLetterSlide({ slide, game }: { slide: Extract<Slide, { kind: "findLetter" }>; game?: GameProps }) {
+/** Trois cartes de lettres isolées ; partagé par les deux jeux de lettres. */
+function LetterChoices({
+  target, choices, neutral, game,
+}: { target: ArabicLetter; choices: ArabicLetter[]; neutral?: boolean; game?: GameProps }) {
   const [wrong, setWrong] = useState<number[]>([]);
   const [found, setFound] = useState(false);
   const solved = found || game?.revealed === true;
   return (
-    <div>
+    <>
       <div className="grid grid-cols-3 gap-[2.5vmin] w-fit mx-auto">
-        {slide.choices.map((letter) => {
-          const isTarget = letter.id === slide.target.id;
+        {choices.map((letter) => {
+          const isTarget = letter.id === target.id;
           const isWrong = wrong.includes(letter.id);
+          // `neutral` : la couleur d'une carte ne doit pas trahir la lettre colorée du mot.
+          const border = neutral ? "#CCB9B5" : letter.color;
           return (
             <motion.button
               key={letter.id}
@@ -242,7 +247,7 @@ function FindLetterSlide({ slide, game }: { slide: Extract<Slide, { kind: "findL
               animate={isWrong ? { x: [0, -10, 10, -6, 6, 0], opacity: 0.3 } : solved && isTarget ? { scale: [1, 1.2, 1.1] } : {}}
               whileHover={solved || isWrong ? undefined : { scale: 1.06 }}
               className="relative w-[28vmin] h-[28vmin] rounded-[3vmin] bg-[#FFFDF8] border-4 shadow-md text-[#2D2D2D] flex items-center justify-center"
-              style={{ borderColor: solved && isTarget ? "#6B705C" : letter.color, background: solved && isTarget ? SOLVED_BG : undefined }}
+              style={{ borderColor: solved && isTarget ? "#6B705C" : border, background: solved && isTarget ? SOLVED_BG : undefined }}
             >
               <LetterGlyph char={letter.isolated} className="w-[22vmin] h-[22vmin]" />
               {solved && <CountBadge count={game?.counts?.[String(letter.id)]} />}
@@ -251,6 +256,32 @@ function FindLetterSlide({ slide, game }: { slide: Extract<Slide, { kind: "findL
         })}
       </div>
       {solved && <Confetti />}
+    </>
+  );
+}
+
+function FindLetterSlide({ slide, game }: { slide: Extract<Slide, { kind: "findLetter" }>; game?: GameProps }) {
+  return (
+    <div>
+      <LetterChoices target={slide.target} choices={slide.choices} game={game} />
+    </div>
+  );
+}
+
+/** Niveau avancé : quelle est la lettre colorée dans ce mot ? */
+function FindInWordSlide({ slide, game }: { slide: Extract<Slide, { kind: "findInWord" }>; game?: GameProps }) {
+  const { before, target, after } = joinedSegments(slide.word.text);
+  return (
+    <div className="text-center">
+      <div className="flex items-center justify-center gap-[4vmin] mb-[4vmin]">
+        <span className="text-[14vmin] leading-none">{slide.word.emoji}</span>
+        <p className="text-[22vmin] leading-tight font-black text-[#2D2D2D] whitespace-nowrap" style={ARABIC_FONT}>
+          {before}
+          <span style={{ color: "#BB908E" }}>{target}</span>
+          {after}
+        </p>
+      </div>
+      <LetterChoices target={slide.target} choices={slide.choices} neutral game={game} />
     </div>
   );
 }
@@ -413,6 +444,7 @@ export function SlideView({ slide, step, game, score }: { slide: Slide; step: nu
     case "forms": return <FormsSlide letter={slide.letter} step={step} />;
     case "example": return <ExampleSlide slide={slide} />;
     case "findLetter": return <FindLetterSlide slide={slide} game={game} />;
+    case "findInWord": return <FindInWordSlide slide={slide} game={game} />;
     case "flashcard": return <FlashcardSlide slide={slide} step={step} />;
     case "blur": return <BlurSlide slide={slide} step={step} />;
     case "missing": return <MissingSlide slide={slide} step={step} />;

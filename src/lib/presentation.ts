@@ -17,6 +17,8 @@ export type Slide =
   /** Mot où la lettre étudiée, colorée, est au début, au milieu ou à la fin. */
   | { kind: "example"; letter: ArabicLetter; word: LetterWord }
   | { kind: "findLetter"; target: ArabicLetter; choices: ArabicLetter[] }
+  /** Niveau avancé : reconnaître la lettre colorée dans un mot, sous sa forme liée. */
+  | { kind: "findInWord"; word: LetterWord; target: ArabicLetter; choices: ArabicLetter[] }
   | { kind: "flashcard"; word: ArabicWord; color: string }
   | { kind: "blur"; word: ArabicWord; color: string }
   | { kind: "missing"; words: ArabicWord[]; missingId: string; color: string }
@@ -96,13 +98,23 @@ export function stepsFor(slide: Slide): number {
  * de préférence (lettres de la séance). Le tirage dans l'alphabet ne sert que
  * si la séance n'en fournit pas assez — leçon d'une lettre sans révision.
  */
-function findLetterSlide(target: ArabicLetter, pool: ArabicLetter[], rng: Rng): Slide {
+function pickChoices(target: ArabicLetter, pool: ArabicLetter[], rng: Rng): ArabicLetter[] {
   const others = pool.filter((l) => l.id !== target.id).slice(0, CHOICES_PER_ROUND - 1);
   const taken = new Set([target.id, ...others.map((l) => l.id)]);
   const fillers = shuffle(ARABIC_ALPHABET.filter((l) => !taken.has(l.id)), rng)
     .slice(0, CHOICES_PER_ROUND - 1 - others.length)
     .map(inCharter);
-  return { kind: "findLetter", target, choices: shuffle([target, ...others, ...fillers], rng) };
+  return shuffle([target, ...others, ...fillers], rng);
+}
+
+function findLetterSlide(target: ArabicLetter, pool: ArabicLetter[], rng: Rng): Slide {
+  return { kind: "findLetter", target, choices: pickChoices(target, pool, rng) };
+}
+
+/** Un mot de la lettre (position tirée au sort) ; l'élève nomme la lettre colorée. */
+function findInWordSlide(target: ArabicLetter, pool: ArabicLetter[], rng: Rng): Slide {
+  const position = LETTER_POSITIONS[Math.floor(rng() * LETTER_POSITIONS.length)];
+  return { kind: "findInWord", word: LETTER_WORDS[target.id][position], target, choices: pickChoices(target, pool, rng) };
 }
 
 /**
@@ -146,10 +158,13 @@ export function buildLetterDeck(
 
   // Révision choisie par l'enseignant, en clôture : rappel des lettres une à
   // une, puis une manche par lettre, parmi les révisées puis celles du jour.
+  // Elle suit le niveau de la séance : lettre isolée pour le débutant, lettre
+  // à reconnaître dans un mot pour le niveau avancé.
   if (review.length > 0) {
+    const round = advanced ? findInWordSlide : findLetterSlide;
     deck.push({ kind: "lettersTitle", letters: review });
     for (const target of shuffle(review, rng)) {
-      deck.push(findLetterSlide(target, [...shuffle(review, rng), ...shuffle(letters, rng)], rng));
+      deck.push(round(target, [...shuffle(review, rng), ...shuffle(letters, rng)], rng));
     }
   }
 

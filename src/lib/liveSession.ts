@@ -57,7 +57,7 @@ export function channelName(code: string): string {
 
 /** Les jeux sont les seuls écrans où l'élève répond. */
 export function isGame(slide: Slide): boolean {
-  return slide.kind === "quiz" || slide.kind === "findLetter";
+  return slide.kind === "quiz" || slide.kind === "findLetter" || slide.kind === "findInWord";
 }
 
 /** Seul le premier essai d'un élève compte pour le décompte par choix. */

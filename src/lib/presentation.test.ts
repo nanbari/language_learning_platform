@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { LETTER_WORDS } from "@/data/letterWords";
 import { buildLetterDeck, buildVocabDeck, shuffle, stepsFor, lettersPerLesson, CHARTER_COLORS } from "./presentation";
 
 /** Générateur déterministe pour des decks reproductibles. */
@@ -88,6 +89,21 @@ describe("buildLetterDeck", () => {
     const withReview = rounds(buildLetterDeck([7], "advanced", [1, 2], seeded(3)));
     expect(withReview[0].target.id).toBe(7);
     expect(withReview[0].choices.map((l) => l.id).sort()).toEqual([1, 2, 7]);
+  });
+
+  it("fait réviser au niveau de la séance : dans un mot pour le niveau avancé", () => {
+    const advanced = buildLetterDeck([7], "advanced", [1, 2], seeded());
+    const inWord = advanced.flatMap((s) => (s.kind === "findInWord" ? [s] : []));
+    expect(inWord.map((s) => s.target.id).sort()).toEqual([1, 2]);
+    for (const slide of inWord) {
+      expect(Object.values(LETTER_WORDS[slide.target.id])).toContainEqual(slide.word);
+      expect(slide.choices.map((l) => l.id).sort()).toEqual([1, 2, 7]);
+    }
+    // La lettre du jour garde son exercice ; les révisées n'ont plus de manche « lettre isolée ».
+    expect(rounds(advanced).map((r) => r.target.id)).toEqual([7]);
+
+    const beginner = buildLetterDeck(LESSON, "beginner", [1, 2], seeded());
+    expect(beginner.some((s) => s.kind === "findInWord")).toBe(false);
   });
 
   it("n'ajoute rien sans lettre à réviser", () => {

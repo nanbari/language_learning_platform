@@ -165,7 +165,7 @@ function Setup({ onStart }: { onStart: (deck: Slide[]) => void }) {
             <p className="text-xs text-gray-500 mt-4">
               {level === "beginner"
                 ? "Déroulé : tracé animé de chaque lettre isolée. Les exercices sont regroupés en fin de séance : chacune des trois lettres est à retrouver parmi les trois lettres de la leçon, puis viennent les lettres à réviser. Aucune forme liée ni mot écrit en arabe."
-                : "Une lettre par séance. Déroulé : tracé animé, trois formes (début, milieu, fin), puis trois mots illustrés où la lettre, mise en couleur, figure au début, au milieu et à la fin. L'exercice vient en fin de séance : la lettre est à retrouver parmi trois cartes, complétées par les lettres à réviser (à défaut, par d'autres lettres), puis viennent les lettres à réviser."}
+                : "Une lettre par séance. Déroulé : tracé animé, trois formes (début, milieu, fin), puis trois mots illustrés où la lettre, mise en couleur, figure au début, au milieu et à la fin. L'exercice vient en fin de séance : la lettre est à retrouver parmi trois cartes, complétées par les lettres à réviser (à défaut, par d'autres lettres). Les lettres à réviser suivent, au même niveau : pour chacune, un mot où elle est colorée, et l'élève désigne la lettre."}
             </p>
           </div>
         ) : (
@@ -395,7 +395,7 @@ function Player({ deck, code, onQuit }: { deck: Slide[]; code: string; onQuit: (
             À annoncer : <span className="text-[#2D2D2D]">{slide.target.nameTranslit}</span>
           </span>
         )}
-        {slide.kind === "example" && (
+        {(slide.kind === "example" || slide.kind === "findInWord") && (
           <span className="text-sm font-bold text-[#2D2D2D]/50">
             Sens du mot : <span className="text-[#2D2D2D]">{slide.word.french}</span>
           </span>
