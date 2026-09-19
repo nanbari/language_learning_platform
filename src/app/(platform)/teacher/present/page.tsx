@@ -164,8 +164,8 @@ function Setup({ onStart }: { onStart: (deck: Slide[]) => void }) {
 
             <p className="text-xs text-gray-500 mt-4">
               {level === "beginner"
-                ? "Déroulé : tracé animé de chaque lettre isolée. Les exercices sont regroupés en fin de séance : chacune des trois lettres est à retrouver parmi les trois lettres de la leçon, puis viennent les lettres à réviser. Aucune forme liée ni mot écrit en arabe."
-                : "Une lettre par séance. Déroulé : tracé animé, trois formes (début, milieu, fin), puis trois mots illustrés où la lettre, mise en couleur, figure au début, au milieu et à la fin. L'exercice vient en fin de séance : la lettre est à retrouver parmi trois cartes, complétées par les lettres à réviser (à défaut, par d'autres lettres). Les lettres à réviser suivent, au même niveau : pour chacune, un mot où elle est colorée, et l'élève désigne la lettre."}
+                ? "Déroulé : tracé animé de chaque lettre isolée. Les exercices sont regroupés en fin de séance : l'élève écrit chaque lettre au doigt (modèle en filigrane, puis en pointillé), puis chacune des trois lettres est à retrouver parmi les trois lettres de la leçon, puis viennent les lettres à réviser. Aucune forme liée ni mot écrit en arabe."
+                : "Une lettre par séance. Déroulé : tracé animé, trois formes (début, milieu, fin), puis trois mots illustrés où la lettre, mise en couleur, figure au début, au milieu et à la fin. Les exercices viennent en fin de séance : l'élève écrit la lettre au doigt (modèle en filigrane, puis en pointillé), puis la lettre est à retrouver parmi trois cartes, complétées par les lettres à réviser (à défaut, par d'autres lettres). Les lettres à réviser suivent, au même niveau : pour chacune, un mot où elle est colorée, et l'élève désigne la lettre."}
             </p>
           </div>
         ) : (
@@ -327,7 +327,8 @@ function Player({ deck, code, onQuit }: { deck: Slide[]; code: string; onQuit: (
               game={{
                 revealed,
                 counts: summary.counts,
-                onPick: (_, correct) => { if (correct) setRevealedIndex(pos.index); },
+                // Écrire la lettre soi-même, en démonstration, ne révèle rien aux élèves.
+                onPick: (_, correct) => { if (correct && slide.kind !== "write") setRevealedIndex(pos.index); },
               }}
             />
           </motion.div>
@@ -337,7 +338,7 @@ function Player({ deck, code, onQuit }: { deck: Slide[]; code: string; onQuit: (
       {/* Réponses des élèves au jeu en cours */}
       {isGame(slide) && participants.length > 0 && (
         <div className="flex flex-wrap items-center justify-center gap-2 px-5 pb-3 text-sm font-bold text-[#2D2D2D]/60">
-          <span>{summary.answered}/{participants.length} ont répondu</span>
+          <span>{summary.answered}/{participants.length} {slide.kind === "write" ? "ont terminé" : "ont répondu"}</span>
           {summary.found.map((name) => (
             <motion.span
               key={name}

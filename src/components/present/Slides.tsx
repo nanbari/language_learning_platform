@@ -3,6 +3,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { RotateCcw } from "lucide-react";
 import { LetterGlyph, LetterTracing } from "@/components/present/LetterTracing";
+import { LetterWriting } from "@/components/present/LetterWriting";
 import type { Slide } from "@/lib/presentation";
 import { joinedSegments } from "@/lib/arabicWord";
 import type { ArabicLetter } from "@/data/arabicAlphabet";
@@ -216,6 +217,23 @@ function CountBadge({ count }: { count?: number }) {
     >
       {count}
     </motion.span>
+  );
+}
+
+/** À l'élève d'écrire : la réussite est signalée à l'enseignant comme une bonne réponse. */
+function WriteSlide({ slide, game }: { slide: Extract<Slide, { kind: "write" }>; game?: GameProps }) {
+  const [done, setDone] = useState(false);
+  return (
+    <div>
+      <LetterWriting
+        char={slide.letter.isolated}
+        color={slide.letter.color}
+        guide={slide.guide}
+        onDone={() => { setDone(true); game?.onPick?.("done", true); }}
+        className="h-[68vmin] w-[68vmin] mx-auto"
+      />
+      {done && <Confetti />}
+    </div>
   );
 }
 
@@ -443,6 +461,7 @@ export function SlideView({ slide, step, game, score }: { slide: Slide; step: nu
     case "letter": return <LetterSlide letter={slide.letter} arabicName={slide.arabicName} step={step} />;
     case "forms": return <FormsSlide letter={slide.letter} step={step} />;
     case "example": return <ExampleSlide slide={slide} />;
+    case "write": return <WriteSlide slide={slide} game={game} />;
     case "findLetter": return <FindLetterSlide slide={slide} game={game} />;
     case "findInWord": return <FindInWordSlide slide={slide} game={game} />;
     case "flashcard": return <FlashcardSlide slide={slide} step={step} />;

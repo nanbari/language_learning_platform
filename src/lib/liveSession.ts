@@ -55,9 +55,11 @@ export function channelName(code: string): string {
   return `ms-live-${code}`;
 }
 
+const GAME_KINDS: Slide["kind"][] = ["quiz", "findLetter", "findInWord", "write"];
+
 /** Les jeux sont les seuls écrans où l'élève répond. */
 export function isGame(slide: Slide): boolean {
-  return slide.kind === "quiz" || slide.kind === "findLetter" || slide.kind === "findInWord";
+  return GAME_KINDS.includes(slide.kind);
 }
 
 /** Seul le premier essai d'un élève compte pour le décompte par choix. */

@@ -74,6 +74,16 @@ describe("buildLetterDeck", () => {
     expect(deck.at(-1)?.kind).toBe("bravo");
   });
 
+  it("fait écrire chaque lettre du jour, avec modèle puis en pointillé, avant les jeux", () => {
+    const deck = buildLetterDeck(LESSON, "beginner", [1], seeded());
+    const writes = deck.flatMap((s) => (s.kind === "write" ? [`${s.letter.id}-${s.guide}`] : []));
+    expect(writes).toEqual(["4-full", "4-dots", "5-full", "5-dots", "6-full", "6-dots"]);
+
+    const kinds = deck.map((s) => s.kind);
+    expect(kinds.lastIndexOf("letter")).toBeLessThan(kinds.indexOf("write"));
+    expect(kinds.lastIndexOf("write")).toBeLessThan(kinds.indexOf("findLetter"));
+  });
+
   it("étudie trois lettres au niveau débutant, une seule au niveau avancé", () => {
     expect(lettersPerLesson("beginner")).toBe(3);
     expect(lettersPerLesson("advanced")).toBe(1);

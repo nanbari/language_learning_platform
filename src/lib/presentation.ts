@@ -16,6 +16,8 @@ export type Slide =
   | { kind: "forms"; letter: ArabicLetter }
   /** Mot où la lettre étudiée, colorée, est au début, au milieu ou à la fin. */
   | { kind: "example"; letter: ArabicLetter; word: LetterWord }
+  /** L'élève écrit la lettre au doigt : modèle en filigrane, puis simple pointillé. */
+  | { kind: "write"; letter: ArabicLetter; guide: "full" | "dots" }
   | { kind: "findLetter"; target: ArabicLetter; choices: ArabicLetter[] }
   /** Niveau avancé : reconnaître la lettre colorée dans un mot, sous sa forme liée. */
   | { kind: "findInWord"; word: LetterWord; target: ArabicLetter; choices: ArabicLetter[] }
@@ -150,8 +152,14 @@ export function buildLetterDeck(
     .slice(0, MAX_REVIEW_LETTERS)
     .map(inCharter);
 
-  // Exercices, une fois la présentation terminée : les lettres du jour, dans
-  // le désordre, à retrouver d'abord parmi elles, à défaut parmi les révisées.
+  // Exercices, une fois la présentation terminée. D'abord l'écriture de chaque
+  // lettre du jour, avec de moins en moins d'aide.
+  for (const letter of letters) {
+    deck.push({ kind: "write", letter, guide: "full" }, { kind: "write", letter, guide: "dots" });
+  }
+
+  // Puis les lettres du jour, dans le désordre, à retrouver d'abord parmi
+  // elles, à défaut parmi les révisées.
   for (const letter of shuffle(letters, rng)) {
     deck.push(findLetterSlide(letter, [...shuffle(letters, rng), ...shuffle(review, rng)], rng));
   }
