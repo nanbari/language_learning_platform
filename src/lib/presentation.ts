@@ -1,5 +1,6 @@
 import { ARABIC_ALPHABET, type ArabicLetter } from "@/data/arabicAlphabet";
 import { VOCAB_THEMES, type ArabicWord } from "@/data/arabicVocabulary";
+import { LETTER_POSITIONS, LETTER_WORDS, type LetterWord } from "@/data/letterWords";
 
 /**
  * Mode présentation : construit la suite d'écrans qu'un enseignant projette
@@ -13,7 +14,8 @@ export type Slide =
   | { kind: "lettersTitle"; letters: ArabicLetter[] }
   | { kind: "letter"; letter: ArabicLetter; arabicName: boolean }
   | { kind: "forms"; letter: ArabicLetter }
-  | { kind: "example"; letter: ArabicLetter; emoji: string | null }
+  /** Mot où la lettre étudiée, colorée, est au début, au milieu ou à la fin. */
+  | { kind: "example"; letter: ArabicLetter; word: LetterWord }
   | { kind: "findLetter"; target: ArabicLetter; choices: ArabicLetter[] }
   | { kind: "flashcard"; word: ArabicWord; color: string }
   | { kind: "blur"; word: ArabicWord; color: string }
@@ -89,15 +91,6 @@ export function stepsFor(slide: Slide): number {
   }
 }
 
-/** Emoji du mot-exemple d'une lettre, s'il figure dans le vocabulaire. */
-export function findWordEmoji(arabic: string): string | null {
-  for (const theme of VOCAB_THEMES) {
-    const word = theme.words.find((w) => w.arabic === arabic);
-    if (word) return word.emoji;
-  }
-  return null;
-}
-
 /**
  * Trois cartes : la cible et deux autres lettres prises dans `pool`, par ordre
  * de préférence (lettres de la séance). Le tirage dans l'alphabet ne sert que
@@ -133,7 +126,10 @@ export function buildLetterDeck(
   for (const letter of letters) {
     deck.push({ kind: "letter", letter, arabicName: advanced });
     if (advanced) {
-      deck.push({ kind: "forms", letter }, { kind: "example", letter, emoji: findWordEmoji(letter.example) });
+      deck.push({ kind: "forms", letter });
+      for (const position of LETTER_POSITIONS) {
+        deck.push({ kind: "example", letter, word: LETTER_WORDS[letter.id][position] });
+      }
     }
   }
 

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { RotateCcw } from "lucide-react";
 import { LetterGlyph, LetterTracing } from "@/components/present/LetterTracing";
 import type { Slide } from "@/lib/presentation";
+import { joinedSegments } from "@/lib/arabicWord";
 import type { ArabicLetter } from "@/data/arabicAlphabet";
 import type { ArabicWord } from "@/data/arabicVocabulary";
 
@@ -165,27 +166,29 @@ function FormsSlide({ letter, step }: { letter: ArabicLetter; step: number }) {
 }
 
 function ExampleSlide({ slide }: { slide: Extract<Slide, { kind: "example" }> }) {
-  const { letter, emoji } = slide;
+  const { letter, word } = slide;
+  const { before, target, after } = joinedSegments(word.text);
   return (
     <div className="text-center">
-      {emoji && (
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: "spring", stiffness: 160, damping: 12 }}
-          className="text-[24vmin] leading-none mb-[2vmin]"
-        >
-          {emoji}
-        </motion.div>
-      )}
+      <motion.div
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ type: "spring", stiffness: 160, damping: 12 }}
+        className="text-[24vmin] leading-none mb-[2vmin]"
+      >
+        {word.emoji}
+      </motion.div>
+      {/* Seule la lettre étudiée prend la couleur ; le reste du mot reste sombre. */}
       <motion.p
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="text-[16vmin] leading-tight font-black"
-        style={{ ...ARABIC_FONT, color: letter.color }}
+        className="text-[18vmin] leading-tight font-black text-[#2D2D2D]"
+        style={ARABIC_FONT}
       >
-        {letter.example}
+        {before}
+        <span style={{ color: letter.color }}>{target}</span>
+        {after}
       </motion.p>
     </div>
   );

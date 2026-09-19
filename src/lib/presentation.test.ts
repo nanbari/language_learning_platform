@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildLetterDeck, buildVocabDeck, shuffle, stepsFor, findWordEmoji, lettersPerLesson, CHARTER_COLORS } from "./presentation";
+import { buildLetterDeck, buildVocabDeck, shuffle, stepsFor, lettersPerLesson, CHARTER_COLORS } from "./presentation";
 
 /** Générateur déterministe pour des decks reproductibles. */
 function seeded(seed = 1) {
@@ -124,10 +124,11 @@ describe("buildLetterDeck", () => {
     expect(deck.at(-1)).toEqual({ kind: "bravo", plain: true });
   });
 
-  it("garde les formes et le mot-exemple de chaque lettre au niveau avancé", () => {
-    const kinds = buildLetterDeck(LESSON, "advanced", [], seeded()).map((s) => s.kind);
-    expect(kinds.filter((k) => k === "forms")).toHaveLength(3);
-    expect(kinds.filter((k) => k === "example")).toHaveLength(3);
+  it("montre au niveau avancé les formes, puis un mot par position de la lettre", () => {
+    const deck = buildLetterDeck([2], "advanced", [], seeded());
+    expect(deck.filter((s) => s.kind === "forms")).toHaveLength(1);
+    const words = deck.flatMap((s) => (s.kind === "example" ? [s.word.text] : []));
+    expect(words).toEqual(["[بَ]طَّة", "جَ[بَ]ل", "كَلْ[ب]"]);
   });
 
   it("renvoie un deck vide sans lettre connue", () => {
@@ -167,12 +168,5 @@ describe("stepsFor", () => {
     const quiz = buildVocabDeck("animals", 4, seeded()).find((s) => s.kind === "quiz");
     expect(quiz && stepsFor(quiz)).toBe(0);
     expect(stepsFor({ kind: "bravo" })).toBe(0);
-  });
-});
-
-describe("findWordEmoji", () => {
-  it("retrouve l'emoji d'un mot du vocabulaire", () => {
-    expect(findWordEmoji("أَسَد")).toBe("🦁");
-    expect(findWordEmoji("introuvable")).toBeNull();
   });
 });
