@@ -24,25 +24,25 @@ describe("buildLetterDeck", () => {
   const rounds = (deck: ReturnType<typeof buildLetterDeck>) => deck.flatMap((s) => (s.kind === "findLetter" ? [s] : []));
 
   it("commence par le titre et finit par le bravo", () => {
-    const deck = buildLetterDeck(LESSON, "advanced", seeded());
+    const deck = buildLetterDeck(LESSON, "advanced", [], seeded());
     expect(deck[0].kind).toBe("lettersTitle");
     expect(deck.at(-1)?.kind).toBe("bravo");
   });
 
   it("dévoile les lettres du titre une à une", () => {
-    const title = buildLetterDeck(LESSON, "beginner", seeded())[0];
+    const title = buildLetterDeck(LESSON, "beginner", [], seeded())[0];
     expect(stepsFor(title)).toBe(2);
-    expect(stepsFor(buildLetterDeck([4], "beginner", seeded())[0])).toBe(0);
+    expect(stepsFor(buildLetterDeck([4], "beginner", [], seeded())[0])).toBe(0);
   });
 
   it("présente les trois lettres dans l'ordre de l'alphabet", () => {
-    const deck = buildLetterDeck([6, 4, 5], "beginner", seeded());
+    const deck = buildLetterDeck([6, 4, 5], "beginner", [], seeded());
     expect(deck.flatMap((s) => (s.kind === "letter" ? [s.letter.id] : []))).toEqual(LESSON);
   });
 
   it("place tous les exercices après la présentation des lettres", () => {
     for (const level of ["beginner", "advanced"] as const) {
-      const kinds = buildLetterDeck(LESSON, level, seeded()).map((s) => s.kind);
+      const kinds = buildLetterDeck(LESSON, level, [], seeded()).map((s) => s.kind);
       const firstGame = kinds.indexOf("findLetter");
       expect(kinds.slice(firstGame, -1).every((k) => k === "findLetter")).toBe(true);
       expect(kinds.slice(0, firstGame)).not.toContain("findLetter");
@@ -50,12 +50,36 @@ describe("buildLetterDeck", () => {
   });
 
   it("fait chercher chacune des lettres du jour", () => {
-    const targets = rounds(buildLetterDeck(LESSON, "beginner", seeded())).map((r) => r.target.id);
+    const targets = rounds(buildLetterDeck(LESSON, "beginner", [], seeded())).map((r) => r.target.id);
     expect([...targets.slice(0, 3)].sort()).toEqual(LESSON);
   });
 
+  it("place en fin de séance les lettres à réviser choisies par l'enseignant", () => {
+    const deck = buildLetterDeck(LESSON, "beginner", [1, 2, 5], seeded());
+    const kinds = deck.map((s) => s.kind);
+    const recap = kinds.lastIndexOf("lettersTitle");
+    expect(recap).toBeGreaterThan(kinds.indexOf("findLetter"));
+    const recapSlide = deck[recap];
+    // La lettre 5 appartient déjà à la leçon : elle n'est pas révisée.
+    if (recapSlide.kind === "lettersTitle") expect(recapSlide.letters.map((l) => l.id)).toEqual([1, 2]);
+
+    const reviewRounds = rounds(deck.slice(recap));
+    expect(reviewRounds.map((r) => r.target.id).sort()).toEqual([1, 2]);
+    for (const round of reviewRounds) {
+      const ids = round.choices.map((l) => l.id);
+      expect(new Set(ids).size).toBe(3);
+      expect(ids).toEqual(expect.arrayContaining([1, 2]));
+    }
+    expect(deck.at(-1)?.kind).toBe("bravo");
+  });
+
+  it("n'ajoute rien sans lettre à réviser", () => {
+    const kinds = buildLetterDeck(LESSON, "beginner", [], seeded()).map((s) => s.kind);
+    expect(kinds.filter((k) => k === "lettersTitle")).toHaveLength(1);
+  });
+
   it("ne propose que les trois lettres de la leçon", () => {
-    const all = rounds(buildLetterDeck(LESSON, "advanced", seeded(7)));
+    const all = rounds(buildLetterDeck(LESSON, "advanced", [], seeded(7)));
     expect(all).toHaveLength(3);
     for (const round of all) {
       expect(round.choices.map((l) => l.id).sort()).toEqual(LESSON);
@@ -65,7 +89,7 @@ describe("buildLetterDeck", () => {
 
   it("n'emploie que les couleurs de la charte graphique", () => {
     const charter: readonly string[] = CHARTER_COLORS;
-    for (const slide of buildLetterDeck(LESSON, "advanced", seeded())) {
+    for (const slide of buildLetterDeck(LESSON, "advanced", [], seeded())) {
       if (slide.kind === "letter") expect(charter).toContain(slide.letter.color);
       if (slide.kind === "findLetter") for (const l of slide.choices) expect(charter).toContain(l.color);
     }
@@ -75,7 +99,7 @@ describe("buildLetterDeck", () => {
   });
 
   it("épargne au débutant les formes liées et tout mot écrit en arabe", () => {
-    const deck = buildLetterDeck(LESSON, "beginner", seeded());
+    const deck = buildLetterDeck(LESSON, "beginner", [], seeded());
     expect(deck.some((s) => s.kind === "forms" || s.kind === "example")).toBe(false);
     for (const slide of deck) {
       if (slide.kind === "letter") expect(slide.arabicName).toBe(false);
@@ -84,7 +108,7 @@ describe("buildLetterDeck", () => {
   });
 
   it("garde les formes et le mot-exemple de chaque lettre au niveau avancé", () => {
-    const kinds = buildLetterDeck(LESSON, "advanced", seeded()).map((s) => s.kind);
+    const kinds = buildLetterDeck(LESSON, "advanced", [], seeded()).map((s) => s.kind);
     expect(kinds.filter((k) => k === "forms")).toHaveLength(3);
     expect(kinds.filter((k) => k === "example")).toHaveLength(3);
   });

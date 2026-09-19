@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, ChevronLeft, ChevronRight, Maximize, Minimize, Play, Users, Wifi, WifiOff, X } from "lucide-react";
 import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";
 import { VOCAB_THEMES } from "@/data/arabicVocabulary";
-import { buildLetterDeck, buildVocabDeck, charterColor, stepsFor, LETTERS_PER_LESSON, WORD_COUNTS, type LetterLevel, type Slide } from "@/lib/presentation";
+import { buildLetterDeck, buildVocabDeck, charterColor, stepsFor, LETTERS_PER_LESSON, MAX_REVIEW_LETTERS, WORD_COUNTS, type LetterLevel, type Slide } from "@/lib/presentation";
 import { classScore, generateCode, isGame, summarize, type LiveState } from "@/lib/liveSession";
 import { useLiveHost } from "@/lib/useLiveSession";
 import { SlideView } from "@/components/present/Slides";
@@ -27,18 +27,24 @@ function Setup({ onStart }: { onStart: (deck: Slide[]) => void }) {
   const [kind, setKind] = useState<LessonKind>("letter");
   const [letterIds, setLetterIds] = useState(() => ARABIC_ALPHABET.slice(0, LETTERS_PER_LESSON).map((l) => l.id));
   const [level, setLevel] = useState<LetterLevel>("beginner");
+  const [reviewIds, setReviewIds] = useState<number[]>([]);
   const [themeId, setThemeId] = useState(VOCAB_THEMES[0].id);
   const [wordCount, setWordCount] = useState<number>(WORD_COUNTS[1]);
 
   // Au-delà de trois lettres, la plus anciennement choisie cède sa place.
   const toggleLetter = (id: number) => {
     setLetterIds((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id].slice(-LETTERS_PER_LESSON)));
+    setReviewIds((ids) => ids.filter((i) => i !== id));
+  };
+
+  const toggleReview = (id: number) => {
+    setReviewIds((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id].slice(-MAX_REVIEW_LETTERS)));
   };
 
   const ready = kind === "vocab" || letterIds.length === LETTERS_PER_LESSON;
 
   const start = () => {
-    onStart(kind === "letter" ? buildLetterDeck(letterIds, level) : buildVocabDeck(themeId, wordCount));
+    onStart(kind === "letter" ? buildLetterDeck(letterIds, level, reviewIds) : buildVocabDeck(themeId, wordCount));
   };
 
   return (
@@ -103,6 +109,37 @@ function Setup({ onStart }: { onStart: (deck: Slide[]) => void }) {
                 </button>
               ))}
             </div>
+            <p className="font-bold text-[#2d2d2d] mt-5 mb-1">
+              Lettres à réviser{" "}
+              <span className="font-semibold text-gray-400">
+                — facultatif, {reviewIds.length}/{MAX_REVIEW_LETTERS} au plus
+              </span>
+            </p>
+            <p className="text-xs text-gray-500 mb-3">
+              Rappelées puis proposées en exercice à la fin de la séance, après les lettres du jour.
+            </p>
+            <div className="grid grid-cols-7 gap-2" dir="rtl">
+              {ARABIC_ALPHABET.map((letter) => {
+                const inLesson = letterIds.includes(letter.id);
+                const selected = reviewIds.includes(letter.id);
+                return (
+                  <button
+                    key={letter.id}
+                    onClick={() => toggleReview(letter.id)}
+                    disabled={inLesson}
+                    aria-pressed={selected}
+                    title={inLesson ? `${letter.nameTranslit} — lettre de la leçon` : letter.nameTranslit}
+                    className={`aspect-square rounded-xl border-2 transition-all flex items-center justify-center disabled:opacity-25 disabled:cursor-not-allowed ${
+                      selected ? "text-white shadow-md scale-105" : "bg-white text-[#2d2d2d] enabled:hover:scale-105"
+                    }`}
+                    style={{ borderColor: "#7B868E", background: selected ? "#7B868E" : undefined }}
+                  >
+                    <LetterGlyph char={letter.isolated} className="w-3/4 h-3/4" />
+                  </button>
+                );
+              })}
+            </div>
+
             <p className="font-bold text-[#2d2d2d] mt-5 mb-3">Niveau</p>
             <div className="flex gap-2">
               {([["beginner", "Débutant"], ["advanced", "Avancé"]] as const).map(([value, label]) => (
@@ -119,8 +156,8 @@ function Setup({ onStart }: { onStart: (deck: Slide[]) => void }) {
             </div>
             <p className="text-xs text-gray-500 mt-4">
               {level === "beginner"
-                ? "Déroulé : tracé animé de chaque lettre isolée. Les exercices sont regroupés en fin de séance : chacune des trois lettres est à retrouver parmi les trois lettres de la leçon. Aucune forme liée ni mot écrit en arabe."
-                : "Déroulé, pour chaque lettre : tracé animé, trois formes (début, milieu, fin) et mot-exemple. Les exercices sont regroupés en fin de séance : chacune des trois lettres est à retrouver parmi les trois lettres de la leçon."}
+                ? "Déroulé : tracé animé de chaque lettre isolée. Les exercices sont regroupés en fin de séance : chacune des trois lettres est à retrouver parmi les trois lettres de la leçon, puis viennent les lettres à réviser. Aucune forme liée ni mot écrit en arabe."
+                : "Déroulé, pour chaque lettre : tracé animé, trois formes (début, milieu, fin) et mot-exemple. Les exercices sont regroupés en fin de séance : chacune des trois lettres est à retrouver parmi les trois lettres de la leçon, puis viennent les lettres à réviser."}
             </p>
           </div>
         ) : (

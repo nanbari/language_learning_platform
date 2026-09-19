@@ -47,6 +47,8 @@ function inCharter(letter: ArabicLetter): ArabicLetter {
 
 export const WORD_COUNTS = [4, 6, 8] as const;
 export const LETTERS_PER_LESSON = 3;
+/** Nombre maximal de lettres à réviser en fin de séance. */
+export const MAX_REVIEW_LETTERS = 6;
 
 export function shuffle<T>(items: readonly T[], rng: Rng = Math.random): T[] {
   const out = [...items];
@@ -95,9 +97,15 @@ function findLetterSlide(target: ArabicLetter, lesson: ArabicLetter[], rng: Rng)
 /**
  * Leçon de lettres (trois par leçon côté interface). Toutes les lettres
  * sont d'abord présentées ; les exercices viennent ensuite, en fin de
- * séance : chaque lettre du jour est à retrouver parmi celles de la leçon.
+ * séance : chaque lettre du jour est à retrouver parmi celles de la leçon,
+ * puis viennent les lettres que l'enseignant a choisi de faire réviser.
  */
-export function buildLetterDeck(letterIds: number[], level: LetterLevel, rng: Rng = Math.random): Slide[] {
+export function buildLetterDeck(
+  letterIds: number[],
+  level: LetterLevel,
+  reviewIds: number[] = [],
+  rng: Rng = Math.random,
+): Slide[] {
   const letters = ARABIC_ALPHABET.filter((l) => letterIds.includes(l.id)).map(inCharter);
   if (letters.length === 0) return [];
 
@@ -113,6 +121,21 @@ export function buildLetterDeck(letterIds: number[], level: LetterLevel, rng: Rn
 
   // Exercices, une fois la présentation terminée : les lettres du jour, dans le désordre.
   for (const letter of shuffle(letters, rng)) deck.push(findLetterSlide(letter, letters, rng));
+
+  // Révision choisie par l'enseignant, en clôture : rappel des lettres une à
+  // une, puis une manche par lettre. Trois cartes par manche, prises parmi les
+  // lettres révisées et complétées au besoin par celles du jour.
+  const review = ARABIC_ALPHABET
+    .filter((l) => reviewIds.includes(l.id) && !letterIds.includes(l.id))
+    .slice(0, MAX_REVIEW_LETTERS)
+    .map(inCharter);
+  if (review.length > 0) {
+    deck.push({ kind: "lettersTitle", letters: review });
+    for (const target of shuffle(review, rng)) {
+      const others = [...shuffle(review.filter((l) => l.id !== target.id), rng), ...shuffle(letters, rng)];
+      deck.push(findLetterSlide(target, [target, ...others.slice(0, LETTERS_PER_LESSON - 1)], rng));
+    }
+  }
 
   deck.push({ kind: "bravo", plain: !advanced });
   return deck;
