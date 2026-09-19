@@ -45,7 +45,7 @@ export function Confetti() {
 function WordLabel({ word, color }: { word: ArabicWord; color: string }) {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center">
-      <p className="text-[22vmin] leading-tight font-black whitespace-nowrap" style={{ ...ARABIC_FONT, color }}>{word.arabic}</p>
+      <p className="text-[13vmin] leading-tight font-black" style={{ ...ARABIC_FONT, color }}>{word.arabic}</p>
     </motion.div>
   );
 }
@@ -67,7 +67,7 @@ function TitleSlide({ slide }: { slide: Extract<Slide, { kind: "title" }> }) {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="text-[18vmin] leading-tight font-black whitespace-nowrap"
+          className="text-[10vmin] font-black"
           style={{ ...ARABIC_FONT, color: slide.color }}
         >
           {slide.arabic}
@@ -104,12 +104,12 @@ function LetterSlide({ letter, arabicName, step }: { letter: ArabicLetter; arabi
   const [replay, setReplay] = useState(0);
   return (
     <div className="text-center">
-      <LetterTracing key={replay} char={letter.isolated} color={letter.color} className="h-[54vmin] w-[54vmin] mx-auto" />
-      <div className="h-[18vmin]">
+      <LetterTracing key={replay} char={letter.isolated} color={letter.color} className="h-[60vmin] w-[60vmin] mx-auto" />
+      <div className="h-[14vmin]">
         {step >= 1 && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
             {arabicName && (
-              <p className="text-[14vmin] leading-tight font-black" style={{ ...ARABIC_FONT, color: letter.color }}>
+              <p className="text-[9vmin] leading-tight font-black" style={{ ...ARABIC_FONT, color: letter.color }}>
                 {letter.name}
               </p>
             )}
@@ -140,7 +140,7 @@ function FormsSlide({ letter, step }: { letter: ArabicLetter; step: number }) {
         {forms.map((form) => (
           <div
             key={form.key}
-            className="w-[28vmin] rounded-[3vmin] bg-[#FFFDF8] border-4 shadow-md flex flex-col items-center justify-center py-[3vmin]"
+            className="w-[26vmin] rounded-[3vmin] bg-[#FFFDF8] border-4 shadow-md flex flex-col items-center justify-center py-[3vmin]"
             style={{ borderColor: step >= form.at ? letter.color : "#EDE5D8" }}
           >
             <div className="h-[24vmin] flex items-center">
@@ -149,7 +149,7 @@ function FormsSlide({ letter, step }: { letter: ArabicLetter; step: number }) {
                   initial={{ scale: 0, rotate: -15 }}
                   animate={{ scale: 1, rotate: 0 }}
                   transition={{ type: "spring", stiffness: 200, damping: 12 }}
-                  className="text-[20vmin] leading-none font-black text-[#2D2D2D]"
+                  className="text-[17vmin] leading-none font-black text-[#2D2D2D]"
                   style={ARABIC_FONT}
                 >
                   {form.glyph}
@@ -174,7 +174,7 @@ function ExampleSlide({ slide }: { slide: Extract<Slide, { kind: "example" }> })
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ type: "spring", stiffness: 160, damping: 12 }}
-        className="text-[18vmin] leading-none mb-[1vmin]"
+        className="text-[24vmin] leading-none mb-[2vmin]"
       >
         {word.emoji}
       </motion.div>
@@ -183,7 +183,7 @@ function ExampleSlide({ slide }: { slide: Extract<Slide, { kind: "example" }> })
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="text-[32vmin] leading-tight font-black text-[#2D2D2D] whitespace-nowrap"
+        className="text-[24vmin] leading-tight font-black text-[#2D2D2D] whitespace-nowrap"
         style={ARABIC_FONT}
       >
         {before}
@@ -263,7 +263,7 @@ function FlashcardSlide({ slide, step }: { slide: Extract<Slide, { kind: "flashc
         initial={{ scale: 0.6, opacity: 0 }}
         animate={{ scale: 1, opacity: 1, rotateY: flipped ? 180 : 0 }}
         transition={{ rotateY: { duration: 0.7 }, default: { type: "spring", stiffness: 160, damping: 14 } }}
-        className="relative w-[86vmin] h-[62vmin]"
+        className="relative w-[70vmin] h-[62vmin]"
         style={{ transformStyle: "preserve-3d" }}
       >
         <div
@@ -276,8 +276,8 @@ function FlashcardSlide({ slide, step }: { slide: Extract<Slide, { kind: "flashc
           className="absolute inset-0 rounded-[4vmin] border-[6px] shadow-xl flex flex-col items-center justify-center bg-[#FFFDF8]"
           style={{ borderColor: slide.color, backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
         >
-          <span className="text-[12vmin] leading-none">{slide.word.emoji}</span>
-          <p className="text-[24vmin] leading-tight font-black whitespace-nowrap" style={{ ...ARABIC_FONT, color: slide.color }}>{slide.word.arabic}</p>
+          <span className="text-[14vmin] leading-none mb-[1vmin]">{slide.word.emoji}</span>
+          <p className="text-[15vmin] leading-tight font-black" style={{ ...ARABIC_FONT, color: slide.color }}>{slide.word.arabic}</p>
         </div>
       </motion.div>
     </div>
@@ -293,11 +293,11 @@ function BlurSlide({ slide, step }: { slide: Extract<Slide, { kind: "blur" }>; s
       <motion.div
         animate={{ filter: `blur(${BLUR_LEVELS[Math.min(step, BLUR_LEVELS.length - 1)]}px)`, scale: revealed ? 1 : 1.5 }}
         transition={{ duration: 0.8 }}
-        className="text-[24vmin] leading-none mb-[2vmin]"
+        className="text-[30vmin] leading-none mb-[2vmin]"
       >
         {slide.word.emoji}
       </motion.div>
-      <div className="h-[30vmin]">{revealed && <WordLabel word={slide.word} color={slide.color} />}</div>
+      <div className="h-[22vmin]">{revealed && <WordLabel word={slide.word} color={slide.color} />}</div>
       {revealed && <Confetti />}
     </div>
   );
@@ -333,7 +333,7 @@ function MissingSlide({ slide, step }: { slide: Extract<Slide, { kind: "missing"
           );
         })}
       </div>
-      <div className="h-[30vmin]">{step >= 2 && missing && <WordLabel word={missing} color={slide.color} />}</div>
+      <div className="h-[22vmin]">{step >= 2 && missing && <WordLabel word={missing} color={slide.color} />}</div>
       {step >= 2 && <Confetti />}
     </div>
   );
@@ -345,7 +345,7 @@ function QuizSlide({ slide, game }: { slide: Extract<Slide, { kind: "quiz" }>; g
   const solved = found || game?.revealed === true;
   return (
     <div className="text-center">
-      <p className="text-[18vmin] leading-tight font-black mb-[4vmin] whitespace-nowrap" style={{ ...ARABIC_FONT, color: slide.color }}>
+      <p className="text-[12vmin] leading-tight font-black mb-[5vmin]" style={{ ...ARABIC_FONT, color: slide.color }}>
         أَيْنَ {slide.target.arabic}؟
       </p>
       <div className="flex justify-center gap-[3vmin]">
@@ -389,7 +389,7 @@ function BravoSlide({ score, plain }: { score?: number; plain?: boolean }) {
       >
         🏆
       </motion.div>
-      {!plain && <p className="text-[18vmin] leading-tight font-black text-[#BB908E]" style={ARABIC_FONT}>أَحْسَنْتُمْ</p>}
+      {!plain && <p className="text-[12vmin] font-black text-[#BB908E]" style={ARABIC_FONT}>أَحْسَنْتُمْ</p>}
       {!!score && (
         <motion.p
           initial={{ opacity: 0, y: 20 }}
