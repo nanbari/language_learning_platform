@@ -9,6 +9,7 @@ import { buildLetterDeck, buildVocabDeck, charterColor, stepsFor, LETTERS_PER_LE
 import { classScore, generateCode, isGame, summarize, type LiveState } from "@/lib/liveSession";
 import { useLiveHost } from "@/lib/useLiveSession";
 import { SlideView } from "@/components/present/Slides";
+import { LetterGlyph } from "@/components/present/LetterTracing";
 
 type LessonKind = "letter" | "vocab";
 
@@ -90,16 +91,15 @@ function Setup({ onStart }: { onStart: (deck: Slide[]) => void }) {
                   onClick={() => toggleLetter(letter.id)}
                   aria-pressed={letterIds.includes(letter.id)}
                   title={letter.nameTranslit}
-                  className={`aspect-square rounded-xl text-2xl font-black border-2 transition-all ${
+                  className={`aspect-square rounded-xl border-2 transition-all flex items-center justify-center ${
                     letterIds.includes(letter.id) ? "text-white shadow-md scale-105" : "bg-white text-[#2d2d2d] hover:scale-105"
                   }`}
                   style={{
-                    fontFamily: "'Cairo', sans-serif",
                     borderColor: charterColor(letter.id - 1),
                     background: letterIds.includes(letter.id) ? charterColor(letter.id - 1) : undefined,
                   }}
                 >
-                  {letter.isolated}
+                  <LetterGlyph char={letter.isolated} className="w-3/4 h-3/4" />
                 </button>
               ))}
             </div>

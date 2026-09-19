@@ -2,12 +2,13 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { RotateCcw } from "lucide-react";
-import { LetterTracing } from "@/components/present/LetterTracing";
+import { LetterGlyph, LetterTracing } from "@/components/present/LetterTracing";
 import type { Slide } from "@/lib/presentation";
 import type { ArabicLetter } from "@/data/arabicAlphabet";
 import type { ArabicWord } from "@/data/arabicVocabulary";
 
-const ARABIC_FONT = { fontFamily: "'Cairo', sans-serif", direction: "rtl" as const };
+// Naskh : le style des cahiers d'école, cohérent avec le tracé animé des lettres.
+const ARABIC_FONT = { fontFamily: "'Noto Naskh Arabic', 'Cairo', serif", direction: "rtl" as const };
 const CONFETTI_COLORS = ["#BB908E", "#CCB9B5", "#8BA3B1", "#6B705C", "#999B84", "#7B868E"];
 /** Fond de la bonne réponse : sauge de la charte, éclaircie. */
 const SOLVED_BG = "#999B8466";
@@ -82,15 +83,14 @@ function LettersTitleSlide({ letters, step }: { letters: ArabicLetter[]; step: n
       {letters.map((letter, i) => (
         <div key={letter.id} className="w-[28vmin] h-[40vmin] flex items-center justify-center">
           {i <= step && (
-            <motion.p
+            <motion.div
               initial={{ scale: 0, rotate: -20 }}
               animate={{ scale: 1, rotate: 0 }}
               transition={{ type: "spring", stiffness: 160, damping: 12 }}
-              className="text-[30vmin] leading-none font-black"
-              style={{ ...ARABIC_FONT, color: letter.color }}
+              style={{ color: letter.color }}
             >
-              {letter.isolated}
-            </motion.p>
+              <LetterGlyph char={letter.isolated} className="w-[28vmin] h-[28vmin]" />
+            </motion.div>
           )}
         </div>
       ))}
@@ -238,10 +238,10 @@ function FindLetterSlide({ slide, game }: { slide: Extract<Slide, { kind: "findL
               }}
               animate={isWrong ? { x: [0, -10, 10, -6, 6, 0], opacity: 0.3 } : solved && isTarget ? { scale: [1, 1.2, 1.1] } : {}}
               whileHover={solved || isWrong ? undefined : { scale: 1.06 }}
-              className="relative w-[24vmin] h-[24vmin] rounded-[3vmin] bg-[#FFFDF8] border-4 shadow-md text-[15vmin] leading-none font-black text-[#2D2D2D] flex items-center justify-center"
-              style={{ ...ARABIC_FONT, borderColor: solved && isTarget ? "#6B705C" : letter.color, background: solved && isTarget ? SOLVED_BG : undefined }}
+              className="relative w-[28vmin] h-[28vmin] rounded-[3vmin] bg-[#FFFDF8] border-4 shadow-md text-[#2D2D2D] flex items-center justify-center"
+              style={{ borderColor: solved && isTarget ? "#6B705C" : letter.color, background: solved && isTarget ? SOLVED_BG : undefined }}
             >
-              {letter.isolated}
+              <LetterGlyph char={letter.isolated} className="w-[22vmin] h-[22vmin]" />
               {solved && <CountBadge count={game?.counts?.[String(letter.id)]} />}
             </motion.button>
           );

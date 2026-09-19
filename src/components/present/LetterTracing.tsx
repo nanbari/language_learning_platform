@@ -7,6 +7,21 @@ const START = 0.4;
 const PAUSE = 0.25; // respiration entre deux traits
 const MARK = 0.3; // apparition d'un point
 
+/**
+ * Lettre isolée dessinée depuis le même contour naskh que le tracé animé :
+ * l'élève voit partout la même forme, quelle que soit la police chargée.
+ * La couleur suit `currentColor`. Le cadrage serré ignore les marges du repère.
+ */
+export function LetterGlyph({ char, className }: { char: string; className?: string }) {
+  const glyph = LETTER_STROKES[char];
+  if (!glyph) return <span className={className}>{char}</span>;
+  return (
+    <svg viewBox="100 100 800 800" className={className} role="img" aria-label={char}>
+      <path d={glyph.outline} fill="currentColor" />
+    </svg>
+  );
+}
+
 /** Horaires d'animation : les traits s'enchaînent, puis les points. */
 function schedule(glyph: LetterStrokes) {
   let clock = START;
