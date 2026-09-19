@@ -46,7 +46,16 @@ function inCharter(letter: ArabicLetter): ArabicLetter {
 }
 
 export const WORD_COUNTS = [4, 6, 8] as const;
-export const LETTERS_PER_LESSON = 3;
+/** Cartes proposées à chaque manche de « Où est la lettre ? ». */
+export const CHOICES_PER_ROUND = 3;
+
+/**
+ * Lettres par leçon : trois pour un débutant (lettre isolée seulement), une
+ * seule au niveau avancé, où chaque lettre demande déjà tracé, formes et mot.
+ */
+export function lettersPerLesson(level: LetterLevel): number {
+  return level === "advanced" ? 1 : 3;
+}
 /** Nombre maximal de lettres à réviser en fin de séance. */
 export const MAX_REVIEW_LETTERS = 6;
 
@@ -89,13 +98,22 @@ export function findWordEmoji(arabic: string): string | null {
   return null;
 }
 
-/** L'élève choisit parmi les seules lettres de la leçon, dans un ordre tiré au sort. */
-function findLetterSlide(target: ArabicLetter, lesson: ArabicLetter[], rng: Rng): Slide {
-  return { kind: "findLetter", target, choices: shuffle(lesson, rng) };
+/**
+ * Trois cartes : la cible et deux autres lettres prises dans `pool`, par ordre
+ * de préférence (lettres de la séance). Le tirage dans l'alphabet ne sert que
+ * si la séance n'en fournit pas assez — leçon d'une lettre sans révision.
+ */
+function findLetterSlide(target: ArabicLetter, pool: ArabicLetter[], rng: Rng): Slide {
+  const others = pool.filter((l) => l.id !== target.id).slice(0, CHOICES_PER_ROUND - 1);
+  const taken = new Set([target.id, ...others.map((l) => l.id)]);
+  const fillers = shuffle(ARABIC_ALPHABET.filter((l) => !taken.has(l.id)), rng)
+    .slice(0, CHOICES_PER_ROUND - 1 - others.length)
+    .map(inCharter);
+  return { kind: "findLetter", target, choices: shuffle([target, ...others, ...fillers], rng) };
 }
 
 /**
- * Leçon de lettres (trois par leçon côté interface). Toutes les lettres
+ * Leçon de lettres (nombre fixé par `lettersPerLesson`). Toutes les lettres
  * sont d'abord présentées ; les exercices viennent ensuite, en fin de
  * séance : chaque lettre du jour est à retrouver parmi celles de la leçon,
  * puis viennent les lettres que l'enseignant a choisi de faire réviser.
@@ -119,21 +137,23 @@ export function buildLetterDeck(
     }
   }
 
-  // Exercices, une fois la présentation terminée : les lettres du jour, dans le désordre.
-  for (const letter of shuffle(letters, rng)) deck.push(findLetterSlide(letter, letters, rng));
-
-  // Révision choisie par l'enseignant, en clôture : rappel des lettres une à
-  // une, puis une manche par lettre. Trois cartes par manche, prises parmi les
-  // lettres révisées et complétées au besoin par celles du jour.
   const review = ARABIC_ALPHABET
     .filter((l) => reviewIds.includes(l.id) && !letterIds.includes(l.id))
     .slice(0, MAX_REVIEW_LETTERS)
     .map(inCharter);
+
+  // Exercices, une fois la présentation terminée : les lettres du jour, dans
+  // le désordre, à retrouver d'abord parmi elles, à défaut parmi les révisées.
+  for (const letter of shuffle(letters, rng)) {
+    deck.push(findLetterSlide(letter, [...shuffle(letters, rng), ...shuffle(review, rng)], rng));
+  }
+
+  // Révision choisie par l'enseignant, en clôture : rappel des lettres une à
+  // une, puis une manche par lettre, parmi les révisées puis celles du jour.
   if (review.length > 0) {
     deck.push({ kind: "lettersTitle", letters: review });
     for (const target of shuffle(review, rng)) {
-      const others = [...shuffle(review.filter((l) => l.id !== target.id), rng), ...shuffle(letters, rng)];
-      deck.push(findLetterSlide(target, [target, ...others.slice(0, LETTERS_PER_LESSON - 1)], rng));
+      deck.push(findLetterSlide(target, [...shuffle(review, rng), ...shuffle(letters, rng)], rng));
     }
   }
 

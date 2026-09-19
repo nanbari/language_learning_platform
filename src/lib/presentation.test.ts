@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildLetterDeck, buildVocabDeck, shuffle, stepsFor, findWordEmoji, CHARTER_COLORS } from "./presentation";
+import { buildLetterDeck, buildVocabDeck, shuffle, stepsFor, findWordEmoji, lettersPerLesson, CHARTER_COLORS } from "./presentation";
 
 /** Générateur déterministe pour des decks reproductibles. */
 function seeded(seed = 1) {
@@ -71,6 +71,23 @@ describe("buildLetterDeck", () => {
       expect(ids).toEqual(expect.arrayContaining([1, 2]));
     }
     expect(deck.at(-1)?.kind).toBe("bravo");
+  });
+
+  it("étudie trois lettres au niveau débutant, une seule au niveau avancé", () => {
+    expect(lettersPerLesson("beginner")).toBe(3);
+    expect(lettersPerLesson("advanced")).toBe(1);
+  });
+
+  it("propose toujours trois cartes pour une leçon d'une seule lettre", () => {
+    const alone = rounds(buildLetterDeck([7], "advanced", [], seeded(3)));
+    expect(alone).toHaveLength(1);
+    expect(new Set(alone[0].choices.map((l) => l.id)).size).toBe(3);
+    expect(alone[0].choices.map((l) => l.id)).toContain(7);
+
+    // Avec des lettres à réviser, ce sont elles qui complètent les cartes.
+    const withReview = rounds(buildLetterDeck([7], "advanced", [1, 2], seeded(3)));
+    expect(withReview[0].target.id).toBe(7);
+    expect(withReview[0].choices.map((l) => l.id).sort()).toEqual([1, 2, 7]);
   });
 
   it("n'ajoute rien sans lettre à réviser", () => {

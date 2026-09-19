@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, ChevronLeft, ChevronRight, Maximize, Minimize, Play, Users, Wifi, WifiOff, X } from "lucide-react";
 import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";
 import { VOCAB_THEMES } from "@/data/arabicVocabulary";
-import { buildLetterDeck, buildVocabDeck, charterColor, stepsFor, LETTERS_PER_LESSON, MAX_REVIEW_LETTERS, WORD_COUNTS, type LetterLevel, type Slide } from "@/lib/presentation";
+import { buildLetterDeck, buildVocabDeck, charterColor, lettersPerLesson, stepsFor, MAX_REVIEW_LETTERS, WORD_COUNTS, type LetterLevel, type Slide } from "@/lib/presentation";
 import { classScore, generateCode, isGame, summarize, type LiveState } from "@/lib/liveSession";
 import { useLiveHost } from "@/lib/useLiveSession";
 import { SlideView } from "@/components/present/Slides";
@@ -25,15 +25,16 @@ export default function TeacherPresentPage() {
 
 function Setup({ onStart }: { onStart: (deck: Slide[]) => void }) {
   const [kind, setKind] = useState<LessonKind>("letter");
-  const [letterIds, setLetterIds] = useState(() => ARABIC_ALPHABET.slice(0, LETTERS_PER_LESSON).map((l) => l.id));
+  const [letterIds, setLetterIds] = useState(() => ARABIC_ALPHABET.slice(0, lettersPerLesson("beginner")).map((l) => l.id));
   const [level, setLevel] = useState<LetterLevel>("beginner");
   const [reviewIds, setReviewIds] = useState<number[]>([]);
+  const perLesson = lettersPerLesson(level);
   const [themeId, setThemeId] = useState(VOCAB_THEMES[0].id);
   const [wordCount, setWordCount] = useState<number>(WORD_COUNTS[1]);
 
   // Au-delà de trois lettres, la plus anciennement choisie cède sa place.
   const toggleLetter = (id: number) => {
-    setLetterIds((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id].slice(-LETTERS_PER_LESSON)));
+    setLetterIds((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id].slice(-perLesson)));
     setReviewIds((ids) => ids.filter((i) => i !== id));
   };
 
@@ -41,7 +42,13 @@ function Setup({ onStart }: { onStart: (deck: Slide[]) => void }) {
     setReviewIds((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id].slice(-MAX_REVIEW_LETTERS)));
   };
 
-  const ready = kind === "vocab" || letterIds.length === LETTERS_PER_LESSON;
+  // En passant au niveau avancé, seule la dernière lettre choisie est conservée.
+  const changeLevel = (next: LetterLevel) => {
+    setLevel(next);
+    setLetterIds((ids) => ids.slice(-lettersPerLesson(next)));
+  };
+
+  const ready = kind === "vocab" || letterIds.length === perLesson;
 
   const start = () => {
     onStart(kind === "letter" ? buildLetterDeck(letterIds, level, reviewIds) : buildVocabDeck(themeId, wordCount));
@@ -69,7 +76,7 @@ function Setup({ onStart }: { onStart: (deck: Slide[]) => void }) {
         </p>
 
         <div className="flex gap-2 mb-6">
-          {([["letter", "🔤 Trois lettres"], ["vocab", "🖼️ Un thème de vocabulaire"]] as const).map(([value, label]) => (
+          {([["letter", "🔤 Des lettres"], ["vocab", "🖼️ Un thème de vocabulaire"]] as const).map(([value, label]) => (
             <button
               key={value}
               onClick={() => setKind(value)}
@@ -84,10 +91,25 @@ function Setup({ onStart }: { onStart: (deck: Slide[]) => void }) {
 
         {kind === "letter" ? (
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-6">
-            <p className="font-bold text-[#2d2d2d] mb-3">
-              Lettres étudiées{" "}
+            <p className="font-bold text-[#2d2d2d] mb-3">Niveau</p>
+            <div className="flex gap-2">
+              {([["beginner", "Débutant"], ["advanced", "Avancé"]] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  onClick={() => changeLevel(value)}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                    level === value ? "bg-[#6B705C] text-white shadow-md" : "bg-white border border-gray-200 text-gray-600 hover:border-[#BB908E]"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <p className="font-bold text-[#2d2d2d] mt-5 mb-3">
+              {perLesson > 1 ? "Lettres étudiées" : "Lettre étudiée"}{" "}
               <span className="font-semibold text-gray-400">
-                — {letterIds.length}/{LETTERS_PER_LESSON} sélectionnées
+                — {letterIds.length}/{perLesson} sélectionnée{perLesson > 1 ? "s" : ""}
               </span>
             </p>
             <div className="grid grid-cols-7 gap-2" dir="rtl">
@@ -140,24 +162,10 @@ function Setup({ onStart }: { onStart: (deck: Slide[]) => void }) {
               })}
             </div>
 
-            <p className="font-bold text-[#2d2d2d] mt-5 mb-3">Niveau</p>
-            <div className="flex gap-2">
-              {([["beginner", "Débutant"], ["advanced", "Avancé"]] as const).map(([value, label]) => (
-                <button
-                  key={value}
-                  onClick={() => setLevel(value)}
-                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-                    level === value ? "bg-[#6B705C] text-white shadow-md" : "bg-white border border-gray-200 text-gray-600 hover:border-[#BB908E]"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
             <p className="text-xs text-gray-500 mt-4">
               {level === "beginner"
                 ? "Déroulé : tracé animé de chaque lettre isolée. Les exercices sont regroupés en fin de séance : chacune des trois lettres est à retrouver parmi les trois lettres de la leçon, puis viennent les lettres à réviser. Aucune forme liée ni mot écrit en arabe."
-                : "Déroulé, pour chaque lettre : tracé animé, trois formes (début, milieu, fin) et mot-exemple. Les exercices sont regroupés en fin de séance : chacune des trois lettres est à retrouver parmi les trois lettres de la leçon, puis viennent les lettres à réviser."}
+                : "Une lettre par séance. Déroulé : tracé animé, trois formes (début, milieu, fin) et mot-exemple. L'exercice vient en fin de séance : la lettre est à retrouver parmi trois cartes, complétées par les lettres à réviser (à défaut, par d'autres lettres), puis viennent les lettres à réviser."}
             </p>
           </div>
         ) : (
