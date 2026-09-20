@@ -2,12 +2,11 @@
 import { useId, useMemo, useRef, useState } from "react";
 import { RotateCcw } from "lucide-react";
 import { LETTER_STROKES } from "@/data/letterStrokes";
+import { LETTER_FORM_STROKES } from "@/data/letterFormStrokes";
 import {
   INITIAL_PROGRESS, advance, buildGuide, canStart, hint, isComplete, strokeFraction, strokesDone, tapMark,
   type Pt, type TraceProgress,
 } from "@/lib/tracing";
-
-export type WritingGuide = "full" | "dots";
 
 /**
  * L'élève écrit la lettre au doigt, au stylet ou à la souris. Un rond qui
@@ -16,13 +15,14 @@ export type WritingGuide = "full" | "dots";
  * mauvais endroit est ignoré ; un doigt qui quitte la lettre annule le geste
  * en cours, sans effacer ce qui était acquis.
  *
- * `guide` : modèle complet en filigrane, ou simple pointillé du chemin.
+ * Le seul modèle affiché est le pointillé du chemin à suivre.
  */
 export function LetterWriting({
-  char, color, guide, onDone, className,
-}: { char: string; color: string; guide: WritingGuide; onDone?: () => void; className?: string }) {
+  char, color, onDone, className,
+}: { char: string; color: string; onDone?: () => void; className?: string }) {
   const maskId = `write-${useId().replace(/:/g, "")}`;
-  const glyph = LETTER_STROKES[char];
+  // Lettre isolée, ou forme liée (« بـ », « ـبـ », « ـب »).
+  const glyph = LETTER_STROKES[char] ?? LETTER_FORM_STROKES[char];
   const model = useMemo(() => (glyph ? buildGuide(glyph) : null), [glyph]);
 
   const [progress, setProgress] = useState<TraceProgress>(INITIAL_PROGRESS);
@@ -140,14 +140,10 @@ export function LetterWriting({
         {/* Surface d'écriture : capte le doigt partout dans le cadre */}
         <rect x="20" y="20" width="960" height="960" rx="60" fill="#FFFDF8" stroke="#EDE5D8" strokeWidth="6" />
 
-        {guide === "full" ? (
-          <path d={glyph.outline} fill="#E4DACB" />
-        ) : (
-          <g fill="none" stroke="#CCB9B5" strokeWidth="12" strokeLinecap="round" strokeDasharray="2 34">
-            {glyph.strokes.map((s, i) => <path key={i} d={s.d} />)}
-            {glyph.marks.map((m, i) => <circle key={i} cx={m.cx} cy={m.cy} r={m.r * 0.5} />)}
-          </g>
-        )}
+        <g fill="none" stroke="#CCB9B5" strokeWidth="12" strokeLinecap="round" strokeDasharray="2 34">
+          {glyph.strokes.map((s, i) => <path key={i} d={s.d} />)}
+          {glyph.marks.map((m, i) => <circle key={i} cx={m.cx} cy={m.cy} r={m.r * 0.5} />)}
+        </g>
 
         <path d={glyph.outline} fill={color} mask={`url(#${maskId})`} />
 

@@ -1,0 +1,10 @@
+Générateur de src/data/letterFormStrokes.ts (geste d'écriture des formes liées).
+
+1. Télécharger NotoNaskhArabic[wght].ttf (Google Fonts, licence OFL) dans ce dossier,
+   sous le nom NotoNaskhArabic.ttf.
+2. pip install fonttools uharfbuzz scikit-image pillow numpy networkx
+3. python run.py        -> forms.json + planches de contrôle sheet*.png
+   (vert = départ, carré noir = fin, flèches = sens, cercle orange = point à poser)
+4. Reporter forms.json dans src/data/letterFormStrokes.ts.
+
+hints.py rassemble les exceptions par lettre (sens des boucles, hampe du ط, etc.).

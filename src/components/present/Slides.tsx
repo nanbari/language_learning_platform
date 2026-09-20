@@ -1,11 +1,12 @@
 "use client";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { RotateCcw } from "lucide-react";
+import { Check, RotateCcw, Volume2 } from "lucide-react";
 import { LetterGlyph, LetterTracing } from "@/components/present/LetterTracing";
 import { LetterWriting } from "@/components/present/LetterWriting";
-import type { Slide } from "@/lib/presentation";
+import { isRightForm, writingGlyph, type Slide } from "@/lib/presentation";
 import { joinedSegments } from "@/lib/arabicWord";
+import { playLetterSound } from "@/lib/letterSound";
 import type { ArabicLetter } from "@/data/arabicAlphabet";
 import type { ArabicWord } from "@/data/arabicVocabulary";
 
@@ -101,26 +102,15 @@ function LettersTitleSlide({ letters, step }: { letters: ArabicLetter[]; step: n
 }
 
 /** La lettre s'écrit sous les yeux des élèves, dans l'ordre et le sens du geste. */
-function LetterSlide({ letter, arabicName, step }: { letter: ArabicLetter; arabicName: boolean; step: number }) {
+function LetterSlide({ letter }: { letter: ArabicLetter }) {
   const [replay, setReplay] = useState(0);
   return (
     <div className="text-center">
       <LetterTracing key={replay} char={letter.isolated} color={letter.color} className="h-[60vmin] w-[60vmin] mx-auto" />
-      <div className="h-[14vmin]">
-        {step >= 1 && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            {arabicName && (
-              <p className="text-[9vmin] leading-tight font-black" style={{ ...ARABIC_FONT, color: letter.color }}>
-                {letter.name}
-              </p>
-            )}
-          </motion.div>
-        )}
-      </div>
       <button
         onClick={(e) => { e.stopPropagation(); setReplay((r) => r + 1); }}
         aria-label="Retracer la lettre"
-        className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-[#FFFDF8] border border-[#EDE5D8] text-[#2D2D2D]/60 hover:text-[#BB908E] transition-colors"
+        className="mt-[3vmin] inline-flex items-center justify-center w-10 h-10 rounded-full bg-[#FFFDF8] border border-[#EDE5D8] text-[#2D2D2D]/60 hover:text-[#BB908E] transition-colors"
       >
         <RotateCcw size={16} />
       </button>
@@ -128,69 +118,58 @@ function LetterSlide({ letter, arabicName, step }: { letter: ArabicLetter; arabi
   );
 }
 
-function FormsSlide({ letter, step }: { letter: ArabicLetter; step: number }) {
+function FormsSlide({ slide, step }: { slide: Extract<Slide, { kind: "forms" }>; step: number }) {
+  const { letter, words } = slide;
   // Ordre de lecture arabe : le début du mot est à droite.
   const forms = [
-    { key: "final", glyph: letter.final, at: 3 },
-    { key: "medial", glyph: letter.medial, at: 2 },
-    { key: "initial", glyph: letter.initial, at: 1 },
+    { key: "final", glyph: letter.final, word: words.final, at: 3 },
+    { key: "medial", glyph: letter.medial, word: words.medial, at: 2 },
+    { key: "initial", glyph: letter.initial, word: words.initial, at: 1 },
   ];
   return (
-    <div>
-      <div className="flex items-stretch justify-center gap-[3vmin]">
-        {forms.map((form) => (
-          <div
-            key={form.key}
-            className="w-[26vmin] rounded-[3vmin] bg-[#FFFDF8] border-4 shadow-md flex flex-col items-center justify-center py-[3vmin]"
-            style={{ borderColor: step >= form.at ? letter.color : "#EDE5D8" }}
-          >
-            <div className="h-[24vmin] flex items-center">
-              {step >= form.at ? (
-                <motion.span
-                  initial={{ scale: 0, rotate: -15 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ type: "spring", stiffness: 200, damping: 12 }}
-                  className="text-[17vmin] leading-none font-black text-[#2D2D2D]"
-                  style={ARABIC_FONT}
-                >
-                  {form.glyph}
-                </motion.span>
-              ) : (
-                <span className="text-[12vmin] text-[#2D2D2D]/15 font-black">?</span>
+    <div className="flex items-start justify-center gap-[3vmin]">
+      {forms.map((form) => {
+        const shown = step >= form.at;
+        const { before, target, after } = joinedSegments(form.word.text);
+        return (
+          <div key={form.key} className="w-[30vmin] flex flex-col items-center">
+            <div
+              className="w-full rounded-[3vmin] bg-[#FFFDF8] border-4 shadow-md flex flex-col items-center justify-center py-[3vmin]"
+              style={{ borderColor: shown ? letter.color : "#EDE5D8" }}
+            >
+              <div className="h-[24vmin] flex items-center">
+                {shown ? (
+                  <motion.span
+                    initial={{ scale: 0, rotate: -15 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ type: "spring", stiffness: 200, damping: 12 }}
+                    className="text-[17vmin] leading-none font-black text-[#2D2D2D]"
+                    style={ARABIC_FONT}
+                  >
+                    {form.glyph}
+                  </motion.span>
+                ) : (
+                  <span className="text-[12vmin] text-[#2D2D2D]/15 font-black">?</span>
+                )}
+              </div>
+            </div>
+            {/* Le mot-exemple de cette position, révélé avec la forme ; hauteur réservée pour ne rien décaler. */}
+            <div className="h-[30vmin] pt-[2vmin] text-center">
+              {shown && (
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+                  <div className="text-[11vmin] leading-none mb-[1vmin]">{form.word.emoji}</div>
+                  {/* Seule la lettre étudiée prend la couleur ; le reste du mot reste sombre. */}
+                  <p className="text-[10vmin] leading-tight font-black text-[#2D2D2D] whitespace-nowrap" style={ARABIC_FONT}>
+                    {before}
+                    <span style={{ color: letter.color }}>{target}</span>
+                    {after}
+                  </p>
+                </motion.div>
               )}
             </div>
           </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ExampleSlide({ slide }: { slide: Extract<Slide, { kind: "example" }> }) {
-  const { letter, word } = slide;
-  const { before, target, after } = joinedSegments(word.text);
-  return (
-    <div className="text-center">
-      <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ type: "spring", stiffness: 160, damping: 12 }}
-        className="text-[24vmin] leading-none mb-[2vmin]"
-      >
-        {word.emoji}
-      </motion.div>
-      {/* Seule la lettre étudiée prend la couleur ; le reste du mot reste sombre. */}
-      <motion.p
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="text-[24vmin] leading-tight font-black text-[#2D2D2D] whitespace-nowrap"
-        style={ARABIC_FONT}
-      >
-        {before}
-        <span style={{ color: letter.color }}>{target}</span>
-        {after}
-      </motion.p>
+        );
+      })}
     </div>
   );
 }
@@ -226,9 +205,9 @@ function WriteSlide({ slide, game }: { slide: Extract<Slide, { kind: "write" }>;
   return (
     <div>
       <LetterWriting
-        char={slide.letter.isolated}
+        key={writingGlyph(slide)}
+        char={writingGlyph(slide)}
         color={slide.letter.color}
-        guide={slide.guide}
         onDone={() => { setDone(true); game?.onPick?.("done", true); }}
         className="h-[68vmin] w-[68vmin] mx-auto"
       />
@@ -286,6 +265,76 @@ function FindLetterSlide({ slide, game }: { slide: Extract<Slide, { kind: "findL
   );
 }
 
+/**
+ * Débutant, deuxième niveau : la lettre est montrée, trois sons sont proposés.
+ * Toucher un haut-parleur fait entendre le son ; la coche en dessous le choisit.
+ * Les cartes sont identiques : seule l'écoute permet de répondre.
+ */
+function PickSoundSlide({ slide, game }: { slide: Extract<Slide, { kind: "pickSound" }>; game?: GameProps }) {
+  const [wrong, setWrong] = useState<number[]>([]);
+  const [found, setFound] = useState(false);
+  const [playing, setPlaying] = useState<number | null>(null);
+  const solved = found || game?.revealed === true;
+  const { target } = slide;
+  return (
+    <div className="text-center">
+      <div
+        className="w-[36vmin] h-[36vmin] mx-auto mb-[4vmin] rounded-[4vmin] bg-[#FFFDF8] border-4 shadow-md flex items-center justify-center"
+        style={{ borderColor: target.color, color: target.color }}
+      >
+        <LetterGlyph char={target.isolated} className="w-[29vmin] h-[29vmin]" />
+      </div>
+      <div className="grid grid-cols-3 gap-[2.5vmin] w-fit mx-auto">
+        {slide.choices.map((letter) => {
+          const isTarget = letter.id === target.id;
+          const isWrong = wrong.includes(letter.id);
+          return (
+            <motion.div
+              key={letter.id}
+              animate={isWrong ? { x: [0, -10, 10, -6, 6, 0], opacity: 0.3 } : solved && isTarget ? { scale: [1, 1.15, 1.08] } : {}}
+              className="flex flex-col items-center gap-[1.5vmin]"
+            >
+              <button
+                onClick={(e) => { e.stopPropagation(); setPlaying(letter.id); playLetterSound(letter); }}
+                aria-label="Écouter le son"
+                className="relative w-[22vmin] h-[22vmin] rounded-[3vmin] bg-[#FFFDF8] border-4 shadow-md flex items-center justify-center transition-transform hover:scale-105"
+                style={{
+                  borderColor: solved && isTarget ? "#6B705C" : playing === letter.id ? "#8BA3B1" : "#CCB9B5",
+                  background: solved && isTarget ? SOLVED_BG : undefined,
+                  color: playing === letter.id ? "#8BA3B1" : "#2D2D2D",
+                }}
+              >
+                <Volume2 className="w-[11vmin] h-[11vmin]" />
+                {solved && <CountBadge count={game?.counts?.[String(letter.id)]} />}
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (solved || isWrong) return;
+                  game?.onPick?.(String(letter.id), isTarget);
+                  if (isTarget) setFound(true);
+                  else setWrong((w) => [...w, letter.id]);
+                }}
+                disabled={solved || isWrong}
+                aria-label="Choisir ce son"
+                className="w-[9vmin] h-[9vmin] rounded-full border-4 flex items-center justify-center transition-colors"
+                style={{
+                  borderColor: "#6B705C",
+                  background: solved && isTarget ? "#6B705C" : "#FFFDF8",
+                  color: solved && isTarget ? "#FFFDF8" : "#6B705C",
+                }}
+              >
+                <Check className="w-[5vmin] h-[5vmin]" strokeWidth={3} />
+              </button>
+            </motion.div>
+          );
+        })}
+      </div>
+      {solved && <Confetti />}
+    </div>
+  );
+}
+
 /** Niveau avancé : quelle est la lettre colorée dans ce mot ? */
 function FindInWordSlide({ slide, game }: { slide: Extract<Slide, { kind: "findInWord" }>; game?: GameProps }) {
   const { before, target, after } = joinedSegments(slide.word.text);
@@ -300,6 +349,61 @@ function FindInWordSlide({ slide, game }: { slide: Extract<Slide, { kind: "findI
         </p>
       </div>
       <LetterChoices target={slide.target} choices={slide.choices} neutral game={game} />
+    </div>
+  );
+}
+
+/** Niveau avancé : quelle forme de la lettre complète ce mot ? */
+function CompleteWordSlide({ slide, game }: { slide: Extract<Slide, { kind: "completeWord" }>; game?: GameProps }) {
+  const [wrong, setWrong] = useState<string[]>([]);
+  const [found, setFound] = useState(false);
+  const solved = found || game?.revealed === true;
+  const { letter } = slide;
+  const { before, target, after } = joinedSegments(slide.word.text);
+  return (
+    <div className="text-center">
+      <div className="flex items-center justify-center gap-[4vmin] mb-[4vmin]">
+        <span className="text-[14vmin] leading-none">{slide.word.emoji}</span>
+        <p className="text-[22vmin] leading-tight font-black text-[#2D2D2D] whitespace-nowrap" style={ARABIC_FONT}>
+          {before}
+          {/* Le trou garde la largeur de la lettre : invisible, elle reste liée à ses voisines. */}
+          <span
+            className="rounded-[1.5vmin] transition-colors"
+            style={solved
+              ? { color: letter.color }
+              : { color: "transparent", background: "#EDE5D8", boxShadow: "inset 0 0 0 0.5vmin #CCB9B5" }}
+          >
+            {target}
+          </span>
+          {after}
+        </p>
+      </div>
+      <div className="flex justify-center gap-[2.5vmin]" dir="rtl">
+        {slide.choices.map((choice) => {
+          const isTarget = isRightForm(slide, choice);
+          const isWrong = wrong.includes(choice.position);
+          return (
+            <motion.button
+              key={choice.position}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (solved || isWrong) return;
+                game?.onPick?.(choice.position, isTarget);
+                if (isTarget) setFound(true);
+                else setWrong((w) => [...w, choice.position]);
+              }}
+              animate={isWrong ? { x: [0, -10, 10, -6, 6, 0], opacity: 0.3 } : solved && isTarget ? { scale: [1, 1.2, 1.1] } : {}}
+              whileHover={solved || isWrong ? undefined : { scale: 1.06 }}
+              className="relative w-[28vmin] h-[28vmin] rounded-[3vmin] bg-[#FFFDF8] border-4 shadow-md text-[17vmin] leading-none font-black text-[#2D2D2D] flex items-center justify-center"
+              style={{ ...ARABIC_FONT, borderColor: solved && isTarget ? "#6B705C" : letter.color, background: solved && isTarget ? SOLVED_BG : undefined }}
+            >
+              {choice.glyph}
+              {solved && <CountBadge count={game?.counts?.[choice.position]} />}
+            </motion.button>
+          );
+        })}
+      </div>
+      {solved && <Confetti />}
     </div>
   );
 }
@@ -458,12 +562,13 @@ export function SlideView({ slide, step, game, score }: { slide: Slide; step: nu
   switch (slide.kind) {
     case "title": return <TitleSlide slide={slide} />;
     case "lettersTitle": return <LettersTitleSlide letters={slide.letters} step={step} />;
-    case "letter": return <LetterSlide letter={slide.letter} arabicName={slide.arabicName} step={step} />;
-    case "forms": return <FormsSlide letter={slide.letter} step={step} />;
-    case "example": return <ExampleSlide slide={slide} />;
+    case "letter": return <LetterSlide letter={slide.letter} />;
+    case "forms": return <FormsSlide slide={slide} step={step} />;
     case "write": return <WriteSlide slide={slide} game={game} />;
     case "findLetter": return <FindLetterSlide slide={slide} game={game} />;
+    case "pickSound": return <PickSoundSlide slide={slide} game={game} />;
     case "findInWord": return <FindInWordSlide slide={slide} game={game} />;
+    case "completeWord": return <CompleteWordSlide slide={slide} game={game} />;
     case "flashcard": return <FlashcardSlide slide={slide} step={step} />;
     case "blur": return <BlurSlide slide={slide} step={step} />;
     case "missing": return <MissingSlide slide={slide} step={step} />;

@@ -3,6 +3,10 @@
  * début, un où elle est au milieu, un où elle est à la fin. La lettre étudiée
  * (avec ses voyelles) est entre crochets : c'est elle qui sera colorée.
  * La traduction sert de repère à l'enseignant ; elle n'est jamais projetée.
+ *
+ * Dans chaque mot, la lettre doit prendre le tracé de sa position : pas de
+ * lettre « du milieu » ou « de la fin » juste après ا د ذ ر ز و, qui ne
+ * s'attachent pas à la suivante (un test le vérifie).
  */
 export interface LetterWord {
   /** Mot vocalisé, la lettre étudiée entre crochets : « [بَ]طَّة ». */
@@ -69,7 +73,7 @@ export const LETTER_WORDS: Record<number, Record<LetterPosition, LetterWord>> = 
   },
   11: {
     initial: { text: "[زَ]رَافَة", french: "girafe", emoji: "🦒" },
-    medial: { text: "مَوْ[زَ]ة", french: "banane", emoji: "🍌" },
+    medial: { text: "غَ[زَ]ال", french: "gazelle", emoji: "🦌" },
     final: { text: "خُبْ[ز]", french: "pain", emoji: "🍞" },
   },
   12: {
@@ -79,7 +83,7 @@ export const LETTER_WORDS: Record<number, Record<LetterPosition, LetterWord>> = 
   },
   13: {
     initial: { text: "[شَ]مْس", french: "soleil", emoji: "☀️" },
-    medial: { text: "فَرَا[شَ]ة", french: "papillon", emoji: "🦋" },
+    medial: { text: "عُ[شْ]ب", french: "herbe", emoji: "🌿" },
     final: { text: "عُ[شّ]", french: "nid", emoji: "🪺" },
   },
   14: {
@@ -115,7 +119,7 @@ export const LETTER_WORDS: Record<number, Record<LetterPosition, LetterWord>> = 
   20: {
     initial: { text: "[فِ]يل", french: "éléphant", emoji: "🐘" },
     medial: { text: "تُ[فَّ]احَة", french: "pomme", emoji: "🍎" },
-    final: { text: "خَرُو[ف]", french: "mouton", emoji: "🐑" },
+    final: { text: "أَنْ[ف]", french: "nez", emoji: "👃" },
   },
   21: {
     initial: { text: "[قَ]لَم", french: "crayon", emoji: "✏️" },
@@ -140,7 +144,7 @@ export const LETTER_WORDS: Record<number, Record<LetterPosition, LetterWord>> = 
   25: {
     initial: { text: "[نَ]حْلَة", french: "abeille", emoji: "🐝" },
     medial: { text: "عِ[نَ]ب", french: "raisin", emoji: "🍇" },
-    final: { text: "حِصَا[ن]", french: "cheval", emoji: "🐴" },
+    final: { text: "لَبَ[ن]", french: "lait", emoji: "🥛" },
   },
   26: {
     initial: { text: "[هِ]لَال", french: "croissant de lune", emoji: "🌙" },
@@ -158,3 +162,155 @@ export const LETTER_WORDS: Record<number, Record<LetterPosition, LetterWord>> = 
     final: { text: "كُرْسِ[يّ]", french: "chaise", emoji: "🪑" },
   },
 };
+
+/**
+ * Mots supplémentaires réservés aux exercices : l'élève y retrouve la lettre
+ * dans des mots qu'il n'a pas vus pendant la présentation.
+ */
+export const EXERCISE_WORDS: Record<number, Record<LetterPosition, LetterWord[]>> = {
+  1: {
+    initial: [{ text: "[أَ]سَد", french: "lion", emoji: "🦁" }, { text: "[أُ]ذُن", french: "oreille", emoji: "👂" }],
+    medial: [{ text: "نَ[ا]ر", french: "feu", emoji: "🔥" }, { text: "تَ[ا]ج", french: "couronne", emoji: "👑" }],
+    final: [{ text: "هَدَايَ[ا]", french: "cadeaux", emoji: "🎁" }, { text: "أَنَ[ا]", french: "moi", emoji: "🙋" }],
+  },
+  2: {
+    initial: [{ text: "[بَ]اب", french: "porte", emoji: "🚪" }, { text: "[بُ]رْتُقَال", french: "orange", emoji: "🍊" }],
+    medial: [{ text: "حَ[بْ]ل", french: "corde", emoji: "🪢" }, { text: "لَ[بَ]ن", french: "lait", emoji: "🥛" }],
+    final: [{ text: "حَلِي[ب]", french: "lait", emoji: "🥛" }, { text: "عِنَ[ب]", french: "raisin", emoji: "🍇" }],
+  },
+  3: {
+    initial: [{ text: "[تِ]مْسَاح", french: "crocodile", emoji: "🐊" }, { text: "[تَ]اج", french: "couronne", emoji: "👑" }],
+    medial: [{ text: "مِفْ[تَ]اح", french: "clé", emoji: "🔑" }, { text: "بُسْ[تَ]ان", french: "jardin", emoji: "🏡" }],
+    final: [{ text: "بِنْ[ت]", french: "fille", emoji: "👧" }, { text: "زَيْ[ت]", french: "huile", emoji: "🫒" }],
+  },
+  4: {
+    initial: [{ text: "[ثَ]وْر", french: "taureau", emoji: "🐂" }, { text: "[ثَ]لْج", french: "neige", emoji: "❄️" }],
+    medial: [{ text: "مُ[ثَ]لَّث", french: "triangle", emoji: "🔺" }],
+    final: [{ text: "مُثَلَّ[ث]", french: "triangle", emoji: "🔺" }],
+  },
+  5: {
+    initial: [{ text: "[جَ]زَر", french: "carottes", emoji: "🥕" }, { text: "[جُ]بْن", french: "fromage", emoji: "🧀" }],
+    medial: [{ text: "نَ[جْ]م", french: "étoile", emoji: "⭐" }, { text: "فِنْ[جَ]ان", french: "tasse", emoji: "☕" }],
+    final: [{ text: "بَنَفْسَ[ج]", french: "violette", emoji: "🪻" }, { text: "نَسِي[ج]", french: "tissu", emoji: "🧶" }],
+  },
+  6: {
+    initial: [{ text: "[حَ]لِيب", french: "lait", emoji: "🥛" }, { text: "[حُ]وت", french: "baleine", emoji: "🐋" }],
+    medial: [{ text: "نَ[حْ]لَة", french: "abeille", emoji: "🐝" }, { text: "لَ[حْ]م", french: "viande", emoji: "🥩" }],
+    final: [{ text: "قَمْ[ح]", french: "blé", emoji: "🌾" }, { text: "مَسْبَ[ح]", french: "piscine", emoji: "🏊" }],
+  },
+  7: {
+    initial: [{ text: "[خَ]رُوف", french: "mouton", emoji: "🐑" }, { text: "[خِ]يَار", french: "concombre", emoji: "🥒" }],
+    medial: [{ text: "بُ[خَ]ار", french: "vapeur", emoji: "♨️" }, { text: "مِ[خَ]دَّة", french: "oreiller", emoji: "🛏️" }],
+    final: [{ text: "مَطْبَ[خ]", french: "cuisine", emoji: "🍳" }, { text: "فَ[خّ]", french: "piège", emoji: "🪤" }],
+  },
+  8: {
+    initial: [{ text: "[دِ]يك", french: "coq", emoji: "🐓" }, { text: "[دَ]جَاجَة", french: "poule", emoji: "🐔" }],
+    medial: [{ text: "حَ[دِ]يقَة", french: "jardin", emoji: "🌳" }, { text: "هُ[دْ]هُد", french: "huppe", emoji: "🐦" }],
+    final: [{ text: "يَ[د]", french: "main", emoji: "✋" }, { text: "أَسَ[د]", french: "lion", emoji: "🦁" }],
+  },
+  9: {
+    initial: [{ text: "[ذُ]بَابَة", french: "mouche", emoji: "🪰" }, { text: "[ذَ]هَب", french: "or", emoji: "🥇" }],
+    medial: [{ text: "بِ[ذْ]رَة", french: "graine", emoji: "🌱" }, { text: "جِ[ذْ]ع", french: "tronc", emoji: "🪵" }],
+    final: [{ text: "تِلْمِي[ذ]", french: "élève", emoji: "🧑‍🎓" }, { text: "لَذِي[ذ]", french: "délicieux", emoji: "😋" }],
+  },
+  10: {
+    initial: [{ text: "[رَ]جُل", french: "homme", emoji: "👨" }, { text: "[رِ]جْل", french: "jambe", emoji: "🦵" }],
+    medial: [{ text: "كُ[رَ]ة", french: "ballon", emoji: "⚽" }, { text: "مِ[رْ]آة", french: "miroir", emoji: "🪞" }],
+    final: [{ text: "بَحْ[ر]", french: "mer", emoji: "🌊" }, { text: "نَمِ[ر]", french: "tigre", emoji: "🐅" }],
+  },
+  11: {
+    initial: [{ text: "[زَ]هْرَة", french: "fleur", emoji: "🌸" }, { text: "[زَ]يْتُون", french: "olives", emoji: "🫒" }],
+    medial: [{ text: "جَ[زَ]ر", french: "carottes", emoji: "🥕" }, { text: "مَنْ[زِ]ل", french: "maison", emoji: "🏡" }],
+    final: [{ text: "كَنْ[ز]", french: "trésor", emoji: "💎" }, { text: "عَنْ[ز]", french: "chèvre", emoji: "🐐" }],
+  },
+  12: {
+    initial: [{ text: "[سَ]يَّارَة", french: "voiture", emoji: "🚗" }, { text: "[سُ]لَحْفَاة", french: "tortue", emoji: "🐢" }],
+    medial: [{ text: "مِ[سْ]طَرَة", french: "règle", emoji: "📏" }, { text: "عَ[سَ]ل", french: "miel", emoji: "🍯" }],
+    final: [{ text: "خَمْ[س]", french: "cinq", emoji: "5️⃣" }, { text: "مَلْبَ[س]", french: "vêtement", emoji: "👕" }],
+  },
+  13: {
+    initial: [{ text: "[شَ]جَرَة", french: "arbre", emoji: "🌳" }, { text: "[شُ]بَّاك", french: "fenêtre", emoji: "🪟" }],
+    medial: [{ text: "مِ[شْ]مِش", french: "abricot", emoji: "🍑" }, { text: "مِ[شْ]ط", french: "peigne", emoji: "🪮" }],
+    final: [{ text: "مِشْمِ[ش]", french: "abricot", emoji: "🍑" }, { text: "رِي[ش]", french: "plumes", emoji: "🪶" }],
+  },
+  14: {
+    initial: [{ text: "[صَ]ابُون", french: "savon", emoji: "🧼" }, { text: "[صُ]نْدُوق", french: "boîte", emoji: "📦" }],
+    medial: [{ text: "بَ[صَ]ل", french: "oignon", emoji: "🧅" }, { text: "حِ[صَ]ان", french: "cheval", emoji: "🐴" }],
+    final: [{ text: "قَمِي[ص]", french: "chemise", emoji: "👔" }, { text: "لِ[صّ]", french: "voleur", emoji: "🥷" }],
+  },
+  15: {
+    initial: [{ text: "[ضَ]وْء", french: "lumière", emoji: "💡" }, { text: "[ضِ]رْس", french: "dent", emoji: "🦷" }],
+    medial: [{ text: "بَيْ[ضَ]ة", french: "œuf", emoji: "🥚" }, { text: "أَخْ[ضَ]ر", french: "vert", emoji: "🟢" }],
+    final: [{ text: "أَبْيَ[ض]", french: "blanc", emoji: "⚪" }, { text: "مَرِي[ض]", french: "malade", emoji: "🤒" }],
+  },
+  16: {
+    initial: [{ text: "[طِ]فْل", french: "enfant", emoji: "👶" }, { text: "[طَ]بْل", french: "tambour", emoji: "🥁" }],
+    medial: [{ text: "بَ[طَّ]ة", french: "canard", emoji: "🦆" }, { text: "مَ[طَ]ر", french: "pluie", emoji: "🌧️" }],
+    final: [{ text: "خَيْ[ط]", french: "fil", emoji: "🧵" }, { text: "قِ[طّ]", french: "chat", emoji: "🐈" }],
+  },
+  17: {
+    initial: [{ text: "[ظَ]بْي", french: "gazelle", emoji: "🦌" }, { text: "[ظِ]لّ", french: "ombre", emoji: "👤" }],
+    medial: [{ text: "مِ[ظَ]لَّة", french: "parapluie", emoji: "☂️" }, { text: "عَ[ظْ]م", french: "os", emoji: "🦴" }],
+    final: [{ text: "حِفْ[ظ]", french: "mémorisation", emoji: "🧠" }],
+  },
+  18: {
+    initial: [{ text: "[عِ]نَب", french: "raisin", emoji: "🍇" }, { text: "[عَ]سَل", french: "miel", emoji: "🍯" }],
+    medial: [{ text: "ثَ[عْ]لَب", french: "renard", emoji: "🦊" }, { text: "مِلْ[عَ]قَة", french: "cuillère", emoji: "🥄" }],
+    final: [{ text: "شَمْ[ع]", french: "bougies", emoji: "🕯️" }, { text: "مَصْنَ[ع]", french: "usine", emoji: "🏭" }],
+  },
+  19: {
+    initial: [{ text: "[غَ]زَال", french: "gazelle", emoji: "🦌" }, { text: "[غَ]يْمَة", french: "nuage", emoji: "☁️" }],
+    medial: [{ text: "صَ[غِ]ير", french: "petit", emoji: "🤏" }, { text: "لُ[غَ]ة", french: "langue", emoji: "🗣️" }],
+    final: [{ text: "مَبْلَ[غ]", french: "somme d'argent", emoji: "💰" }],
+  },
+  20: {
+    initial: [{ text: "[فَ]رَاشَة", french: "papillon", emoji: "🦋" }, { text: "[فَ]أْر", french: "souris", emoji: "🐭" }],
+    medial: [{ text: "مِ[فْ]تَاح", french: "clé", emoji: "🔑" }, { text: "عُصْ[فُ]ور", french: "oiseau", emoji: "🐦" }],
+    final: [{ text: "سَيْ[ف]", french: "épée", emoji: "🗡️" }, { text: "صَيْ[ف]", french: "été", emoji: "🏖️" }],
+  },
+  21: {
+    initial: [{ text: "[قِ]رْد", french: "singe", emoji: "🐒" }, { text: "[قَ]مَر", french: "lune", emoji: "🌙" }],
+    medial: [{ text: "صَ[قْ]ر", french: "faucon", emoji: "🦅" }, { text: "مِ[قَ]صّ", french: "ciseaux", emoji: "✂️" }],
+    final: [{ text: "إِبْرِي[ق]", french: "théière", emoji: "🫖" }, { text: "صَدِي[ق]", french: "ami", emoji: "🤝" }],
+  },
+  22: {
+    initial: [{ text: "[كِ]تَاب", french: "livre", emoji: "📖" }, { text: "[كُ]رَة", french: "ballon", emoji: "⚽" }],
+    medial: [{ text: "سُ[كَّ]ر", french: "sucre", emoji: "🍬" }, { text: "مَ[كْ]تَب", french: "bureau", emoji: "🖥️" }],
+    final: [{ text: "سَمَ[ك]", french: "poissons", emoji: "🐟" }, { text: "مَلِ[ك]", french: "roi", emoji: "🤴" }],
+  },
+  23: {
+    initial: [{ text: "[لَ]بَن", french: "lait", emoji: "🥛" }, { text: "[لَ]حْم", french: "viande", emoji: "🥩" }],
+    medial: [{ text: "كَ[لْ]ب", french: "chien", emoji: "🐕" }, { text: "ثَ[لْ]ج", french: "neige", emoji: "❄️" }],
+    final: [{ text: "فِي[ل]", french: "éléphant", emoji: "🐘" }, { text: "جَبَ[ل]", french: "montagne", emoji: "⛰️" }],
+  },
+  24: {
+    initial: [{ text: "[مِ]فْتَاح", french: "clé", emoji: "🔑" }, { text: "[مَ]طَر", french: "pluie", emoji: "🌧️" }],
+    medial: [{ text: "شَ[مْ]س", french: "soleil", emoji: "☀️" }, { text: "جَ[مَ]ل", french: "chameau", emoji: "🐫" }],
+    final: [{ text: "قَلَ[م]", french: "crayon", emoji: "✏️" }, { text: "فَ[م]", french: "bouche", emoji: "👄" }],
+  },
+  25: {
+    initial: [{ text: "[نَ]مْلَة", french: "fourmi", emoji: "🐜" }, { text: "[نَ]جْم", french: "étoile", emoji: "⭐" }],
+    medial: [{ text: "قُ[نْ]فُذ", french: "hérisson", emoji: "🦔" }, { text: "بِ[نْ]ت", french: "fille", emoji: "👧" }],
+    final: [{ text: "عَيْ[ن]", french: "œil", emoji: "👁️" }, { text: "جُبْ[ن]", french: "fromage", emoji: "🧀" }],
+  },
+  26: {
+    initial: [{ text: "[هَ]دِيَّة", french: "cadeau", emoji: "🎁" }, { text: "[هُ]دْهُد", french: "huppe", emoji: "🐦" }],
+    medial: [{ text: "سَ[هْ]م", french: "flèche", emoji: "🏹" }, { text: "فَ[هْ]د", french: "guépard", emoji: "🐆" }],
+    final: [{ text: "تَنْبِي[ه]", french: "alerte", emoji: "⚠️" }, { text: "فَوَاكِ[ه]", french: "fruits", emoji: "🍓" }],
+  },
+  27: {
+    initial: [{ text: "[وَ]لَد", french: "garçon", emoji: "👦" }, { text: "[وَ]جْه", french: "visage", emoji: "🙂" }],
+    medial: [{ text: "لَ[وْ]ن", french: "couleur", emoji: "🎨" }, { text: "ثَ[وْ]ر", french: "taureau", emoji: "🐂" }],
+    final: [{ text: "حُلْ[و]", french: "sucré", emoji: "🍬" }, { text: "جَ[وّ]", french: "air", emoji: "🌬️" }],
+  },
+  28: {
+    initial: [{ text: "[يَ]مَامَة", french: "colombe", emoji: "🕊️" }, { text: "[يَ]اسَمِين", french: "jasmin", emoji: "🌼" }],
+    medial: [{ text: "طَ[يْ]ر", french: "oiseau", emoji: "🐦" }, { text: "لَ[يْ]ل", french: "nuit", emoji: "🌃" }],
+    final: [{ text: "ظَبْ[ي]", french: "gazelle", emoji: "🦌" }, { text: "مَشْ[ي]", french: "marche", emoji: "🚶" }],
+  },
+};
+
+/** Mots d'exercice pour une lettre à une position : le mot présenté, puis les supplémentaires. */
+export function exerciseWords(letterId: number, position: LetterPosition): LetterWord[] {
+  return [LETTER_WORDS[letterId][position], ...(EXERCISE_WORDS[letterId]?.[position] ?? [])];
+}

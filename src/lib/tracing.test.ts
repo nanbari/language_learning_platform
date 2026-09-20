@@ -4,6 +4,8 @@ import {
   type Pt, type TraceGuide, type TraceProgress,
 } from "./tracing";
 import { LETTER_STROKES } from "@/data/letterStrokes";
+import { LETTER_FORM_STROKES } from "@/data/letterFormStrokes";
+import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";
 
 /** Trace parfaitement tous les traits restants, comme le ferait un doigt qui suit le modèle. */
 function traceAll(guide: TraceGuide, from: TraceProgress = INITIAL_PROGRESS): TraceProgress {
@@ -99,6 +101,36 @@ describe("les 28 lettres", () => {
       // Les boucles fermées (ه) finissent près de leur départ : elles sont hors de ce contrôle.
       if (Math.hypot(end.x - first[0].x, end.y - first[0].y) < 200) continue;
       expect(canStart(guide, INITIAL_PROGRESS, end), char).toBe(false);
+    }
+  });
+});
+
+describe("les formes liées (début, milieu, fin)", () => {
+  it("existent pour chaque tracé lié de l'alphabet", () => {
+    for (const letter of ARABIC_ALPHABET) {
+      for (const glyph of [letter.initial, letter.medial, letter.final]) {
+        expect(LETTER_STROKES[glyph] ?? LETTER_FORM_STROKES[glyph], glyph).toBeDefined();
+      }
+    }
+  });
+
+  it("se valident toutes quand on suit leur modèle, traits puis points", () => {
+    for (const [char, glyph] of Object.entries(LETTER_FORM_STROKES)) {
+      const guide = buildGuide(glyph);
+      let progress = traceAll(guide);
+      expect(strokesDone(guide, progress), char).toBe(true);
+      for (const mark of guide.marks) progress = tapMark(guide, progress, { x: mark.cx, y: mark.cy });
+      expect(isComplete(guide, progress), char).toBe(true);
+    }
+  });
+
+  it("tiennent dans le cadre d'écriture", () => {
+    for (const [char, glyph] of Object.entries(LETTER_FORM_STROKES)) {
+      for (const points of buildGuide(glyph).strokes) {
+        for (const p of points) {
+          expect(p.x > 40 && p.x < 960 && p.y > 40 && p.y < 960, char).toBe(true);
+        }
+      }
     }
   });
 });

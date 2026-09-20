@@ -5,10 +5,11 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, ChevronLeft, ChevronRight, Maximize, Minimize, Play, Users, Wifi, WifiOff, X } from "lucide-react";
 import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";
 import { VOCAB_THEMES } from "@/data/arabicVocabulary";
-import { buildLetterDeck, buildVocabDeck, charterColor, lettersPerLesson, stepsFor, MAX_REVIEW_LETTERS, WORD_COUNTS, type LetterLevel, type Slide } from "@/lib/presentation";
+import { buildLetterDeck, buildVocabDeck, charterColor, letterColor, lettersPerLesson, stepsFor, teacherQuestion, MAX_REVIEW_LETTERS, WORD_COUNTS, type LetterLevel, type Slide } from "@/lib/presentation";
 import { classScore, generateCode, isGame, summarize, type LiveState } from "@/lib/liveSession";
 import { useLiveHost } from "@/lib/useLiveSession";
 import { SlideView } from "@/components/present/Slides";
+import { LETTER_POSITIONS } from "@/data/letterWords";
 import { LetterGlyph } from "@/components/present/LetterTracing";
 
 type LessonKind = "letter" | "vocab";
@@ -123,8 +124,8 @@ function Setup({ onStart }: { onStart: (deck: Slide[]) => void }) {
                     letterIds.includes(letter.id) ? "text-white shadow-md scale-105" : "bg-white text-[#2d2d2d] hover:scale-105"
                   }`}
                   style={{
-                    borderColor: charterColor(letter.id - 1),
-                    background: letterIds.includes(letter.id) ? charterColor(letter.id - 1) : undefined,
+                    borderColor: letterColor(letter),
+                    background: letterIds.includes(letter.id) ? letterColor(letter) : undefined,
                   }}
                 >
                   <LetterGlyph char={letter.isolated} className="w-3/4 h-3/4" />
@@ -292,6 +293,7 @@ function Player({ deck, code, onQuit }: { deck: Slide[]; code: string; onQuit: (
 
   const isFirst = pos.index === 0 && pos.step === 0;
   const isLast = pos.index === deck.length - 1 && pos.step >= stepsFor(slide);
+  const question = teacherQuestion(slide);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[#F5EEE8] overflow-hidden select-none">
@@ -308,6 +310,16 @@ function Player({ deck, code, onQuit }: { deck: Slide[]; code: string; onQuit: (
           <Users size={15} /> {participants.length} élève{participants.length > 1 ? "s" : ""} connecté{participants.length > 1 ? "s" : ""}
         </span>
       </div>
+
+      {/* Question à poser à voix haute : l'écran de l'élève ne l'affiche pas */}
+      {question && (
+        <p
+          className="text-center text-[5vmin] leading-tight font-bold text-[#2D2D2D]/70 pt-2"
+          style={{ fontFamily: "'Noto Naskh Arabic', 'Cairo', serif", direction: "rtl" }}
+        >
+          {question}
+        </p>
+      )}
 
       {/* Scène : un clic dans le vide révèle l'étape suivante */}
       <div className="flex-1 flex items-center justify-center px-6 cursor-pointer" onClick={next}>
@@ -390,15 +402,30 @@ function Player({ deck, code, onQuit }: { deck: Slide[]; code: string; onQuit: (
           </button>
         </div>
 
-        {/* Les écrans n'ont plus de consigne écrite : rappel de la lettre à annoncer. */}
-        {slide.kind === "findLetter" && (
+        {/* Repères pour l'enseignant ; le nom des lettres n'est jamais écrit, il le dit lui-même. */}
+        {slide.kind === "write" && slide.form && (
           <span className="text-sm font-bold text-[#2D2D2D]/50">
-            À annoncer : <span className="text-[#2D2D2D]">{slide.target.nameTranslit}</span>
+            Forme à écrire :{" "}
+            <span className="text-[#2D2D2D]">{{ initial: "début", medial: "milieu", final: "fin" }[slide.form]} du mot</span>
           </span>
         )}
-        {(slide.kind === "example" || slide.kind === "findInWord") && (
+        {slide.kind === "pickSound" && (
+          <span className="text-sm font-bold text-[#2D2D2D]/50">
+            Réponse attendue :{" "}
+            <span className="text-[#2D2D2D]">son « {slide.target.translit} »</span>
+          </span>
+        )}
+        {(slide.kind === "findInWord" || slide.kind === "completeWord") && (
           <span className="text-sm font-bold text-[#2D2D2D]/50">
             Sens du mot : <span className="text-[#2D2D2D]">{slide.word.french}</span>
+          </span>
+        )}
+        {slide.kind === "forms" && (
+          <span className="text-sm font-bold text-[#2D2D2D]/50">
+            Sens des mots :{" "}
+            <span className="text-[#2D2D2D]">
+              {LETTER_POSITIONS.map((position) => slide.words[position].french).join(" · ")}
+            </span>
           </span>
         )}
 
