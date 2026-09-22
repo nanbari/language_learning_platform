@@ -1,6 +1,6 @@
 import { ARABIC_ALPHABET, type ArabicLetter } from "@/data/arabicAlphabet";
-import { VOCAB_THEMES, type ArabicWord } from "@/data/arabicVocabulary";
 import { LETTER_POSITIONS, LETTER_WORDS, exerciseWords, type LetterPosition, type LetterWord } from "@/data/letterWords";
+import type { Clip } from "@/data/animations";
 
 /**
  * Mode présentation : construit la suite d'écrans qu'un enseignant projette
@@ -9,7 +9,8 @@ import { LETTER_POSITIONS, LETTER_WORDS, exerciseWords, type LetterPosition, typ
  */
 
 export type Slide =
-  | { kind: "title"; emoji: string; title: string; arabic?: string; color: string }
+  /** Écran d'accueil, le temps que les élèves se connectent : le logo de l'association, ou un emoji. */
+  | { kind: "title"; emoji?: string; title: string; arabic?: string; color: string }
   /** Annonce des lettres du jour : elles apparaissent une à une, jamais ensemble d'emblée. */
   | { kind: "lettersTitle"; letters: ArabicLetter[] }
   /** La lettre se trace seule : son nom n'est jamais écrit, à aucun niveau — l'enseignant le dit. */
@@ -31,11 +32,47 @@ export type Slide =
    * choisit, parmi ses formes début / milieu / fin, celle qui le complète.
    */
   | { kind: "completeWord"; letter: ArabicLetter; word: LetterWord; position: LetterPosition; choices: FormChoice[] }
-  | { kind: "flashcard"; word: ArabicWord; color: string }
-  | { kind: "blur"; word: ArabicWord; color: string }
-  | { kind: "missing"; words: ArabicWord[]; missingId: string; color: string }
-  | { kind: "quiz"; target: ArabicWord; choices: ArabicWord[]; color: string }
+  | { kind: "flashcard"; word: VocabWord; color: string }
+  /** Animation d'un mot (vidéo muette en boucle), jouée après sa carte ; le commentaire est pour l'enseignant. */
+  | { kind: "video"; src: string; caption: string; color: string }
+  | { kind: "blur"; word: VocabWord; color: string }
+  | { kind: "missing"; words: VocabWord[]; missingId: string; color: string }
+  | { kind: "quiz"; target: VocabWord; choices: VocabWord[]; color: string }
+  /** QCM d'une leçon d'enseignant, joué en direct : question et réponses telles qu'il les a rédigées. */
+  | { kind: "qcm"; qcm: Qcm; color: string }
   | { kind: "bravo"; /** Sans félicitation écrite en arabe (débutants). */ plain?: boolean };
+
+/**
+ * Mot d'une leçon de vocabulaire : son illustration (image de l'enseignant, à
+ * défaut emoji) et, si l'enseignant l'a écrit, le mot lui-même. Une leçon
+ * peut n'être faite que d'images : l'enseignant dit les mots.
+ */
+export interface VocabWord {
+  id: string;
+  /** Le mot tel que l'enseignant l'a écrit — en arabe le plus souvent. */
+  arabic?: string;
+  imageUrl?: string;
+  emoji?: string;
+  /** Animations du mot, jouées après sa carte. */
+  clips?: Clip[];
+  /** Rang fixe dans la présentation (mots animés) ; les mots sans rang sont tirés au sort après. */
+  rank?: number;
+}
+
+/** Question à choix multiple d'une leçon d'enseignant. Sans question écrite, l'enseignant la pose à voix haute. */
+export interface Qcm {
+  id: string;
+  question?: string;
+  options: QcmOption[];
+  correctId: string;
+}
+
+/** Réponse d'un QCM : son texte et/ou son image, selon le mode de réponse choisi par l'enseignant. */
+export interface QcmOption {
+  id: string;
+  text?: string;
+  imageUrl?: string;
+}
 
 /** Carte d'une forme liée de la lettre. */
 export interface FormChoice {
@@ -77,6 +114,10 @@ function inCharter(letter: ArabicLetter): ArabicLetter {
 }
 
 export const WORD_COUNTS = [4, 6, 8] as const;
+/** En dessous, pas de « Qu'est-ce qui a disparu ? » ni de quiz à quatre images. */
+export const MIN_VOCAB_WORDS = 4;
+/** Au-delà, le texte d'une diapositive est une phrase, pas un mot à apprendre. */
+export const MAX_WORD_LENGTH = 24;
 /** Cartes proposées à chaque manche de « Où est la lettre ? ». */
 export const CHOICES_PER_ROUND = 3;
 
@@ -112,7 +153,8 @@ export function stepsFor(slide: Slide): number {
   switch (slide.kind) {
     case "lettersTitle": return slide.letters.length - 1;
     case "forms": return 3;
-    case "flashcard": return 1;
+    // Une carte sans mot écrit ne se retourne pas.
+    case "flashcard": return slide.word.arabic ? 1 : 0;
     case "blur": return 3;
     case "missing": return 2;
     default: return 0;
@@ -120,18 +162,31 @@ export function stepsFor(slide: Slide): number {
 }
 
 /**
- * Question que l'enseignant pose à voix haute pendant un jeu de lettres. Elle
- * n'est affichée que sur son écran : à l'élève, elle donnerait la réponse.
+ * Question que l'enseignant pose à voix haute pendant un jeu. Elle n'est
+ * affichée que sur son écran : à l'élève, elle donnerait la réponse. Pour un
+ * QCM, c'est la question que l'enseignant a écrite dans la leçon, telle quelle.
  */
 export function teacherQuestion(slide: Slide): string | null {
   switch (slide.kind) {
+    case "qcm": return slide.qcm.question ?? null;
     // La lettre à demander est montrée par son tracé, pas par son nom.
     case "findLetter": return `أَيْنَ هَذَا الْحَرْفُ : «${slide.target.isolated}»؟`;
     case "pickSound": return "مَا صَوْتُ هَذَا الْحَرْفِ؟";
     case "findInWord": return "مَا اسْمُ الْحَرْفِ الْمُلَوَّنِ؟";
     case "completeWord": return "أَيُّ شَكْلٍ يُكْمِلُ الْكَلِمَةَ؟";
+    // Quiz en images de fin de leçon : le mot demandé est lu à voix haute.
+    case "quiz": return `أَيْنَ صُورَةُ «${slide.target.arabic}»؟`;
     default: return null;
   }
+}
+
+/**
+ * Consigne du quiz en images, affichée sous la question sur l'écran de
+ * l'enseignant seulement. Un QCM n'en a pas : seule sa question, écrite dans
+ * la leçon, lui est rappelée.
+ */
+export function teacherInstruction(slide: Slide): string | null {
+  return slide.kind === "quiz" ? "Posez la question : les élèves touchent l'image du mot." : null;
 }
 
 /**
@@ -287,31 +342,151 @@ export function buildLetterDeck(
   return deck;
 }
 
-export function buildVocabDeck(themeId: string, wordCount: number, rng: Rng = Math.random): Slide[] {
-  const theme = VOCAB_THEMES.find((t) => t.id === themeId);
-  if (!theme) return [];
+/**
+ * Mots d'une leçon créée par un enseignant : les diapositives illustrées de
+ * ses « leçons illustrées », avec le mot si elle en porte un. Les images sont
+ * des URLs publiques ; une image encore embarquée (data:) serait trop lourde
+ * pour la diffusion en direct et est écartée, comme les diapositives dont le
+ * texte, trop long, est une phrase et non un mot. Un même mot, ou une même
+ * image sans mot, n'est retenu qu'une fois.
+ */
+export function lessonVocabWords(blocks: readonly unknown[]): VocabWord[] {
+  const words: VocabWord[] = [];
+  const seen = new Set<string>();
+  for (const block of blocks as { type?: string; slides?: { id?: string; imageDataUrl?: string; text?: string }[] }[]) {
+    if (block?.type !== "slideshow") continue;
+    for (const slide of block.slides ?? []) {
+      const text = slide.text?.trim() ?? "";
+      const imageUrl = publicUrl(slide.imageDataUrl);
+      if (!imageUrl || text.length > MAX_WORD_LENGTH) continue;
+      const key = text || imageUrl;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      words.push({ id: slide.id ?? `mot-${words.length}`, ...(text && { arabic: text }), imageUrl });
+    }
+  }
+  return words;
+}
 
-  const color = charterColor(VOCAB_THEMES.indexOf(theme));
-  const words = shuffle(theme.words, rng).slice(0, wordCount);
+/** Un média n'est diffusable en direct que par une URL publique : une image ou un son encore embarqué (data:) serait trop lourd. */
+function publicUrl(url: string | undefined): string | undefined {
+  return url && /^https?:\/\//.test(url) ? url : undefined;
+}
+
+/** Le titre d'une leçon n'est écrit à l'écran que s'il est en arabe (aucun texte français). */
+function arabicTitle(title: string): string | undefined {
+  return /[\u0600-\u06FF]/.test(title) ? title : undefined;
+}
+
+/** Bloc « exercice » d'une leçon d'enseignant, réduit à ce qu'un QCM en direct utilise. */
+interface RawQuizBlock {
+  id?: string;
+  type?: string;
+  exercise?: {
+    type?: string;
+    question?: string;
+    answerMode?: "image" | "text" | "both";
+    options?: { id?: string; text?: string; imageDataUrl?: string }[];
+    correctId?: string;
+  };
+}
+
+/**
+ * QCM d'une leçon créée par un enseignant : ses « quiz à choix multiple »,
+ * dans l'ordre de la leçon. Chaque réponse ne garde que ce que le mode de
+ * réponse affiche (image, texte ou les deux). Un QCM est laissé de côté si
+ * une réponse resterait vide ou si la bonne réponse n'est pas parmi elles.
+ */
+export function lessonQcms(blocks: readonly unknown[]): Qcm[] {
+  const qcms: Qcm[] = [];
+  for (const block of blocks as RawQuizBlock[]) {
+    const quiz = block?.exercise;
+    if (block?.type !== "exercise" || quiz?.type !== "quiz") continue;
+    const mode = quiz.answerMode ?? "image";
+    const options = (quiz.options ?? []).map((raw, i): QcmOption => {
+      const text = mode === "image" ? undefined : raw.text?.trim() || undefined;
+      const imageUrl = mode === "text" ? undefined : publicUrl(raw.imageDataUrl);
+      return { id: raw.id ?? `r${i}`, ...(text && { text }), ...(imageUrl && { imageUrl }) };
+    });
+    const question = quiz.question?.trim() ?? "";
+    const correctId = quiz.correctId ?? "";
+    const playable = options.length >= 2 && options.every((o) => o.text || o.imageUrl) && options.some((o) => o.id === correctId);
+    if (!playable) continue;
+    qcms.push({ id: block.id ?? `qcm-${qcms.length}`, ...(question && { question }), options, correctId });
+  }
+  return qcms;
+}
+
+/**
+ * Repère pour l'enseignant : la bonne réponse, par son texte ou, si elle
+ * n'est qu'une image, par son rang parmi les réponses.
+ */
+export function qcmAnswerLabel(qcm: Qcm): string {
+  const index = qcm.options.findIndex((o) => o.id === qcm.correctId);
+  return qcm.options[index]?.text ?? `image n°${index + 1}`;
+}
+
+/**
+ * Leçon de vocabulaire : les images d'une leçon d'enseignant. La première,
+ * telle que l'enseignant l'a placée, ouvre toujours la séance (une vue
+ * d'ensemble : le panier de fruits) ; viennent ensuite les mots à rang fixe
+ * (les animés, dans l'ordre de leur registre), puis les autres tirés au sort.
+ * Avec assez d'images viennent les devinettes (flou, disparition). Le quiz
+ * final reprend les QCM de la leçon, dans son ordre ; sans QCM, un quiz en
+ * images est tiré des mots présentés qui ont une écriture.
+ */
+export function buildVocabDeck(
+  title: string,
+  allWords: readonly VocabWord[],
+  wordCount: number,
+  qcms: readonly Qcm[] = [],
+  color: string = charterColor(0),
+  rng: Rng = Math.random,
+): Slide[] {
+  if (allWords.length < MIN_VOCAB_WORDS && qcms.length === 0) return [];
+
+  const [cover, ...rest] = allWords;
+  const ranked = rest.filter((w) => w.rank !== undefined).sort((a, b) => a.rank! - b.rank!);
+  const others = shuffle(rest.filter((w) => w.rank === undefined), rng);
+  const words = cover ? [cover, ...ranked, ...others].slice(0, wordCount) : [];
+  // Écran d'accueil pendant que les élèves se connectent : le titre de la leçon
+  // n'y est écrit que s'il est en arabe (aucun texte français à l'écran).
   const deck: Slide[] = [
-    { kind: "title", emoji: theme.emoji, title: theme.nameFrench, arabic: theme.nameArabic, color },
-    ...words.map((word): Slide => ({ kind: "flashcard", word, color })),
+    { kind: "title", title, arabic: arabicTitle(title), color },
+    ...words.flatMap((word): Slide[] => [
+      { kind: "flashcard", word, color },
+      ...(word.clips ?? []).map((clip): Slide => ({ kind: "video", src: clip.src, caption: clip.caption, color })),
+    ]),
   ];
 
-  for (const word of shuffle(words, rng).slice(0, 2)) {
-    deck.push({ kind: "blur", word, color });
-  }
-
-  if (words.length >= 4) {
+  if (words.length >= MIN_VOCAB_WORDS) {
+    for (const word of shuffle(words, rng).slice(0, 2)) {
+      deck.push({ kind: "blur", word, color });
+    }
     const shown = shuffle(words, rng).slice(0, 4);
     deck.push({ kind: "missing", words: shown, missingId: shown[Math.floor(rng() * shown.length)].id, color });
   }
 
-  for (const target of shuffle(words, rng).slice(0, 3)) {
-    const others = shuffle(words.filter((w) => w.id !== target.id), rng).slice(0, 3);
-    deck.push({ kind: "quiz", target, choices: shuffle([target, ...others], rng), color });
+  if (qcms.length > 0) {
+    for (const qcm of qcms) deck.push({ kind: "qcm", qcm, color });
+  } else if (words.length >= MIN_VOCAB_WORDS) {
+    // Le mot à retrouver est écrit : seuls les mots qui en ont un peuvent être demandés.
+    for (const target of shuffle(words.filter((w) => w.arabic), rng).slice(0, 3)) {
+      const others = shuffle(words.filter((w) => w.id !== target.id), rng).slice(0, 3);
+      deck.push({ kind: "quiz", target, choices: shuffle([target, ...others], rng), color });
+    }
   }
 
   deck.push({ kind: "bravo" });
   return deck;
+}
+
+/**
+ * Séance en plusieurs parties (des lettres puis une leçon de vocabulaire, ou
+ * l'inverse) : les decks à la suite, avec un seul « bravo », celui de la
+ * dernière partie. Une partie vide est ignorée.
+ */
+export function combineDecks(decks: readonly (readonly Slide[])[]): Slide[] {
+  const parts = decks.filter((deck) => deck.length > 0);
+  return parts.flatMap((deck, i) => (i < parts.length - 1 ? deck.filter((slide) => slide.kind !== "bravo") : [...deck]));
 }

@@ -3,7 +3,7 @@ import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";
 import { LETTER_STROKES } from "@/data/letterStrokes";
 import { LETTER_FORM_STROKES } from "@/data/letterFormStrokes";
 import { LETTER_POSITIONS, exerciseWords } from "@/data/letterWords";
-import { buildLetterDeck, buildVocabDeck, isRightForm, letterColor, shuffle, stepsFor, lettersPerLesson, teacherQuestion, writingGlyph, CHARTER_COLORS } from "./presentation";
+import { buildLetterDeck, buildVocabDeck, combineDecks, isRightForm, lessonQcms, lessonVocabWords, letterColor, qcmAnswerLabel, shuffle, stepsFor, lettersPerLesson, teacherInstruction, teacherQuestion, writingGlyph, CHARTER_COLORS, type Qcm, type VocabWord } from "./presentation";
 
 /** Générateur déterministe pour des decks reproductibles. */
 function seeded(seed = 1) {
@@ -193,7 +193,7 @@ describe("buildLetterDeck", () => {
       if (slide.kind === "letter") expect(charter).toContain(slide.letter.color);
       if (slide.kind === "findLetter") for (const l of slide.choices) expect(charter).toContain(l.color);
     }
-    for (const slide of buildVocabDeck("colors", 4, seeded())) {
+    for (const slide of buildVocabDeck("Les animaux", WORDS, 4, [], CHARTER_COLORS[1], seeded())) {
       if ("color" in slide) expect(charter).toContain(slide.color);
     }
   });
@@ -252,14 +252,50 @@ describe("buildLetterDeck", () => {
   });
 });
 
+const WORDS: VocabWord[] = ["قِطّ", "كَلْب", "فِيل", "أَسَد", "جَمَل", "حِصَان", "بَطَّة", "دُبّ"].map((arabic, i) => ({
+  id: `w${i}`, arabic, imageUrl: `https://media.example.org/${i}.webp`,
+}));
+
 describe("buildVocabDeck", () => {
   it("présente une carte par mot choisi", () => {
-    const deck = buildVocabDeck("animals", 6, seeded());
+    const deck = buildVocabDeck("Les animaux", WORDS, 6, [], undefined, seeded());
     expect(deck.filter((s) => s.kind === "flashcard")).toHaveLength(6);
   });
 
+  it("ouvre toujours par la première image de la leçon, les autres tirées au sort", () => {
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const deck = buildVocabDeck("Les fruits", WORDS, 4, [], undefined, seeded(seed));
+      const cards = deck.filter((s) => s.kind === "flashcard");
+      expect(cards).toHaveLength(4);
+      expect(cards[0].kind === "flashcard" && cards[0].word.id).toBe(WORDS[0].id);
+    }
+    const orders = [1, 2, 3].map((seed) => buildVocabDeck("Les fruits", WORDS, 6, [], undefined, seeded(seed)).flatMap((s) => (s.kind === "flashcard" ? [s.word.id] : [])).join());
+    expect(new Set(orders).size).toBeGreaterThan(1);
+  });
+
+  it("place les mots à rang fixe juste après la première image, dans leur ordre, puis les autres", () => {
+    // Rangs donnés à rebours de l'ordre de la leçon : c'est le rang qui compte.
+    const words = WORDS.map((w, i) => ([5, 3, 1].includes(i) ? { ...w, rank: 5 - i } : w));
+    for (const seed of [1, 2, 3]) {
+      const ids = buildVocabDeck("Les fruits", words, 6, [], undefined, seeded(seed)).flatMap((s) => (s.kind === "flashcard" ? [s.word.id] : []));
+      expect(ids.slice(0, 4)).toEqual([WORDS[0].id, WORDS[5].id, WORDS[3].id, WORDS[1].id]);
+      expect(ids).toHaveLength(6);
+    }
+  });
+
+  it("joue les animations d'un mot juste après sa carte, dans l'ordre", () => {
+    const clips = [{ src: "/animations/fruits/pomme-couper.mp4", caption: "On coupe la pomme" }, { src: "/animations/fruits/pomme-jus.mp4", caption: "On presse la pomme : du jus !" }];
+    const words = WORDS.map((w, i) => (i === 2 ? { ...w, clips } : w));
+    const deck = buildVocabDeck("Les fruits", words, 8, [], undefined, seeded());
+    const kinds = deck.map((s) => s.kind);
+    const at = deck.findIndex((s) => s.kind === "flashcard" && s.word.id === WORDS[2].id);
+    expect(kinds.slice(at, at + 3)).toEqual(["flashcard", "video", "video"]);
+    expect(deck.flatMap((s) => (s.kind === "video" ? [s.src] : []))).toEqual(clips.map((c) => c.src));
+    expect(stepsFor(deck[at + 1])).toBe(0);
+  });
+
   it("ne joue qu'avec les mots présentés", () => {
-    const deck = buildVocabDeck("animals", 4, seeded(3));
+    const deck = buildVocabDeck("Les animaux", WORDS, 4, [], undefined, seeded(3));
     const shown = new Set(deck.flatMap((s) => (s.kind === "flashcard" ? [s.word.id] : [])));
     for (const slide of deck) {
       if (slide.kind === "blur") expect(shown).toContain(slide.word.id);
@@ -273,14 +309,194 @@ describe("buildVocabDeck", () => {
     }
   });
 
-  it("renvoie un deck vide pour un thème inconnu", () => {
-    expect(buildVocabDeck("inconnu", 4)).toEqual([]);
+  it("renvoie un deck vide pour une leçon de moins de quatre mots", () => {
+    expect(buildVocabDeck("Trop courte", WORDS.slice(0, 3), 4)).toEqual([]);
+  });
+
+  it("n'écrit le titre de la leçon que s'il est en arabe", () => {
+    const french = buildVocabDeck("Les animaux", WORDS, 4, [], undefined, seeded())[0];
+    const arabic = buildVocabDeck("الحَيَوَانَات", WORDS, 4, [], undefined, seeded())[0];
+    expect(french.kind === "title" && french.arabic).toBeUndefined();
+    expect(arabic.kind === "title" && arabic.arabic).toBe("الحَيَوَانَات");
+  });
+});
+
+describe("lessonVocabWords", () => {
+  const img = (n: number) => `https://media.example.org/${n}.webp`;
+  it("retient les diapositives qui portent une image publique, avec leur mot s'il est écrit", () => {
+    const words = lessonVocabWords([
+      { type: "video", url: "https://example.org/v" },
+      { type: "slideshow", slides: [
+        { id: "s1", imageDataUrl: img(1), text: " قِطّ " },
+        { id: "s2", imageDataUrl: img(2) },                                   // sans mot : l'enseignant le dit
+        { id: "s3", imageDataUrl: "", text: "كَلْب" },                          // sans image
+        { id: "s4", imageDataUrl: "data:image/png;base64,AAAA", text: "فِيل" }, // image embarquée, trop lourde
+        { id: "s5", imageDataUrl: img(5), text: "Le chat dort sur le canapé du salon." }, // une phrase
+        { id: "s6", imageDataUrl: img(6), text: "قِطّ" },                       // doublon du mot
+        { id: "s8", imageDataUrl: img(2) },                                   // doublon de l'image sans mot
+      ] },
+      { type: "exercise", exercise: { type: "quiz" } },
+      { type: "slideshow", slides: [{ id: "s7", imageDataUrl: img(7), text: "chien" }] },
+    ]);
+    expect(words).toEqual([
+      { id: "s1", arabic: "قِطّ", imageUrl: img(1) },
+      { id: "s2", imageUrl: img(2) },
+      { id: "s7", arabic: "chien", imageUrl: img(7) },
+    ]);
+  });
+});
+
+describe("lessonQcms", () => {
+  const img = (n: number) => `https://media.example.org/${n}.webp`;
+  const quiz = (id: string, exercise: object) => ({ id, type: "exercise", exercise: { type: "quiz", ...exercise } });
+
+  it("retient les quiz à choix multiple, dans l'ordre de la leçon", () => {
+    const qcms = lessonQcms([
+      { type: "slideshow", slides: [{ id: "s1", imageDataUrl: img(1), text: "قِطّ" }] },
+      quiz("q1", {
+        question: " Où est le chat ? ", answerMode: "image", correctId: "a",
+        options: [{ id: "a", text: "chat", imageDataUrl: img(1) }, { id: "b", text: "", imageDataUrl: img(2) }],
+      }),
+      { id: "m1", type: "exercise", exercise: { type: "matching", pairs: [] } },
+      quiz("q2", {
+        question: "مَا هَذَا؟", answerMode: "both", correctId: "d",
+        options: [{ id: "c", text: "كَلْب", imageDataUrl: img(3) }, { id: "d", text: "قِطّ" }],
+      }),
+      quiz("q3", {
+        question: "Quel mot ?", answerMode: "text", correctId: "f",
+        options: [{ id: "e", text: "un", imageDataUrl: img(4) }, { id: "f", text: "deux" }, { id: "g", text: "trois" }],
+      }),
+    ]);
+    expect(qcms).toEqual([
+      { id: "q1", question: "Où est le chat ?", correctId: "a", options: [{ id: "a", imageUrl: img(1) }, { id: "b", imageUrl: img(2) }] },
+      { id: "q2", question: "مَا هَذَا؟", correctId: "d", options: [{ id: "c", text: "كَلْب", imageUrl: img(3) }, { id: "d", text: "قِطّ" }] },
+      { id: "q3", question: "Quel mot ?", correctId: "f", options: [{ id: "e", text: "un" }, { id: "f", text: "deux" }, { id: "g", text: "trois" }] },
+    ]);
+  });
+
+  it("garde un quiz sans question écrite : l'enseignant la pose à voix haute", () => {
+    const options = [{ id: "a", imageDataUrl: img(1) }, { id: "b", imageDataUrl: img(2) }];
+    expect(lessonQcms([quiz("q1", { question: "", answerMode: "image", correctId: "a", options })])).toEqual([
+      { id: "q1", correctId: "a", options: [{ id: "a", imageUrl: img(1) }, { id: "b", imageUrl: img(2) }] },
+    ]);
+  });
+
+  it("écarte un quiz sans bonne réponse marquée ou dont une réponse serait vide", () => {
+    const options = [{ id: "a", text: "un", imageDataUrl: img(1) }, { id: "b", text: "deux", imageDataUrl: img(2) }];
+    expect(lessonQcms([
+      quiz("q2", { question: "Sans réponse", answerMode: "text", correctId: "", options }),
+      quiz("q3", { question: "Réponse inconnue", answerMode: "text", correctId: "z", options }),
+      quiz("q4", { question: "Une seule réponse", answerMode: "text", correctId: "a", options: options.slice(0, 1) }),
+      // Mode image : la seconde image, encore embarquée (data:), laisserait sa carte vide.
+      quiz("q5", { question: "Image embarquée", answerMode: "image", correctId: "a",
+        options: [options[0], { id: "b", text: "deux", imageDataUrl: "data:image/png;base64,AAAA" }] }),
+      // Mode texte : la même image embarquée n'est pas affichée, le quiz reste jouable.
+      quiz("q6", { question: "Texte seul", answerMode: "text", correctId: "a",
+        options: [options[0], { id: "b", text: "deux", imageDataUrl: "data:image/png;base64,AAAA" }] }),
+    ]).map((q) => q.id)).toEqual(["q6"]);
+  });
+
+});
+
+/** Leçon faite d'images seulement, comme « Les fruits » : aucun mot écrit. */
+const PICTURES: VocabWord[] = WORDS.map(({ id, imageUrl }) => ({ id, imageUrl }));
+
+const QCMS: Qcm[] = [
+  { id: "q1", question: "Où est le chat ?", correctId: "b", options: [{ id: "a", imageUrl: "https://media.example.org/1.webp" }, { id: "b", imageUrl: "https://media.example.org/2.webp" }] },
+  { id: "q2", question: "مَا هَذَا؟", correctId: "c", options: [{ id: "c", text: "قِطّ" }, { id: "d", text: "كَلْب" }] },
+];
+
+describe("buildVocabDeck avec les QCM de la leçon", () => {
+  it("joue les QCM de la leçon, dans son ordre, à la place du quiz en images", () => {
+    const deck = buildVocabDeck("Les animaux", WORDS, 4, QCMS, CHARTER_COLORS[2], seeded());
+    expect(deck.filter((s) => s.kind === "quiz")).toHaveLength(0);
+    expect(deck.flatMap((s) => (s.kind === "qcm" ? [s.qcm.id] : []))).toEqual(["q1", "q2"]);
+    // Les QCM viennent après la présentation et les devinettes, juste avant le bravo.
+    expect(deck.slice(-3).map((s) => s.kind)).toEqual(["qcm", "qcm", "bravo"]);
+    for (const slide of deck) if ("color" in slide) expect(slide.color).toBe(CHARTER_COLORS[2]);
+  });
+
+  it("revient au quiz en images quand la leçon n'a pas de QCM", () => {
+    const deck = buildVocabDeck("Les animaux", WORDS, 4, [], undefined, seeded());
+    expect(deck.filter((s) => s.kind === "quiz")).toHaveLength(3);
+    expect(deck.filter((s) => s.kind === "qcm")).toHaveLength(0);
+  });
+
+  it("présente une leçon d'images sans mot : cartes sans retournement, devinettes, puis les QCM", () => {
+    const deck = buildVocabDeck("Les fruits", PICTURES, 6, QCMS, undefined, seeded());
+    const cards = deck.filter((s) => s.kind === "flashcard");
+    expect(cards).toHaveLength(6);
+    for (const card of cards) expect(stepsFor(card)).toBe(0);
+    expect(deck.filter((s) => s.kind === "blur")).toHaveLength(2);
+    expect(deck.filter((s) => s.kind === "missing")).toHaveLength(1);
+    expect(deck.filter((s) => s.kind === "qcm")).toHaveLength(2);
+  });
+
+  it("sans QCM, ne demande en quiz que des mots écrits", () => {
+    const deck = buildVocabDeck("Les fruits", PICTURES, 6, [], undefined, seeded());
+    expect(deck.filter((s) => s.kind === "quiz")).toHaveLength(0);
+    const mixed = [...PICTURES.slice(0, 5), WORDS[5]];
+    const quiz = buildVocabDeck("Mixte", mixed, 6, [], undefined, seeded()).filter((s) => s.kind === "quiz");
+    expect(quiz).toHaveLength(1);
+    expect(quiz[0].kind === "quiz" && quiz[0].target.id).toBe(WORDS[5].id);
+  });
+
+  it("présente une leçon de moins de quatre images si elle a un QCM : cartes et QCM, sans devinettes", () => {
+    const deck = buildVocabDeck("Courte", PICTURES.slice(0, 2), 4, QCMS.slice(0, 1), undefined, seeded());
+    expect(deck.map((s) => s.kind)).toEqual(["title", "flashcard", "flashcard", "qcm", "bravo"]);
+    expect(buildVocabDeck("Courte sans QCM", PICTURES.slice(0, 2), 4, [], undefined, seeded())).toEqual([]);
+  });
+
+  it("donne à l'enseignant la question exacte du quiz en images, avec le mot demandé", () => {
+    const question = teacherQuestion({ kind: "quiz", target: WORDS[0], choices: WORDS.slice(0, 4), color: "" });
+    expect(question).toBe(`أَيْنَ صُورَةُ «${WORDS[0].arabic}»؟`);
+  });
+
+  it("rappelle à l'enseignant la question écrite du QCM, à poser à voix haute", () => {
+    expect(teacherQuestion({ kind: "qcm", qcm: QCMS[0], color: "" })).toBe("Où est le chat ?");
+    expect(teacherQuestion({ kind: "qcm", qcm: { ...QCMS[0], question: undefined }, color: "" })).toBeNull();
+    expect(stepsFor({ kind: "qcm", qcm: QCMS[0], color: "" })).toBe(0);
+  });
+});
+
+describe("combineDecks", () => {
+  it("enchaîne lettres puis vocabulaire, ou l'inverse, avec un seul bravo à la fin", () => {
+    const letters = buildLetterDeck([2], "beginner", [], seeded());
+    const vocab = buildVocabDeck("Les fruits", WORDS, 4, [], undefined, seeded());
+    for (const decks of [[letters, vocab], [vocab, letters]]) {
+      const deck = combineDecks(decks);
+      expect(deck).toHaveLength(letters.length + vocab.length - 1);
+      expect(deck[0]).toEqual(decks[0][0]);
+      expect(deck.filter((s) => s.kind === "bravo")).toHaveLength(1);
+      expect(deck.at(-1)).toEqual(decks[1].at(-1));
+    }
+  });
+
+  it("ignore une partie vide et rend un deck seul tel quel", () => {
+    const vocab = buildVocabDeck("Les fruits", WORDS, 4, [], undefined, seeded());
+    expect(combineDecks([[], vocab])).toEqual(vocab);
+    expect(combineDecks([vocab])).toEqual(vocab);
+  });
+});
+
+describe("teacherInstruction", () => {
+  it("ne guide l'enseignant qu'au quiz en images : un QCM ne montre que sa question", () => {
+    expect(teacherInstruction({ kind: "qcm", qcm: QCMS[0], color: "" })).toBeNull();
+    expect(teacherInstruction({ kind: "quiz", target: WORDS[0], choices: WORDS.slice(0, 4), color: "" })).toMatch(/^Posez la question/);
+    expect(teacherInstruction({ kind: "flashcard", word: WORDS[0], color: "" })).toBeNull();
+  });
+});
+
+describe("qcmAnswerLabel", () => {
+  it("rappelle la bonne réponse par son texte, ou par son rang si elle n'est qu'une image", () => {
+    expect(qcmAnswerLabel(QCMS[0])).toBe("image n°2");
+    expect(qcmAnswerLabel(QCMS[1])).toBe("قِطّ");
   });
 });
 
 describe("stepsFor", () => {
   it("laisse les jeux sans étapes", () => {
-    const quiz = buildVocabDeck("animals", 4, seeded()).find((s) => s.kind === "quiz");
+    const quiz = buildVocabDeck("Les animaux", WORDS, 4, [], undefined, seeded()).find((s) => s.kind === "quiz");
     expect(quiz && stepsFor(quiz)).toBe(0);
     expect(stepsFor({ kind: "bravo" })).toBe(0);
   });
