@@ -38,9 +38,12 @@ export type Slide =
   | { kind: "blur"; word: VocabWord; color: string }
   | { kind: "missing"; words: VocabWord[]; missingId: string; color: string }
   | { kind: "quiz"; target: VocabWord; choices: VocabWord[]; color: string }
+  /** Quelle animation ? Deux ou trois clips côte à côte ; l'enseignant demande un geste, l'élève touche le bon clip. */
+  | { kind: "clipQuiz"; target: ClipChoice; choices: ClipChoice[]; color: string }
   /** QCM d'une leçon d'enseignant, joué en direct : question et réponses telles qu'il les a rédigées. */
   | { kind: "qcm"; qcm: Qcm; color: string }
-  | { kind: "bravo"; /** Sans félicitation écrite en arabe (débutants). */ plain?: boolean };
+  /** Écran final : « أَحْسَنْتُمْ » et des confettis, à tous les niveaux. */
+  | { kind: "bravo" };
 
 /**
  * Mot d'une leçon de vocabulaire : son illustration (image de l'enseignant, à
@@ -59,7 +62,18 @@ export interface VocabWord {
   rank?: number;
 }
 
-/** Question à choix multiple d'une leçon d'enseignant. Sans question écrite, l'enseignant la pose à voix haute. */
+/** Un clip proposé au jeu « quelle animation ? » : celui d'un mot présenté. */
+export interface ClipChoice {
+  /** Identifiant du mot, pour le décompte des réponses. */
+  id: string;
+  clip: Clip;
+}
+
+/**
+ * Question à choix multiple d'une leçon d'enseignant. Sans question écrite,
+ * l'enseignant la pose à voix haute ; si l'image de la bonne réponse est
+ * connue, la question lui est proposée en arabe.
+ */
 export interface Qcm {
   id: string;
   question?: string;
@@ -72,6 +86,8 @@ export interface QcmOption {
   id: string;
   text?: string;
   imageUrl?: string;
+  /** Mot arabe de l'image, quand elle est connue (voir data/imageWords). */
+  word?: string;
 }
 
 /** Carte d'une forme liée de la lettre. */
@@ -168,7 +184,7 @@ export function stepsFor(slide: Slide): number {
  */
 export function teacherQuestion(slide: Slide): string | null {
   switch (slide.kind) {
-    case "qcm": return slide.qcm.question ?? null;
+    case "qcm": return slide.qcm.question ?? qcmImageQuestion(slide.qcm);
     // La lettre à demander est montrée par son tracé, pas par son nom.
     case "findLetter": return `أَيْنَ هَذَا الْحَرْفُ : «${slide.target.isolated}»؟`;
     case "pickSound": return "مَا صَوْتُ هَذَا الْحَرْفِ؟";
@@ -176,14 +192,15 @@ export function teacherQuestion(slide: Slide): string | null {
     case "completeWord": return "أَيُّ شَكْلٍ يُكْمِلُ الْكَلِمَةَ؟";
     // Quiz en images de fin de leçon : le mot demandé est lu à voix haute.
     case "quiz": return `أَيْنَ صُورَةُ «${slide.target.arabic}»؟`;
+    case "clipQuiz": return slide.target.clip.question;
     default: return null;
   }
 }
 
 /**
  * Consigne du quiz en images, affichée sous la question sur l'écran de
- * l'enseignant seulement. Un QCM n'en a pas : seule sa question, écrite dans
- * la leçon, lui est rappelée.
+ * l'enseignant seulement. Les autres jeux n'en ont pas : seule la question
+ * à poser, en arabe, est rappelée.
  */
 export function teacherInstruction(slide: Slide): string | null {
   return slide.kind === "quiz" ? "Posez la question : les élèves touchent l'image du mot." : null;
@@ -338,7 +355,7 @@ export function buildLetterDeck(
     }
   }
 
-  deck.push({ kind: "bravo", plain: !advanced });
+  deck.push({ kind: "bravo" });
   return deck;
 }
 
@@ -397,7 +414,7 @@ interface RawQuizBlock {
  * réponse affiche (image, texte ou les deux). Un QCM est laissé de côté si
  * une réponse resterait vide ou si la bonne réponse n'est pas parmi elles.
  */
-export function lessonQcms(blocks: readonly unknown[]): Qcm[] {
+export function lessonQcms(blocks: readonly unknown[], wordFor: (imageUrl: string | undefined) => string | undefined = () => undefined): Qcm[] {
   const qcms: Qcm[] = [];
   for (const block of blocks as RawQuizBlock[]) {
     const quiz = block?.exercise;
@@ -406,7 +423,8 @@ export function lessonQcms(blocks: readonly unknown[]): Qcm[] {
     const options = (quiz.options ?? []).map((raw, i): QcmOption => {
       const text = mode === "image" ? undefined : raw.text?.trim() || undefined;
       const imageUrl = mode === "text" ? undefined : publicUrl(raw.imageDataUrl);
-      return { id: raw.id ?? `r${i}`, ...(text && { text }), ...(imageUrl && { imageUrl }) };
+      const word = wordFor(imageUrl);
+      return { id: raw.id ?? `r${i}`, ...(text && { text }), ...(imageUrl && { imageUrl }), ...(word && { word }) };
     });
     const question = quiz.question?.trim() ?? "";
     const correctId = quiz.correctId ?? "";
@@ -415,6 +433,12 @@ export function lessonQcms(blocks: readonly unknown[]): Qcm[] {
     qcms.push({ id: block.id ?? `qcm-${qcms.length}`, ...(question && { question }), options, correctId });
   }
   return qcms;
+}
+
+/** Sans question écrite : « أَيْنَ … ؟ » avec le mot de l'image de la bonne réponse, s'il est connu. */
+function qcmImageQuestion(qcm: Qcm): string | null {
+  const word = qcm.options.find((o) => o.id === qcm.correctId)?.word;
+  return word ? `أَيْنَ ${word}؟` : null;
 }
 
 /**
@@ -433,7 +457,9 @@ export function qcmAnswerLabel(qcm: Qcm): string {
  * (les animés, dans l'ordre de leur registre), puis les autres tirés au sort.
  * Avec assez d'images viennent les devinettes (flou, disparition). Le quiz
  * final reprend les QCM de la leçon, dans son ordre ; sans QCM, un quiz en
- * images est tiré des mots présentés qui ont une écriture.
+ * images est tiré des mots présentés qui ont une écriture. La séance se
+ * termine, dès deux mots animés, par « quelle animation ? » : jusqu'à trois
+ * tours où l'élève touche, parmi deux ou trois clips, le geste demandé.
  */
 export function buildVocabDeck(
   title: string,
@@ -474,6 +500,16 @@ export function buildVocabDeck(
     for (const target of shuffle(words.filter((w) => w.arabic), rng).slice(0, 3)) {
       const others = shuffle(words.filter((w) => w.id !== target.id), rng).slice(0, 3);
       deck.push({ kind: "quiz", target, choices: shuffle([target, ...others], rng), color });
+    }
+  }
+
+  // En dernier, « quelle animation ? » : l'élève retrouve le geste demandé parmi les clips.
+  const animated = words.filter((w) => w.clips?.length);
+  if (animated.length >= 2) {
+    for (const target of shuffle(animated, rng).slice(0, 3)) {
+      const others = shuffle(animated.filter((w) => w.id !== target.id), rng).slice(0, 2);
+      const choice = (w: VocabWord): ClipChoice => ({ id: w.id, clip: w.clips![0] });
+      deck.push({ kind: "clipQuiz", target: choice(target), choices: shuffle([target, ...others], rng).map(choice), color });
     }
   }
 

@@ -6,11 +6,12 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Maximize, Minimize, Play, Users, 
 import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";
 import { fetchLessons } from "@/lib/lessonsApi";
 import { buildLetterDeck, buildVocabDeck, charterColor, combineDecks, lessonQcms, lessonVocabWords, letterColor, lettersPerLesson, qcmAnswerLabel, stepsFor, teacherInstruction, teacherQuestion, MAX_REVIEW_LETTERS, MIN_VOCAB_WORDS, WORD_COUNTS, type LetterLevel, type Qcm, type Slide, type VocabWord } from "@/lib/presentation";
-import { classScore, generateCode, isGame, summarize, type LiveState } from "@/lib/liveSession";
+import { generateCode, isGame, summarize, type LiveState } from "@/lib/liveSession";
 import { useLiveHost } from "@/lib/useLiveSession";
 import { SlideView } from "@/components/present/Slides";
 import { LETTER_POSITIONS } from "@/data/letterWords";
 import { clipRank, clipsFor } from "@/data/animations";
+import { imageWord } from "@/data/imageWords";
 import { LetterGlyph } from "@/components/present/LetterTracing";
 
 type LessonKind = "letter" | "vocab";
@@ -45,8 +46,9 @@ const GAME_RULES: { kind: LessonKind; mode: string; games: { name: string; rule:
       { name: "Animations", rule: "Après la carte, l'animation du mot s'il en a (on coupe la pomme, on presse l'orange, on épluche la banane, on mange la fraise, on lave le raisin). Elle tourne en boucle, sans son : vous racontez. Ce qu'elle montre est rappelé dans la barre de commandes." },
       { name: "Devinette floutée", rule: "L'image apparaît très floue et se précise en trois étapes ; les élèves devinent à voix haute. Rien à cliquer : la dernière étape révèle l'image et le mot." },
       { name: "Qu'est-ce qui a disparu ?", rule: "Quatre images à mémoriser. « Suivant » en fait disparaître une : les élèves disent laquelle. « Suivant » encore la fait réapparaître." },
+      { name: "Quelle animation ?", rule: "En dernier, dès deux mots animés : deux ou trois animations tournent côte à côte. Vous demandez celle qui montre tel geste (la question en arabe est rappelée dans la barre de commandes) ; l'élève touche la bonne." },
       { name: "Quiz en images", rule: "Sans QCM dans la leçon : un mot écrit et quatre images, l'élève touche la bonne. Ne concerne que les mots écrits." },
-      { name: "QCM de la leçon", rule: "Vos quiz à choix multiple, dans l'ordre de la leçon. La question s'affiche si vous l'avez écrite, sinon vous la posez. L'élève touche la bonne réponse ; elle est rappelée dans la barre de commandes." },
+      { name: "QCM de la leçon", rule: "Vos quiz à choix multiple, dans l'ordre de la leçon. La question s'affiche si vous l'avez écrite ; sinon, quand l'image de la bonne réponse est connue, elle vous est proposée en arabe (« أَيْنَ … ؟ ») ; sinon vous la posez. L'élève touche la bonne réponse ; elle est rappelée dans la barre de commandes." },
     ],
   },
 ];
@@ -88,7 +90,7 @@ function Setup({ onStart }: { onStart: (deck: Slide[]) => void }) {
         id: l.id,
         title: l.title,
         words: lessonVocabWords(l.blocks).map((w) => ({ ...w, clips: clipsFor(w.imageUrl), rank: clipRank(w.imageUrl) })),
-        qcms: lessonQcms(l.blocks),
+        qcms: lessonQcms(l.blocks, imageWord),
       }))))
       .catch(() => { setLessonsError(true); setLessons([]); });
   }, []);
@@ -198,7 +200,7 @@ function Setup({ onStart }: { onStart: (deck: Slide[]) => void }) {
 
           <p className="text-xs text-gray-500 mt-4">
             {level === "beginner"
-              ? "Déroulé : tracé animé de chaque lettre isolée. Les exercices sont regroupés en fin de séance : l'élève écrit chaque lettre au doigt, sur son pointillé ; chacune des trois lettres est à retrouver parmi les trois lettres de la leçon ; puis, la lettre étant montrée, l'élève écoute trois sons et choisit le sien. Les lettres à réviser suivent, avec les mêmes exercices. Aucune forme liée ni mot écrit en arabe ; le nom des lettres n'est jamais écrit."
+              ? "Déroulé : tracé animé de chaque lettre isolée. Les exercices sont regroupés en fin de séance : l'élève écrit chaque lettre au doigt, sur son pointillé ; chacune des trois lettres est à retrouver parmi les trois lettres de la leçon ; puis, la lettre étant montrée, l'élève écoute trois sons et choisit le sien. Les lettres à réviser suivent, avec les mêmes exercices. Aucune forme liée ni mot écrit en arabe, hormis le « أَحْسَنْتُمْ » de l'écran final ; le nom des lettres n'est jamais écrit."
               : "Une lettre par séance. Déroulé : tracé animé, puis les trois formes (début, milieu, fin), chacune avec un mot illustré où la lettre est mise en couleur. Les exercices viennent en fin de séance : trois mots à compléter en choisissant la bonne forme, un par position ; les lettres à réviser, à reconnaître en couleur dans un mot ; enfin l'écriture au doigt de chaque forme liée, sur son pointillé. Le nom des lettres n'est jamais écrit."}
           </p>
         </div>
@@ -258,9 +260,9 @@ function Setup({ onStart }: { onStart: (deck: Slide[]) => void }) {
           </div>
           <p className="text-xs text-gray-500 mt-4">
             Déroulé : cartes (l&apos;image, puis le mot s&apos;il est écrit, puis ses animations s&apos;il en a), devinettes floutées, « Qu&apos;est-ce qui a disparu ? »
-            à partir de {MIN_VOCAB_WORDS} images, puis le quiz. La première image de la leçon ouvre toujours la séance, suivie des mots animés dans un ordre fixe ; les autres sont tirés au sort à chaque présentation.
+            à partir de {MIN_VOCAB_WORDS} images, puis le quiz, et enfin « Quelle animation ? » dès deux mots animés. La première image de la leçon ouvre toujours la séance, suivie des mots animés dans un ordre fixe ; les autres sont tirés au sort à chaque présentation.
             {lesson && lesson.qcms.length > 0
-              ? ` Le quiz joue les ${lesson.qcms.length} QCM de la leçon, dans son ordre ; sans question écrite, vous la posez vous-même.`
+              ? ` Le quiz joue les ${lesson.qcms.length} QCM de la leçon, dans son ordre ; sans question écrite, elle vous est proposée en arabe quand l'image de la bonne réponse est connue.`
               : " Sans QCM dans la leçon, le quiz est tiré des mots écrits, en images."}
           </p>
         </div>
@@ -484,7 +486,6 @@ function Player({ deck, code, onQuit }: { deck: Slide[]; code: string; onQuit: (
             <SlideView
               slide={slide}
               step={pos.step}
-              score={classScore(tally)}
               game={{
                 revealed,
                 counts: summary.counts,

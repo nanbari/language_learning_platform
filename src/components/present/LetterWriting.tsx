@@ -3,6 +3,7 @@ import { useId, useMemo, useRef, useState } from "react";
 import { RotateCcw } from "lucide-react";
 import { LETTER_STROKES } from "@/data/letterStrokes";
 import { LETTER_FORM_STROKES } from "@/data/letterFormStrokes";
+import { LETTER_LINES } from "@/data/letterLines";
 import {
   INITIAL_PROGRESS, advance, buildGuide, canStart, hint, isComplete, strokeFraction, strokesDone, tapMark,
   type Pt, type TraceProgress,
@@ -15,7 +16,8 @@ import {
  * mauvais endroit est ignoré ; un doigt qui quitte la lettre annule le geste
  * en cours, sans effacer ce qui était acquis.
  *
- * Le seul modèle affiché est le pointillé du chemin à suivre.
+ * Le seul modèle affiché est le pointillé du chemin à suivre, posé sur les
+ * lignes d'un cahier : ligne de base rouge, hauteur du corps en vert.
  */
 export function LetterWriting({
   char, color, onDone, className,
@@ -23,6 +25,7 @@ export function LetterWriting({
   const maskId = `write-${useId().replace(/:/g, "")}`;
   // Lettre isolée, ou forme liée (« بـ », « ـبـ », « ـب »).
   const glyph = LETTER_STROKES[char] ?? LETTER_FORM_STROKES[char];
+  const lines = LETTER_LINES[char];
   const model = useMemo(() => (glyph ? buildGuide(glyph) : null), [glyph]);
 
   const [progress, setProgress] = useState<TraceProgress>(INITIAL_PROGRESS);
@@ -139,6 +142,14 @@ export function LetterWriting({
 
         {/* Surface d'écriture : capte le doigt partout dans le cadre */}
         <rect x="20" y="20" width="960" height="960" rx="60" fill="#FFFDF8" stroke="#EDE5D8" strokeWidth="6" />
+
+        {/* Lignes du cahier : la lettre se pose sur la rouge, son corps monte jusqu'à la verte. */}
+        {lines && (
+          <g strokeWidth="5" strokeLinecap="round" opacity="0.4" pointerEvents="none">
+            <line x1="60" x2="940" y1={lines.top} y2={lines.top} stroke="#5CB85C" />
+            <line x1="60" x2="940" y1={lines.baseline} y2={lines.baseline} stroke="#D9534F" />
+          </g>
+        )}
 
         <g fill="none" stroke="#CCB9B5" strokeWidth="12" strokeLinecap="round" strokeDasharray="2 34">
           {glyph.strokes.map((s, i) => <path key={i} d={s.d} />)}

@@ -536,6 +536,46 @@ function QuizSlide({ slide, game }: { slide: Extract<Slide, { kind: "quiz" }>; g
 }
 
 /**
+ * Quelle animation ? Les clips tournent côte à côte, sans son ; l'enseignant
+ * demande un geste (la question lui est rappelée), l'élève touche le bon clip.
+ */
+function ClipQuizSlide({ slide, game }: { slide: Extract<Slide, { kind: "clipQuiz" }>; game?: GameProps }) {
+  const [wrong, setWrong] = useState<string[]>([]);
+  const [found, setFound] = useState(false);
+  const solved = found || game?.revealed === true;
+  return (
+    <div className="text-center">
+      <div className="flex flex-wrap justify-center gap-[3vmin] px-[3vmin]">
+        {slide.choices.map((choice) => {
+          const isTarget = choice.id === slide.target.id;
+          const isWrong = wrong.includes(choice.id);
+          return (
+            <motion.button
+              key={choice.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (solved || isWrong) return;
+                game?.onPick?.(choice.id, isTarget);
+                if (isTarget) setFound(true);
+                else setWrong((w) => [...w, choice.id]);
+              }}
+              animate={isWrong ? { x: [0, -10, 10, -6, 6, 0], opacity: 0.3 } : solved && isTarget ? { scale: [1, 1.12, 1.06] } : {}}
+              whileHover={solved || isWrong ? undefined : { scale: 1.04 }}
+              className={`relative aspect-video rounded-[3vmin] border-[6px] shadow-md overflow-hidden bg-[#F5EEE8] ${slide.choices.length > 2 ? "w-[min(30vw,52vmin)]" : "w-[min(44vw,62vmin)]"}`}
+              style={{ borderColor: solved && isTarget ? "#6B705C" : slide.color }}
+            >
+              <video key={choice.clip.src} src={choice.clip.src} autoPlay loop muted playsInline className="w-full h-full object-cover pointer-events-none" />
+              {solved && <CountBadge count={game?.counts?.[choice.id]} />}
+            </motion.button>
+          );
+        })}
+      </div>
+      {solved && <Confetti />}
+    </div>
+  );
+}
+
+/**
  * QCM d'une leçon d'enseignant : ses réponses en image et/ou en texte, dans
  * l'ordre où il les a rédigées. La question n'est pas à l'écran : l'enseignant
  * la pose à voix haute (elle lui est rappelée sur son écran s'il l'a écrite).
@@ -588,34 +628,24 @@ function QcmSlide({ slide, game }: { slide: Extract<Slide, { kind: "qcm" }>; gam
   );
 }
 
-function BravoSlide({ score, plain }: { score?: number; plain?: boolean }) {
+function BravoSlide() {
   return (
     <div className="text-center">
-      <motion.div
+      <motion.p
         initial={{ scale: 0 }}
-        animate={{ scale: 1, rotate: [0, -8, 8, -8, 0] }}
-        transition={{ scale: { type: "spring", stiffness: 140, damping: 10 }, rotate: { delay: 0.6, duration: 1.2, repeat: Infinity, repeatDelay: 1.5 } }}
-        className="text-[26vmin] leading-none mb-[2vmin]"
+        animate={{ scale: 1 }}
+        transition={{ type: "spring", stiffness: 140, damping: 10 }}
+        className="text-[14vmin] font-black text-[#6B705C]"
+        style={ARABIC_FONT}
       >
-        🏆
-      </motion.div>
-      {!plain && <p className="text-[12vmin] font-black text-[#BB908E]" style={ARABIC_FONT}>أَحْسَنْتُمْ</p>}
-      {!!score && (
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-          className="text-[8vmin] font-black text-[#6B705C]"
-        >
-          ⭐ {score}
-        </motion.p>
-      )}
+        أَحْسَنْتُمْ
+      </motion.p>
       <Confetti />
     </div>
   );
 }
 
-export function SlideView({ slide, step, game, score }: { slide: Slide; step: number; game?: GameProps; score?: number }) {
+export function SlideView({ slide, step, game }: { slide: Slide; step: number; game?: GameProps }) {
   switch (slide.kind) {
     case "title": return <TitleSlide slide={slide} />;
     case "lettersTitle": return <LettersTitleSlide letters={slide.letters} step={step} />;
@@ -631,7 +661,8 @@ export function SlideView({ slide, step, game, score }: { slide: Slide; step: nu
     case "blur": return <BlurSlide slide={slide} step={step} />;
     case "missing": return <MissingSlide slide={slide} step={step} />;
     case "quiz": return <QuizSlide slide={slide} game={game} />;
+    case "clipQuiz": return <ClipQuizSlide slide={slide} game={game} />;
     case "qcm": return <QcmSlide slide={slide} game={game} />;
-    case "bravo": return <BravoSlide score={score} plain={slide.plain} />;
+    case "bravo": return <BravoSlide />;
   }
 }

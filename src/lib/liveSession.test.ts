@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generateCode, normalizeCode, recordAnswer, summarize, classScore, isGame, type Tally, type LiveAnswer } from "./liveSession";
+import { generateCode, normalizeCode, recordAnswer, summarize, isGame, type Tally, type LiveAnswer } from "./liveSession";
 
 const answer = (over: Partial<LiveAnswer>): LiveAnswer => ({
   slideIndex: 3, studentId: "s1", name: "Lina", choiceId: "a1", correct: false, ...over,
@@ -35,7 +35,6 @@ describe("recordAnswer / summarize", () => {
     tally = recordAnswer(tally, answer({ slideIndex: 4, correct: true }));
     expect(summarize(tally, 3)).toEqual({ answered: 2, found: ["Lina"], counts: { a1: 1, a4: 1 } });
     expect(summarize(tally, 9)).toEqual({ answered: 0, found: [], counts: {} });
-    expect(classScore(tally)).toBe(2);
   });
 
   it("ne modifie pas le décompte précédent", () => {
@@ -49,6 +48,8 @@ describe("isGame", () => {
   it("ne retient que les écrans à réponse", () => {
     expect(isGame({ kind: "bravo" })).toBe(false);
     expect(isGame({ kind: "quiz", target: { id: "a1", arabic: "" }, choices: [], color: "" })).toBe(true);
+    const clip = { id: "a1", clip: { src: "/a.mp4", caption: "", question: "" } };
+    expect(isGame({ kind: "clipQuiz", target: clip, choices: [clip], color: "" })).toBe(true);
     expect(isGame({ kind: "qcm", qcm: { id: "q", question: "?", options: [], correctId: "" }, color: "" })).toBe(true);
   });
 });

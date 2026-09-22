@@ -8,3 +8,6 @@ Générateur de src/data/letterFormStrokes.ts (geste d'écriture des formes lié
 4. Reporter forms.json dans src/data/letterFormStrokes.ts.
 
 hints.py rassemble les exceptions par lettre (sens des boucles, hampe du ط, etc.).
+
+lines.py -> lines.json : lignes d'écriture (base, hauteur du corps) de chaque glyphe,
+   à reporter dans src/data/letterLines.ts (pour les lettres isolées comme les formes liées).

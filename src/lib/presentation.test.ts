@@ -227,10 +227,10 @@ describe("buildLetterDeck", () => {
     }
   });
 
-  it("épargne au débutant les formes liées et tout mot écrit en arabe", () => {
+  it("épargne au débutant les formes liées et termine par le bravo", () => {
     const deck = buildLetterDeck(LESSON, "beginner", [], seeded());
     expect(deck.some((s) => s.kind === "forms")).toBe(false);
-    expect(deck.at(-1)).toEqual({ kind: "bravo", plain: true });
+    expect(deck.at(-1)).toEqual({ kind: "bravo" });
   });
 
   it("montre au niveau avancé les formes, chacune avec son mot, sur une seule diapositive", () => {
@@ -284,7 +284,7 @@ describe("buildVocabDeck", () => {
   });
 
   it("joue les animations d'un mot juste après sa carte, dans l'ordre", () => {
-    const clips = [{ src: "/animations/fruits/pomme-couper.mp4", caption: "On coupe la pomme" }, { src: "/animations/fruits/pomme-jus.mp4", caption: "On presse la pomme : du jus !" }];
+    const clips = [{ src: "/animations/fruits/pomme-couper.mp4", caption: "On coupe la pomme", question: "أَيْنَ التُّفَّاحَةُ الَّتِي تُقْطَعُ؟" }, { src: "/animations/fruits/pomme-jus.mp4", caption: "On presse la pomme : du jus !", question: "أَيْنَ التُّفَّاحَةُ الَّتِي تُعْصَرُ؟" }];
     const words = WORDS.map((w, i) => (i === 2 ? { ...w, clips } : w));
     const deck = buildVocabDeck("Les fruits", words, 8, [], undefined, seeded());
     const kinds = deck.map((s) => s.kind);
@@ -292,6 +292,31 @@ describe("buildVocabDeck", () => {
     expect(kinds.slice(at, at + 3)).toEqual(["flashcard", "video", "video"]);
     expect(deck.flatMap((s) => (s.kind === "video" ? [s.src] : []))).toEqual(clips.map((c) => c.src));
     expect(stepsFor(deck[at + 1])).toBe(0);
+  });
+
+  it("fait choisir la bonne animation parmi celles des mots présentés, dès deux mots animés", () => {
+    const clip = (id: string) => [{ src: `/animations/fruits/${id}.mp4`, caption: id, question: `أَيْنَ ${id}؟` }];
+    const words = WORDS.map((w, i) => (i < 3 ? { ...w, clips: clip(w.id) } : w));
+    const deck = buildVocabDeck("Les fruits", words, 8, [], undefined, seeded());
+    const rounds = deck.filter((s) => s.kind === "clipQuiz");
+    expect(rounds).toHaveLength(3);
+    for (const slide of rounds) {
+      if (slide.kind !== "clipQuiz") continue;
+      expect(slide.choices).toHaveLength(3);
+      expect(slide.choices.map((c) => c.id)).toContain(slide.target.id);
+      for (const c of slide.choices) expect(["w0", "w1", "w2"]).toContain(c.id);
+      expect(teacherQuestion(slide)).toBe(`أَيْنَ ${slide.target.id}؟`);
+      // Seule la question en arabe est rappelée, sans consigne en français.
+      expect(teacherInstruction(slide)).toBeNull();
+    }
+    // Après le quiz final, juste avant le bravo.
+    const kinds = deck.map((s) => s.kind);
+    expect(kinds.lastIndexOf("quiz")).toBeLessThan(kinds.indexOf("clipQuiz"));
+    expect(kinds.slice(-4)).toEqual(["clipQuiz", "clipQuiz", "clipQuiz", "bravo"]);
+    // Un seul mot animé : pas de jeu ; deux : deux clips à l'écran.
+    expect(buildVocabDeck("Les fruits", WORDS.map((w, i) => (i === 0 ? { ...w, clips: clip(w.id) } : w)), 8, [], undefined, seeded()).some((s) => s.kind === "clipQuiz")).toBe(false);
+    const two = buildVocabDeck("Les fruits", WORDS.map((w, i) => (i < 2 ? { ...w, clips: clip(w.id) } : w)), 8, [], undefined, seeded());
+    for (const s of two) if (s.kind === "clipQuiz") expect(s.choices).toHaveLength(2);
   });
 
   it("ne joue qu'avec les mots présentés", () => {
@@ -411,7 +436,7 @@ describe("buildVocabDeck avec les QCM de la leçon", () => {
     const deck = buildVocabDeck("Les animaux", WORDS, 4, QCMS, CHARTER_COLORS[2], seeded());
     expect(deck.filter((s) => s.kind === "quiz")).toHaveLength(0);
     expect(deck.flatMap((s) => (s.kind === "qcm" ? [s.qcm.id] : []))).toEqual(["q1", "q2"]);
-    // Les QCM viennent après la présentation et les devinettes, juste avant le bravo.
+    // Les QCM viennent après la présentation et les devinettes, juste avant le bravo (pas de mot animé ici).
     expect(deck.slice(-3).map((s) => s.kind)).toEqual(["qcm", "qcm", "bravo"]);
     for (const slide of deck) if ("color" in slide) expect(slide.color).toBe(CHARTER_COLORS[2]);
   });
@@ -455,6 +480,22 @@ describe("buildVocabDeck avec les QCM de la leçon", () => {
   it("rappelle à l'enseignant la question écrite du QCM, à poser à voix haute", () => {
     expect(teacherQuestion({ kind: "qcm", qcm: QCMS[0], color: "" })).toBe("Où est le chat ?");
     expect(teacherQuestion({ kind: "qcm", qcm: { ...QCMS[0], question: undefined }, color: "" })).toBeNull();
+  });
+
+  it("propose la question en arabe d'un QCM sans question écrite, d'après l'image de la bonne réponse", () => {
+    const options = [{ id: "a", imageUrl: "https://media.example.org/1.webp" }, { id: "b", imageUrl: "https://media.example.org/2.webp", word: "التُّفَّاحَةُ" }];
+    expect(teacherQuestion({ kind: "qcm", qcm: { id: "q", correctId: "b", options }, color: "" })).toBe("أَيْنَ التُّفَّاحَةُ؟");
+    // La question écrite l'emporte ; une image inconnue ne donne rien.
+    expect(teacherQuestion({ kind: "qcm", qcm: { id: "q", question: "Où ?", correctId: "b", options }, color: "" })).toBe("Où ?");
+    expect(teacherQuestion({ kind: "qcm", qcm: { id: "q", correctId: "a", options }, color: "" })).toBeNull();
+  });
+
+  it("attache aux réponses le mot de leur image, quand il est connu", () => {
+    const options = [{ id: "a", imageDataUrl: "https://media.example.org/pomme.webp" }, { id: "b", imageDataUrl: "https://media.example.org/x.webp" }];
+    const words: Record<string, string> = { "https://media.example.org/pomme.webp": "التُّفَّاحَةُ" };
+    const block = { id: "q1", type: "exercise", exercise: { type: "quiz", question: "", answerMode: "image", correctId: "a", options } };
+    const [qcm] = lessonQcms([block], (url) => (url ? words[url] : undefined));
+    expect(qcm.options.map((o) => o.word)).toEqual(["التُّفَّاحَةُ", undefined]);
     expect(stepsFor({ kind: "qcm", qcm: QCMS[0], color: "" })).toBe(0);
   });
 });

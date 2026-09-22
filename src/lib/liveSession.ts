@@ -55,7 +55,7 @@ export function channelName(code: string): string {
   return `ms-live-${code}`;
 }
 
-const GAME_KINDS: Slide["kind"][] = ["quiz", "qcm", "findLetter", "pickSound", "findInWord", "completeWord", "write"];
+const GAME_KINDS: Slide["kind"][] = ["quiz", "clipQuiz", "qcm", "findLetter", "pickSound", "findInWord", "completeWord", "write"];
 
 /** Les jeux sont les seuls écrans où l'élève répond. */
 export function isGame(slide: Slide): boolean {
@@ -89,12 +89,4 @@ export function summarize(tally: Tally, slideIndex: number): SlideSummary {
     found: results.filter((r) => r.found).map((r) => r.name),
     counts,
   };
-}
-
-/** Total des bonnes réponses de la classe, affiché à l'écran final. */
-export function classScore(tally: Tally): number {
-  return Object.values(tally).reduce(
-    (sum, slide) => sum + Object.values(slide).filter((r) => r.found).length,
-    0,
-  );
 }
