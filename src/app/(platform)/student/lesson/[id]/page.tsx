@@ -3,6 +3,7 @@ import { useState, use, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { ArrowLeft, Star, Trophy, ChevronRight, Sparkles } from "lucide-react";
 import { useGameStore } from "@/store/gameStore";
+import { useAuthStore } from "@/store/authStore";
 import { fetchLessons, type ApiLesson } from "@/lib/lessonsApi";
 import { flushExerciseEvents } from "@/lib/eventsApi";
 import { fetchPracticeSummary } from "@/lib/practiceApi";
@@ -171,6 +172,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
   // proposer la révision qu'à un élève qui a effectivement raté quelque chose.
   const [toReview,   setToReview]   = useState<number | null>(null);
   const { score, resetGame } = useGameStore();
+  const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
     (async () => {
@@ -199,12 +201,15 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
     return <div className="min-h-screen flex items-center justify-center"><div className="text-4xl animate-float">⏳</div></div>;
   }
 
+  // Un enseignant qui prévisualise la leçon revient sur son propre tableau de bord.
+  const home = user?.role === "teacher" ? "/teacher" : "/student";
+
   if (!lesson) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-2xl font-black mb-4">Leçon introuvable 😅</p>
-          <Link href="/student" className="text-[#8BA3B1] hover:underline">← Retour au tableau de bord</Link>
+          <Link href={home} className="text-[#8BA3B1] hover:underline">← Retour au tableau de bord</Link>
         </div>
       </div>
     );
@@ -227,7 +232,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
   /* ── Navbar shared ── */
   const nav = (
     <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
-      <Link href="/student" className="flex items-center gap-2 text-gray-600 hover:text-[#6B705C] transition-colors">
+      <Link href={home} className="flex items-center gap-2 text-gray-600 hover:text-[#6B705C] transition-colors">
         <ArrowLeft size={18} /> Retour
       </Link>
       <p className="font-black text-[#2d2d2d] text-sm truncate max-w-[200px]">{lesson.title}</p>
@@ -272,7 +277,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
               style={{ borderColor: color, color }}>
               Rejouer
             </button>
-            <Link href="/student"
+            <Link href={home}
               className="px-6 py-3 rounded-full text-white font-bold hover:shadow-lg transition-all flex items-center gap-2"
               style={{ background: color }}>
               <Trophy size={16} /> Tableau de bord

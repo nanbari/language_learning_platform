@@ -9,6 +9,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Volume2, ChevronRight, CheckCircle, XCircle } from "lucide-react";
 import { useGameStore } from "@/store/gameStore";
+import { Confetti } from "@/components/Confetti";
 import { useExerciseTracker } from "@/lib/useExerciseTracker";
 
 /* ── Types ── */
@@ -101,6 +102,8 @@ export function QuizRenderer({ ex, color, onNext, idx, total, lessonId, blockId 
 
   return (
     <div className="max-w-xl mx-auto">
+      {/* Confettis en même temps que les applaudissements */}
+      {correct && <Confetti />}
       {/* Progress */}
       <div className="flex items-center gap-3 mb-6">
         <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
@@ -305,6 +308,8 @@ export function WordOrderRenderer({ ex, color, onNext, lessonId, blockId }: {
 
   return (
     <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+      {/* Confettis en même temps que les applaudissements */}
+      {feedback === "correct" && <Confetti />}
       <div className="flex flex-col items-center gap-2 mb-6">
         <p className="font-bold text-center text-[#2d2d2d]">Remets les mots dans l&apos;ordre</p>
         <div className="flex items-center gap-3">

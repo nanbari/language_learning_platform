@@ -35,7 +35,7 @@ export default function Footer() {
                 ASBL
               </p>
               <span className="font-black text-lg" style={{ fontFamily: "'Fredoka One', cursive" }}>
-                Monte & Souris
+                Monte <span className="text-[#8BA3B1]">&</span> Souris
               </span>
             </div>
           </div>

@@ -107,7 +107,7 @@ export default function HomePage() {
             </div>
 
             <h1 className="text-5xl lg:text-7xl font-black text-[#2D2D2D] leading-tight mb-3 fade-up" style={{ fontFamily: "'Fredoka One', cursive", animationDelay: "120ms" }}>
-              Monte <span style={{ color: "#2D2D2D" }}>&</span> So<span style={{ color: "#BB908E" }}>u</span>ri<span style={{ color: "#999B84" }}>s</span>
+              Monte <span style={{ color: "#8BA3B1" }}>&</span> So<span style={{ color: "#BB908E" }}>u</span>ri<span style={{ color: "#999B84" }}>s</span>
             </h1>
 
             <p

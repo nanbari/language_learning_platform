@@ -2,54 +2,39 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, RotateCcw, Volume2 } from "lucide-react";
+import { Confetti } from "@/components/Confetti";
+import { BrandMark, Wordmark } from "@/components/ui/BrandMark";
 import { LetterGlyph, LetterTracing } from "@/components/present/LetterTracing";
 import { LetterWriting } from "@/components/present/LetterWriting";
-import { isRightForm, writingGlyph, type Slide } from "@/lib/presentation";
+import { isRightForm, writingGlyph, type Slide, type VocabWord } from "@/lib/presentation";
 import { joinedSegments } from "@/lib/arabicWord";
 import { playLetterSound } from "@/lib/letterSound";
 import type { ArabicLetter } from "@/data/arabicAlphabet";
-import type { ArabicWord } from "@/data/arabicVocabulary";
 
 // Naskh : le style des cahiers d'école, cohérent avec le tracé animé des lettres.
 const ARABIC_FONT = { fontFamily: "'Noto Naskh Arabic', 'Cairo', serif", direction: "rtl" as const };
-const CONFETTI_COLORS = ["#BB908E", "#CCB9B5", "#8BA3B1", "#6B705C", "#999B84", "#7B868E"];
 /** Fond de la bonne réponse : sauge de la charte, éclaircie. */
 const SOLVED_BG = "#999B8466";
 
-/** Pluie de confettis ; positions dérivées de l'indice pour rester pur au rendu. */
-export function Confetti() {
+/** Un mot arabe se lit de droite à gauche ; un mot français garde son sens de lecture. */
+function wordFont(text: string) {
+  return /[\u0600-\u06FF]/.test(text) ? ARABIC_FONT : { fontFamily: ARABIC_FONT.fontFamily };
+}
+
+function WordLabel({ word, color }: { word: VocabWord; color: string }) {
+  if (!word.arabic) return null;
   return (
-    <div className="pointer-events-none fixed inset-0 overflow-hidden z-50" aria-hidden>
-      {Array.from({ length: 60 }, (_, i) => {
-        const left = (i * 37) % 100;
-        const size = 8 + ((i * 13) % 10);
-        return (
-          <motion.span
-            key={i}
-            className="absolute top-0 block"
-            style={{
-              left: `${left}%`,
-              width: size,
-              height: size * 1.6,
-              background: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
-              borderRadius: i % 3 === 0 ? "50%" : 2,
-            }}
-            initial={{ y: "-10vh", rotate: 0, opacity: 1 }}
-            animate={{ y: "110vh", rotate: 360 + ((i * 53) % 360), x: ((i * 29) % 120) - 60, opacity: [1, 1, 0.8, 0] }}
-            transition={{ duration: 2.2 + ((i * 7) % 12) / 10, delay: ((i * 11) % 8) / 10, ease: "easeIn" }}
-          />
-        );
-      })}
-    </div>
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center">
+      <p className="text-[13vmin] leading-tight font-black" style={{ ...wordFont(word.arabic), color }}>{word.arabic}</p>
+    </motion.div>
   );
 }
 
-function WordLabel({ word, color }: { word: ArabicWord; color: string }) {
-  return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center">
-      <p className="text-[13vmin] leading-tight font-black" style={{ ...ARABIC_FONT, color }}>{word.arabic}</p>
-    </motion.div>
-  );
+/** Illustration d'un mot, à la taille du texte qui l'entoure : l'image de l'enseignant, à défaut un emoji. */
+function WordPicture({ word }: { word: VocabWord }) {
+  if (!word.imageUrl) return <>{word.emoji}</>;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={word.imageUrl} alt="" draggable={false} className="inline-block w-[1em] h-[1em] object-cover rounded-[0.12em]" />;
 }
 
 function TitleSlide({ slide }: { slide: Extract<Slide, { kind: "title" }> }) {
@@ -62,7 +47,12 @@ function TitleSlide({ slide }: { slide: Extract<Slide, { kind: "title" }> }) {
         className="text-[22vmin] leading-none mb-[3vmin] font-black"
         style={{ ...ARABIC_FONT, color: slide.color }}
       >
-        {slide.emoji}
+        {slide.emoji ?? (
+          <span className="inline-flex flex-col items-center gap-[3vmin]">
+            <BrandMark className="w-[34vmin] h-[34vmin]" />
+            <Wordmark className="text-[9vmin] leading-none" />
+          </span>
+        )}
       </motion.div>
       {slide.arabic && (
         <motion.p
@@ -408,8 +398,9 @@ function CompleteWordSlide({ slide, game }: { slide: Extract<Slide, { kind: "com
   );
 }
 
+/** L'image, puis le mot au dos de la carte ; sans mot écrit, la carte ne se retourne pas. */
 function FlashcardSlide({ slide, step }: { slide: Extract<Slide, { kind: "flashcard" }>; step: number }) {
-  const flipped = step >= 1;
+  const flipped = step >= 1 && !!slide.word.arabic;
   return (
     <div className="flex flex-col items-center" style={{ perspective: 1600 }}>
       <motion.div
@@ -423,17 +414,32 @@ function FlashcardSlide({ slide, step }: { slide: Extract<Slide, { kind: "flashc
           className="absolute inset-0 rounded-[4vmin] bg-[#FFFDF8] border-[6px] shadow-xl flex flex-col items-center justify-center"
           style={{ borderColor: slide.color, backfaceVisibility: "hidden" }}
         >
-          <span className="text-[30vmin] leading-none">{slide.word.emoji}</span>
+          <span className="text-[38vmin] leading-none"><WordPicture word={slide.word} /></span>
         </div>
         <div
           className="absolute inset-0 rounded-[4vmin] border-[6px] shadow-xl flex flex-col items-center justify-center bg-[#FFFDF8]"
           style={{ borderColor: slide.color, backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
         >
-          <span className="text-[14vmin] leading-none mb-[1vmin]">{slide.word.emoji}</span>
-          <p className="text-[15vmin] leading-tight font-black" style={{ ...ARABIC_FONT, color: slide.color }}>{slide.word.arabic}</p>
+          <span className="text-[24vmin] leading-none mb-[2vmin]"><WordPicture word={slide.word} /></span>
+          <WordLabel word={slide.word} color={slide.color} />
         </div>
       </motion.div>
     </div>
+  );
+}
+
+/** Animation d'un mot : vidéo muette en boucle, dans un cadre de la couleur de la leçon. */
+function VideoSlide({ slide }: { slide: Extract<Slide, { kind: "video" }> }) {
+  return (
+    <motion.div
+      initial={{ scale: 0.8, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: "spring", stiffness: 160, damping: 16 }}
+      className="mx-auto w-[min(88vw,142vmin)] aspect-video rounded-[4vmin] border-[6px] shadow-xl overflow-hidden bg-[#F5EEE8]"
+      style={{ borderColor: slide.color }}
+    >
+      <video key={slide.src} src={slide.src} autoPlay loop muted playsInline className="w-full h-full object-cover" />
+    </motion.div>
   );
 }
 
@@ -448,7 +454,7 @@ function BlurSlide({ slide, step }: { slide: Extract<Slide, { kind: "blur" }>; s
         transition={{ duration: 0.8 }}
         className="text-[30vmin] leading-none mb-[2vmin]"
       >
-        {slide.word.emoji}
+        <WordPicture word={slide.word} />
       </motion.div>
       <div className="h-[22vmin]">{revealed && <WordLabel word={slide.word} color={slide.color} />}</div>
       {revealed && <Confetti />}
@@ -479,7 +485,7 @@ function MissingSlide({ slide, step }: { slide: Extract<Slide, { kind: "missing"
                   exit={{ scale: 0, rotate: -90 }}
                   transition={{ duration: 0.25 }}
                 >
-                  {hidden ? "❓" : word.emoji}
+                  {hidden ? "❓" : <WordPicture word={word} />}
                 </motion.span>
               </AnimatePresence>
             </motion.div>
@@ -498,9 +504,7 @@ function QuizSlide({ slide, game }: { slide: Extract<Slide, { kind: "quiz" }>; g
   const solved = found || game?.revealed === true;
   return (
     <div className="text-center">
-      <p className="text-[12vmin] leading-tight font-black mb-[5vmin]" style={{ ...ARABIC_FONT, color: slide.color }}>
-        أَيْنَ {slide.target.arabic}؟
-      </p>
+      <div className="mb-[5vmin]"><WordLabel word={slide.target} color={slide.color} /></div>
       <div className="flex justify-center gap-[3vmin]">
         {slide.choices.map((word) => {
           const isTarget = word.id === slide.target.id;
@@ -520,8 +524,61 @@ function QuizSlide({ slide, game }: { slide: Extract<Slide, { kind: "quiz" }>; g
               className="relative w-[22vmin] h-[22vmin] rounded-[3vmin] bg-[#FFFDF8] border-4 shadow-md flex items-center justify-center text-[14vmin] leading-none"
               style={{ borderColor: solved && isTarget ? "#6B705C" : slide.color, background: solved && isTarget ? SOLVED_BG : undefined }}
             >
-              {word.emoji}
+              <WordPicture word={word} />
               {solved && <CountBadge count={game?.counts?.[word.id]} />}
+            </motion.button>
+          );
+        })}
+      </div>
+      {solved && <Confetti />}
+    </div>
+  );
+}
+
+/**
+ * QCM d'une leçon d'enseignant : ses réponses en image et/ou en texte, dans
+ * l'ordre où il les a rédigées. La question n'est pas à l'écran : l'enseignant
+ * la pose à voix haute (elle lui est rappelée sur son écran s'il l'a écrite).
+ */
+function QcmSlide({ slide, game }: { slide: Extract<Slide, { kind: "qcm" }>; game?: GameProps }) {
+  const [wrong, setWrong] = useState<string[]>([]);
+  const [found, setFound] = useState(false);
+  const solved = found || game?.revealed === true;
+  const { qcm } = slide;
+  return (
+    <div className="text-center">
+      <div className="flex flex-wrap justify-center gap-[3vmin] px-[4vmin]">
+        {qcm.options.map((option) => {
+          const isTarget = option.id === qcm.correctId;
+          const isWrong = wrong.includes(option.id);
+          return (
+            <motion.button
+              key={option.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (solved || isWrong) return;
+                game?.onPick?.(option.id, isTarget);
+                if (isTarget) setFound(true);
+                else setWrong((w) => [...w, option.id]);
+              }}
+              animate={isWrong ? { x: [0, -10, 10, -6, 6, 0], opacity: 0.3 } : solved && isTarget ? { scale: [1, 1.15, 1.08] } : {}}
+              whileHover={solved || isWrong ? undefined : { scale: 1.06 }}
+              className="relative w-[26vmin] min-h-[26vmin] p-[2vmin] rounded-[3vmin] bg-[#FFFDF8] border-4 shadow-md flex flex-col items-center justify-center gap-[1.5vmin]"
+              style={{ borderColor: solved && isTarget ? "#6B705C" : slide.color, background: solved && isTarget ? SOLVED_BG : undefined }}
+            >
+              {option.imageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={option.imageUrl}
+                  alt=""
+                  draggable={false}
+                  className={`object-cover rounded-[2vmin] ${option.text ? "w-[14vmin] h-[14vmin]" : "w-[20vmin] h-[20vmin]"}`}
+                />
+              )}
+              {option.text && (
+                <p className="text-[4.5vmin] leading-tight font-black text-[#2D2D2D]" style={wordFont(option.text)}>{option.text}</p>
+              )}
+              {solved && <CountBadge count={game?.counts?.[option.id]} />}
             </motion.button>
           );
         })}
@@ -570,9 +627,11 @@ export function SlideView({ slide, step, game, score }: { slide: Slide; step: nu
     case "findInWord": return <FindInWordSlide slide={slide} game={game} />;
     case "completeWord": return <CompleteWordSlide slide={slide} game={game} />;
     case "flashcard": return <FlashcardSlide slide={slide} step={step} />;
+    case "video": return <VideoSlide slide={slide} />;
     case "blur": return <BlurSlide slide={slide} step={step} />;
     case "missing": return <MissingSlide slide={slide} step={step} />;
     case "quiz": return <QuizSlide slide={slide} game={game} />;
+    case "qcm": return <QcmSlide slide={slide} game={game} />;
     case "bravo": return <BravoSlide score={score} plain={slide.plain} />;
   }
 }

@@ -55,7 +55,7 @@ export function channelName(code: string): string {
   return `ms-live-${code}`;
 }
 
-const GAME_KINDS: Slide["kind"][] = ["quiz", "findLetter", "pickSound", "findInWord", "completeWord", "write"];
+const GAME_KINDS: Slide["kind"][] = ["quiz", "qcm", "findLetter", "pickSound", "findInWord", "completeWord", "write"];
 
 /** Les jeux sont les seuls écrans où l'élève répond. */
 export function isGame(slide: Slide): boolean {

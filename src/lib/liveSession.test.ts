@@ -48,6 +48,7 @@ describe("recordAnswer / summarize", () => {
 describe("isGame", () => {
   it("ne retient que les écrans à réponse", () => {
     expect(isGame({ kind: "bravo" })).toBe(false);
-    expect(isGame({ kind: "quiz", target: { id: "a1", arabic: "", translit: "", french: "", emoji: "" }, choices: [], color: "" })).toBe(true);
+    expect(isGame({ kind: "quiz", target: { id: "a1", arabic: "" }, choices: [], color: "" })).toBe(true);
+    expect(isGame({ kind: "qcm", qcm: { id: "q", question: "?", options: [], correctId: "" }, color: "" })).toBe(true);
   });
 });
