@@ -1,86 +1,157 @@
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
-import ContactSection from "@/components/sections/ContactSection";
+import Image from "next/image";
 import Link from "next/link";
 import {
-  ArrowRight, Sparkles, Monitor, Users, Star, Clock,
-  Leaf, Award,
+  ArrowRight, Clock, Compass, HeartHandshake, House, Laptop, Leaf, MapPin, Phone, Users,
 } from "lucide-react";
+import Header from "@/components/layout/Header";
+import Footer from "@/components/layout/Footer";
+import Reveal from "@/components/home/Reveal";
 
-/* ─── Décorations SVG réutilisables ─────────────────────────────────── */
+/* ─── Styles partagés ──────────────────────────────────────────────────
+   Formes : boutons et puces en pilule, conteneurs à 1.75rem.
+   Accent unique : mousse (ms-moss). Icônes lucide, trait 1.75. */
 
-function Arches({ className = "" }: { className?: string }) {
-  return (
-    <svg width="100" height="70" viewBox="0 0 100 70" fill="none" className={className}>
-      <rect x="2"  y="44" width="26" height="24" rx="4" stroke="#BB908E" strokeWidth="3"/>
-      <rect x="37" y="30" width="26" height="38" rx="4" stroke="#8BA3B1" strokeWidth="3"/>
-      <rect x="72" y="10" width="26" height="58" rx="4" stroke="#999B84" strokeWidth="3.5"/>
-      <text x="4" y="14" fontSize="12" fill="#999B84">★</text>
-    </svg>
-  );
-}
+const ICON = 1.75;
+
+const btnPrimary =
+  "inline-flex items-center gap-2 rounded-full bg-ms-moss px-6 py-3 text-sm font-bold text-ms-cream transition-all duration-300 ease-out-soft hover:-translate-y-0.5 hover:shadow-[0_12px_30px_-14px_rgba(107,112,92,0.7)] active:translate-y-0 active:scale-[0.98]";
+const btnGhost =
+  "inline-flex items-center gap-2 rounded-full border border-ms-ink/15 px-6 py-3 text-sm font-bold text-ms-ink transition-all duration-300 ease-out-soft hover:border-ms-moss hover:text-ms-moss active:scale-[0.98]";
+const btnOnMoss =
+  "inline-flex items-center gap-2 rounded-full bg-ms-cream px-6 py-3 text-sm font-bold text-ms-moss transition-all duration-300 ease-out-soft hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]";
+const btnOnMossGhost =
+  "inline-flex items-center gap-2 rounded-full border border-ms-cream/40 px-6 py-3 text-sm font-bold text-ms-cream transition-all duration-300 ease-out-soft hover:border-ms-cream hover:bg-ms-cream/10 active:scale-[0.98]";
 
 /* ─── Données ────────────────────────────────────────────────────────── */
 
-const programs = [
+const facts = [
+  { icon: Users,  text: "Élèves de 3 à 15 ans" },
+  { icon: MapPin, text: "À domicile à Bruxelles ou en visio" },
+  { icon: Laptop, text: "Plateforme de révision incluse" },
+];
+
+type Course = {
+  name: string;
+  age: string;
+  desc: string;
+  where: { icon: typeof House; text: string };
+  group: string;
+  price: string;
+  image?: { src: string; alt: string };
+  tone: "white" | "sand" | "moss";
+};
+
+const courses: Course[] = [
   {
-    name: "Maths en présentiel", age: "3–12 ans · Individuel", color: "#BB908E", bg: "#F5EEEE",
-    format: "Présentiel",
-    schedule: "Horaire à convenir",
-    teachers: "Cours particulier",
-    capacity: "1 élève",
-    desc: "Un accompagnement individuel en mathématiques pour les enfants de 3 à 12 ans. Chaque séance est construite sur mesure, avec du matériel concret et une progression qui respecte le rythme de l'enfant.",
-    subjects: ["Manipulation concrète", "Progression sur mesure", "Confiance retrouvée"],
+    name: "Maths en présentiel",
+    age: "3-12 ans, individuel",
+    desc: "Un accompagnement individuel avec du matériel concret, construit sur mesure et au rythme de l'enfant.",
+    where: { icon: House, text: "À domicile, horaire à convenir" },
+    group: "1 élève",
     price: "25 €/h ou 40 €/2h",
+    image: {
+      // TODO photo réelle : enfant qui manipule du matériel Montessori (perles, barres), 1200x800
+      src: "https://picsum.photos/seed/monte-souris-materiel/1200/800",
+      alt: "Matériel Montessori de numération posé sur une table",
+    },
+    tone: "white",
   },
   {
-    name: "Maths ados — Individuel", age: "12–15 ans · En ligne", color: "#8BA3B1", bg: "#EAF0F4",
-    format: "En ligne",
-    schedule: "Horaire à convenir",
-    teachers: "Cours particulier",
-    capacity: "1 élève",
-    desc: "Un suivi individuel en visio pour collégiens de 12 à 15 ans. Rythme intensif, objectifs sur mesure, pour combler les lacunes ou préparer un examen important.",
-    subjects: ["Soutien scolaire", "Préparation aux examens", "Méthodologie"],
+    name: "Maths ados, individuel",
+    age: "12-15 ans, en ligne",
+    desc: "Un suivi individuel en visio pour combler les lacunes, préparer un examen ou retrouver une méthode de travail.",
+    where: { icon: Laptop, text: "En visio, horaire à convenir" },
+    group: "1 élève",
     price: "30 €/h ou 50 €/2h",
+    tone: "sand",
   },
   {
-    name: "Préparation au CE1D", age: "12–15 ans · En ligne", color: "#6B705C", bg: "#ECEEE9",
-    format: "En ligne",
-    schedule: "Samedi, 11h–12h30",
-    teachers: "Cours collectif",
-    capacity: "6 élèves max",
-    desc: "Un cours collectif hebdomadaire dédié à la préparation du CE1D en mathématiques, de septembre à juin. Chaque samedi matin, on revoit les notions clés, on s'entraîne sur des épreuves types et on travaille la méthodologie, ensemble.",
-    subjects: ["Épreuves types", "Méthodologie", "Septembre à juin"],
+    name: "Préparation au CE1D",
+    age: "12-15 ans, en ligne",
+    desc: "Un cours collectif hebdomadaire de septembre à juin : notions clés, épreuves types et méthodologie, ensemble.",
+    where: { icon: Laptop, text: "En visio, le samedi de 11h à 12h30" },
+    group: "6 élèves max",
     price: "40 €/mois",
+    tone: "moss",
   },
 ];
 
 const pillars = [
   {
     icon: Leaf,
-    color: "#6B705C", // moss — végétal, croissance
     title: "Pédagogie Montessori",
-    desc: "Manipulation concrète avant abstraction : matériel sensoriel, mise en situation et construction progressive du sens — l'esprit mathématique prend racine dans les doigts avant les chiffres.",
+    desc: "Manipuler avant d'abstraire : matériel sensoriel, mises en situation et construction progressive du sens.",
   },
   {
-    icon: Sparkles,
-    color: "#8BA3B1", // slate
+    icon: Compass,
     title: "Progression sur mesure",
-    desc: "Chaque élève avance à son rythme, avec un parcours construit à partir de ses acquis et de ses difficultés — pas de programme rigide, mais un cap clair.",
+    desc: "Chaque élève avance à son rythme, avec un parcours construit à partir de ses acquis et de ses difficultés. Un cap clair, sans programme rigide.",
   },
   {
     icon: Users,
-    color: "#BB908E", // blush — chaleur de l'échange
     title: "Suivi personnalisé",
-    desc: "Attention complète en tête-à-tête pour les 3-12 ans, petits groupes en ligne pour les ados : chaque question trouve sa réponse, chaque blocage son détour.",
+    desc: "Tête-à-tête pour les 3-12 ans, petits groupes en ligne pour les ados : chaque question trouve sa réponse.",
   },
   {
-    icon: Award,
-    color: "#999B84", // sage — confiance
+    icon: HeartHandshake,
     title: "Cadre bienveillant",
-    desc: "Se réconcilier avec les maths, c'est d'abord leur rendre leur beauté. Beaucoup d'encouragement, du temps pour chaque question, et la fierté de comprendre par soi-même.",
+    desc: "Beaucoup d'encouragement, du temps pour chaque question, et la fierté de comprendre par soi-même.",
   },
 ];
+
+/* ─── Cellule « cours » ──────────────────────────────────────────────── */
+
+function CourseCell({ course, className = "" }: { course: Course; className?: string }) {
+  const onMoss = course.tone === "moss";
+  const surface =
+    course.tone === "white" ? "bg-ms-white border border-ms-sand"
+    : course.tone === "sand" ? "bg-ms-sand"
+    : "bg-ms-moss text-ms-cream";
+  const muted = onMoss ? "text-ms-cream/75" : "text-ms-ink/65";
+  const chip  = onMoss ? "bg-ms-cream/15 text-ms-cream" : "bg-ms-moss/10 text-ms-moss";
+  const Where = course.where.icon;
+
+  return (
+    <article className={`group flex flex-col overflow-hidden rounded-[1.75rem] ${surface} ${className}`}>
+      {course.image && (
+        <div className="relative aspect-[16/10] overflow-hidden bg-ms-sand">
+          <Image
+            src={course.image.src}
+            alt={course.image.alt}
+            fill
+            sizes="(min-width: 1024px) 60vw, 100vw"
+            className="object-cover transition-transform duration-700 ease-out-soft group-hover:scale-[1.03]"
+          />
+        </div>
+      )}
+
+      <div className="flex flex-1 flex-col p-7 sm:p-8">
+        <span className={`self-start rounded-full px-3 py-1 text-xs font-bold ${chip}`}>{course.age}</span>
+        <h3 className="mt-4 font-display text-2xl font-semibold tracking-tight">{course.name}</h3>
+        <p className={`mt-3 leading-relaxed ${muted}`}>{course.desc}</p>
+
+        <ul className={`mt-6 space-y-2 text-sm ${muted}`}>
+          <li className="flex items-center gap-2.5">
+            <Where size={18} strokeWidth={ICON} className="shrink-0" />
+            {course.where.text}
+          </li>
+          <li className="flex items-center gap-2.5">
+            <Users size={18} strokeWidth={ICON} className="shrink-0" />
+            {course.group}
+          </li>
+        </ul>
+
+        <div className="mt-8 flex flex-1 flex-wrap items-end justify-between gap-4">
+          <p className="font-display text-2xl font-semibold tracking-tight">{course.price}</p>
+          <Link href="/contact" className={onMoss ? btnOnMoss : btnPrimary}>
+            S’inscrire
+            <ArrowRight size={16} strokeWidth={2} className="transition-transform duration-300 group-hover:translate-x-0.5" />
+          </Link>
+        </div>
+      </div>
+    </article>
+  );
+}
 
 /* ─── Page ───────────────────────────────────────────────────────────── */
 
@@ -88,225 +159,193 @@ export default function HomePage() {
   return (
     <>
       <Header />
-      <main className="overflow-hidden">
+      <main>
 
-        {/* ── 1. Hero ─────────────────────────────────────────────────── */}
-        <section className="relative bg-[#F5EEE6] py-24 lg:py-32 px-4 overflow-hidden">
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-[0.13] pointer-events-none hidden lg:block">
-            <svg width="240" height="280" viewBox="0 0 100 70" fill="none">
-              <text x="4" y="14" fontSize="12" fill="#999B84">★</text>
-              <rect x="2"  y="44" width="26" height="24" rx="4" stroke="#BB908E" strokeWidth="3"/>
-              <rect x="37" y="30" width="26" height="38" rx="4" stroke="#8BA3B1" strokeWidth="3"/>
-              <rect x="72" y="10" width="26" height="58" rx="4" stroke="#999B84" strokeWidth="3.5"/>
-            </svg>
-          </div>
+        {/* ── Hero : texte à gauche, photo à droite ───────────────────── */}
+        <section className="bg-ms-cream">
+          <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-10 px-4 pt-12 pb-16 sm:px-6 lg:grid-cols-12 lg:gap-12 lg:pt-16 lg:pb-24">
+            <Reveal className="lg:col-span-6">
+              <h1 className="font-display text-4xl font-semibold leading-[1.05] tracking-tight text-ms-ink sm:text-5xl lg:text-[3.5rem]">
+                Des maths qu’on comprend avec les mains.
+              </h1>
+              <p className="mt-6 max-w-[46ch] text-lg leading-relaxed text-ms-ink/70">
+                Cours particuliers inspirés de Montessori : à domicile à Bruxelles dès 3 ans, en visio pour les 12-15 ans.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <a href="#courses" className={btnPrimary}>
+                  Découvrir les cours
+                  <ArrowRight size={16} strokeWidth={2} />
+                </a>
+                <Link href="/login" className={btnGhost}>
+                  Espace élève
+                </Link>
+              </div>
+            </Reveal>
 
-          <div className="max-w-6xl mx-auto relative z-10">
-            <div className="flex justify-start mb-4 fade-up" style={{ animationDelay: "0ms" }}>
-              <Arches />
-            </div>
-
-            <h1 className="text-5xl lg:text-7xl font-black text-[#2D2D2D] leading-tight mb-3 fade-up" style={{ fontFamily: "'Fredoka One', cursive", animationDelay: "120ms" }}>
-              Monte <span style={{ color: "#2D2D2D" }}>&</span> So<span style={{ color: "#BB908E" }}>u</span>ri<span style={{ color: "#999B84" }}>s</span>
-            </h1>
-
-            <p
-              className="relative inline-block text-2xl lg:text-3xl text-[#2D2D2D]/70 mb-8 fade-up"
-              style={{ fontFamily: "'Caveat', cursive", animationDelay: "240ms" }}
-            >
-              Les maths, à ton rythme&nbsp;♡
-              <svg
-                aria-hidden
-                width="240" height="14" viewBox="0 0 240 14" fill="none"
-                className="absolute -bottom-2 left-0 pointer-events-none"
-              >
-                <path
-                  d="M3,8 Q60,2 118,7 T237,5"
-                  stroke="#999B84" strokeWidth="2.5" strokeLinecap="round" opacity="0.55"
-                  className="draw-underline"
+            <Reveal delay={0.15} className="lg:col-span-6">
+              <div className="relative aspect-[5/4] max-h-[520px] overflow-hidden rounded-[1.75rem] bg-ms-sand lg:aspect-[4/5] lg:max-h-[calc(100dvh-12rem)]">
+                {/* TODO photo réelle : séance de maths, enfant et enseignant autour du matériel, 1200x1500 */}
+                <Image
+                  src="https://picsum.photos/seed/monte-souris-seance/1200/1500"
+                  alt="Un enfant manipule des perles de numération pendant une séance de mathématiques"
+                  fill
+                  priority
+                  sizes="(min-width: 1024px) 50vw, 100vw"
+                  className="object-cover"
                 />
-              </svg>
-            </p>
+              </div>
+            </Reveal>
+          </div>
+        </section>
 
-            <p
-              className="text-lg text-[#2D2D2D]/60 mb-8 leading-relaxed max-w-2xl fade-up"
-              style={{ animationDelay: "360ms" }}
-            >
-              Monte & Souris, c'est un accompagnement en mathématiques inspiré de la pédagogie Montessori. Cours particuliers en présentiel pour les 3-12 ans, et soutien en ligne pour les ados de 12 à 15 ans — avec du matériel concret et la fierté de comprendre par soi-même.
-            </p>
+        {/* ── Repères : trois faits, filets fins ──────────────────────── */}
+        <section className="border-y border-ms-sand bg-ms-white">
+          <ul className="mx-auto grid max-w-6xl grid-cols-1 divide-y divide-ms-sand px-4 sm:px-6 md:grid-cols-3 md:divide-x md:divide-y-0">
+            {facts.map(({ icon: Icon, text }) => (
+              <li key={text} className="flex items-center gap-3 py-5 text-sm font-semibold text-ms-ink/80 md:justify-center md:px-6">
+                <Icon size={20} strokeWidth={ICON} className="shrink-0 text-ms-moss" />
+                {text}
+              </li>
+            ))}
+          </ul>
+        </section>
 
-            <div className="flex flex-wrap gap-3 fade-up" style={{ animationDelay: "480ms" }}>
+        {/* ── Nos cours : grille asymétrique 1 + 2 ─────────────────────── */}
+        <section id="courses" className="scroll-mt-16 bg-ms-cream py-20 lg:py-28">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <Reveal className="max-w-[60ch]">
+              <h2 className="font-display text-3xl font-semibold tracking-tight text-ms-ink sm:text-4xl">
+                Trois formules, un même cadre.
+              </h2>
+              <p className="mt-4 text-lg leading-relaxed text-ms-ink/70">
+                Suivi sur mesure, matériel concret et plateforme de révision incluse, quel que soit l’âge.
+              </p>
+            </Reveal>
+
+            <div className="mt-12 grid grid-cols-1 gap-5 lg:grid-cols-12">
+              <Reveal className="lg:col-span-7 lg:row-span-2 flex">
+                <CourseCell course={courses[0]} className="w-full" />
+              </Reveal>
+              <Reveal delay={0.08} className="lg:col-span-5 flex">
+                <CourseCell course={courses[1]} className="w-full" />
+              </Reveal>
+              <Reveal delay={0.16} className="lg:col-span-5 flex">
+                <CourseCell course={courses[2]} className="w-full" />
+              </Reveal>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Notre approche : photo large puis quatre principes ──────── */}
+        <section id="about" className="scroll-mt-16 bg-ms-white py-20 lg:py-28">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <Reveal className="max-w-[60ch]">
+              <h2 className="font-display text-3xl font-semibold tracking-tight text-ms-ink sm:text-4xl">
+                Notre approche
+              </h2>
+              <p className="mt-4 text-lg leading-relaxed text-ms-ink/70">
+                Quatre principes au cœur de chaque séance.
+              </p>
+            </Reveal>
+
+            <Reveal delay={0.1}>
+              <div className="relative mt-12 aspect-[16/9] overflow-hidden rounded-[1.75rem] bg-ms-sand sm:aspect-[21/9]">
+                {/* TODO photo réelle : mains d'enfant sur du matériel Montessori, plan large, 1800x800 */}
+                <Image
+                  src="https://picsum.photos/seed/monte-souris-mains/1800/800"
+                  alt="Des mains d'enfant alignent des barres de calcul Montessori"
+                  fill
+                  sizes="(min-width: 1152px) 1152px, 100vw"
+                  className="object-cover"
+                />
+              </div>
+            </Reveal>
+
+            <div className="mt-12 grid grid-cols-1 gap-x-12 gap-y-10 sm:grid-cols-2">
+              {pillars.map(({ icon: Icon, title, desc }, i) => (
+                <Reveal key={title} delay={i * 0.06} className="border-t border-ms-sand pt-6">
+                  <Icon size={24} strokeWidth={ICON} className="text-ms-moss" />
+                  <h3 className="mt-4 font-display text-xl font-semibold tracking-tight text-ms-ink">{title}</h3>
+                  <p className="mt-2 max-w-[48ch] leading-relaxed text-ms-ink/70">{desc}</p>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── Plateforme : bloc mousse, texte + capture ───────────────── */}
+        <section className="bg-ms-cream py-20 lg:py-28">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <Reveal>
+              <div className="grid overflow-hidden rounded-[1.75rem] bg-ms-moss text-ms-cream lg:grid-cols-2">
+                <div className="flex flex-col justify-center p-8 sm:p-12 lg:p-14">
+                  <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+                    Réviser en autonomie, entre deux séances.
+                  </h2>
+                  <p className="mt-4 max-w-[46ch] text-lg leading-relaxed text-ms-cream/80">
+                    Exercices interactifs, suivi de progression et activités adaptées au niveau, accessibles depuis la maison.
+                  </p>
+                  <div className="mt-8 flex flex-wrap gap-3">
+                    <Link href="/login?role=student" className={btnOnMoss}>
+                      Espace élève
+                      <ArrowRight size={16} strokeWidth={2} />
+                    </Link>
+                    <Link href="/login?role=teacher" className={btnOnMossGhost}>
+                      Espace enseignant
+                    </Link>
+                  </div>
+                </div>
+                <div className="relative min-h-[260px] lg:min-h-full">
+                  {/* TODO capture d'écran réelle de la plateforme (page élève), 1200x1000 */}
+                  <Image
+                    src="https://picsum.photos/seed/monte-souris-plateforme/1200/1000"
+                    alt="La plateforme de révision Monte & Souris ouverte sur un ordinateur portable"
+                    fill
+                    sizes="(min-width: 1024px) 50vw, 100vw"
+                    className="object-cover"
+                  />
+                </div>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* ── Contact ─────────────────────────────────────────────────── */}
+        <section id="contact" className="scroll-mt-16 border-t border-ms-sand bg-ms-white py-20 lg:py-28">
+          <div className="mx-auto grid max-w-6xl grid-cols-1 gap-10 px-4 sm:px-6 lg:grid-cols-12">
+            <Reveal className="lg:col-span-7">
+              <h2 className="font-display text-3xl font-semibold tracking-tight text-ms-ink sm:text-4xl">
+                Une question ? Écrivez-moi.
+              </h2>
+              <p className="mt-4 max-w-[52ch] text-lg leading-relaxed text-ms-ink/70">
+                Inscription, disponibilités ou simple curiosité : je réponds sous 48h.
+              </p>
               <a
-                href="#courses"
-                className="group px-7 py-3 rounded-full font-bold text-white shadow hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2"
-                style={{ background: "#8BA3B1" }}
+                href="mailto:nabilaanbari@zohomail.eu"
+                className="mt-8 inline-block break-all font-display text-xl font-semibold text-ms-moss underline decoration-ms-moss/30 underline-offset-8 transition-colors hover:decoration-ms-moss sm:text-2xl"
               >
-                Découvrir nos cours
-                <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+                nabilaanbari@zohomail.eu
               </a>
-              <Link
-                href="/login"
-                className="px-7 py-3 rounded-full font-bold text-[#2D2D2D]/75 border border-[#2D2D2D]/20 hover:bg-[#2D2D2D]/5 hover:text-[#2D2D2D] transition-all flex items-center gap-2 text-sm"
-              >
-                Je suis élève · Accès plateforme <Sparkles size={14} />
-              </Link>
-            </div>
+            </Reveal>
+
+            <Reveal delay={0.1} className="lg:col-span-5 lg:pt-2">
+              <ul className="divide-y divide-ms-sand text-ms-ink/80">
+                <li className="flex items-start gap-3 py-4">
+                  <MapPin size={20} strokeWidth={ICON} className="mt-0.5 shrink-0 text-ms-moss" />
+                  <span>Séances à domicile à Bruxelles et en périphérie, ou en visio.</span>
+                </li>
+                <li className="flex items-start gap-3 py-4">
+                  <Clock size={20} strokeWidth={ICON} className="mt-0.5 shrink-0 text-ms-moss" />
+                  <span>Première séance découverte pour construire le parcours de l’élève.</span>
+                </li>
+                <li className="flex items-start gap-3 py-4">
+                  <Phone size={20} strokeWidth={ICON} className="mt-0.5 shrink-0 text-ms-moss" />
+                  <a href="tel:+32499289766" className="transition-colors hover:text-ms-moss">+32 499 28 97 66</a>
+                </li>
+              </ul>
+            </Reveal>
           </div>
         </section>
-
-        {/* ── 2. Nos cours ────────────────────────────────────────────── */}
-        <section id="courses" className="scroll-mt-20 py-24 px-4 bg-[#FFFDF8]">
-          <div className="max-w-4xl mx-auto text-center mb-16">
-            <h2 className="text-4xl font-black text-[#2D2D2D] mb-4" style={{ fontFamily: "'Fredoka One', cursive" }}>
-              Nos cours
-            </h2>
-            <p className="text-[#2D2D2D]/55 text-lg">
-              Trois formules, un même cadre : suivi sur mesure, matériel concret, plateforme de révision incluse.
-            </p>
-          </div>
-
-          <div className="max-w-6xl mx-auto space-y-12">
-            {programs.map((p, i) => (
-              <div key={p.name} className={`group flex flex-col ${i % 2 === 1 ? "lg:flex-row-reverse" : "lg:flex-row"} gap-8 items-center`}>
-                <div className="flex-1 w-full">
-                  <div
-                    className="rounded-3xl p-8 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-[0_18px_40px_-20px_rgba(0,0,0,0.18)]"
-                    style={{ background: p.bg, border: `2px solid ${p.color}30` }}
-                  >
-                    <div className="inline-block text-xs font-bold rounded-full px-3 py-1 mb-3 text-white" style={{ background: p.color }}>
-                      {p.age}
-                    </div>
-                    <h3 className="text-2xl font-black text-[#2D2D2D] mb-3" style={{ fontFamily: "'Fredoka One', cursive" }}>
-                      {p.name}
-                    </h3>
-                    <p className="text-[#2D2D2D]/60 leading-relaxed mb-4">{p.desc}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {p.subjects.map((s) => (
-                        <span key={s} className="text-xs rounded-full px-3 py-1 font-semibold text-white" style={{ background: `${p.color}cc` }}>
-                          {s}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex-1 w-full space-y-4">
-                  <div
-                    className="bg-[#F5EEE8] rounded-2xl p-5"
-                    style={{ border: `1px solid ${p.color}33` }}
-                  >
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="flex items-center gap-2 text-sm text-[#2D2D2D]/60">
-                        <Monitor size={16} style={{ color: "#BB908E" }} />{p.format} — {p.schedule}
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-[#2D2D2D]/60">
-                        <Users size={16} style={{ color: "#6B705C" }} />{p.capacity}
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-[#2D2D2D]/60">
-                        <Star size={16} style={{ color: "#999B84" }} />{p.teachers}
-                      </div>
-                      <div className="flex items-center gap-2 text-sm font-black" style={{ color: p.color }}>
-                        <Clock size={16} style={{ color: p.color }} />{p.price}
-                      </div>
-                    </div>
-                  </div>
-                  <Link
-                    href="/contact"
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl text-white font-bold transition-all hover:scale-[1.02] hover:shadow-md"
-                    style={{ background: p.color }}
-                  >
-                    S'inscrire
-                    <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ── 3. Notre approche ───────────────────────────────────────── */}
-        <section id="about" className="scroll-mt-20 py-24 px-4 bg-[#F5EEE6]">
-          <div className="max-w-4xl mx-auto text-center mb-16">
-            <h2 className="text-4xl font-black text-[#2D2D2D] mb-4" style={{ fontFamily: "'Fredoka One', cursive" }}>
-              Notre approche
-            </h2>
-            <p className="text-[#2D2D2D]/55 text-lg">
-              Quatre principes au cœur de chaque séance.
-            </p>
-          </div>
-
-          <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {pillars.map(({ icon: Icon, color, title, desc }, i) => (
-              <div
-                key={title}
-                className="relative bg-[#FFFDF8] rounded-2xl p-6 shadow-sm border border-[#EDE5D8] flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_40px_-22px_rgba(0,0,0,0.18)]"
-              >
-                <span
-                  aria-hidden
-                  className="absolute top-3 right-4 leading-none select-none"
-                  style={{ fontFamily: "'Caveat', cursive", fontSize: "1.6rem", color: `${color}80` }}
-                >
-                  {`0${i + 1}`}
-                </span>
-                <Icon size={22} className="mb-4" style={{ color }} strokeWidth={2} />
-                <div
-                  className="self-start rounded-full px-3 py-1 text-xs font-black text-white mb-3"
-                  style={{ background: color }}
-                >
-                  {title}
-                </div>
-                <p className="text-[#2D2D2D]/65 text-sm leading-relaxed">{desc}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ── 4. Plateforme en ligne (réservée aux élèves) ────────────── */}
-        <section className="py-24 px-4 relative overflow-hidden" style={{ background: "#2D2D2D" }}>
-          <div className="absolute inset-0 flex items-end justify-between px-8 pb-0 opacity-20 pointer-events-none">
-            <svg width="160" height="110" viewBox="0 0 160 110" fill="none">
-              <path d="M4,108 Q80,4 156,108" stroke="#8BA3B1" strokeWidth="4" strokeLinecap="round"/>
-            </svg>
-            <svg width="160" height="110" viewBox="0 0 160 110" fill="none">
-              <path d="M4,108 Q80,4 156,108" stroke="#6B705C" strokeWidth="4" strokeLinecap="round"/>
-            </svg>
-          </div>
-
-          <div className="relative z-10 max-w-4xl mx-auto text-center text-white">
-            <div className="flex justify-center mb-5">
-              <Arches className="opacity-60" />
-            </div>
-
-            <h2 className="text-3xl lg:text-4xl font-black mb-5" style={{ fontFamily: "'Fredoka One', cursive" }}>
-              Révisez en autonomie, à la maison
-            </h2>
-
-            <p className="text-white/65 text-lg mb-10 max-w-xl mx-auto leading-relaxed">
-              La plateforme en ligne permet à chaque apprenant de pratiquer à son rythme, entre les séances.
-              Exercices interactifs, suivi de progression et activités adaptées au niveau.
-            </p>
-
-            <div className="flex flex-wrap gap-4 justify-center">
-              <Link
-                href="/login?role=student"
-                className="px-7 py-3 rounded-full font-bold shadow hover:shadow-lg hover:scale-105 transition-all"
-                style={{ background: "#BB908E", color: "#2D2D2D" }}
-              >
-                Accéder à la plateforme ★
-              </Link>
-              <Link
-                href="/login?role=teacher"
-                className="px-7 py-3 text-white rounded-full font-bold shadow-sm hover:shadow-md hover:scale-105 transition-all"
-                style={{ background: "#8BA3B1" }}
-              >
-                Espace enseignant →
-              </Link>
-            </div>
-          </div>
-        </section>
-
-        {/* ── 5. Contact ──────────────────────────────────────────────── */}
-        <ContactSection />
 
       </main>
       <Footer />

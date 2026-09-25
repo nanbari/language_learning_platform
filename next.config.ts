@@ -42,6 +42,10 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  images: {
+    // Photos provisoires de la page d'accueil, à remplacer par les vraies photos dans /public.
+    remotePatterns: [new URL("https://picsum.photos/**")],
+  },
   webpack: (config, { dev }) => {
     if (dev) {
       config.watchOptions = {
