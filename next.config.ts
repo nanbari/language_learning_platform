@@ -39,6 +39,11 @@ const nextConfig: NextConfig = {
   // Build autonome pour le déploiement Docker/Kubernetes : .next/standalone
   // contient le serveur et les seuls node_modules nécessaires.
   output: "standalone",
+  // Le projet Remotion n'est lancé qu'en local ou par GitHub Actions (voir
+  // src/lib/recapVideo.ts) : il ne doit pas être embarqué dans la fonction.
+  outputFileTracingExcludes: {
+    "/api/recap": ["./animations/**/*"],
+  },
   turbopack: {
     root: __dirname,
   },
