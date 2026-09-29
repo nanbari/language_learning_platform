@@ -24,7 +24,7 @@ export function Logo({ size = 36 }: { size?: number }) {
 export function Wordmark({ className = "" }: { className?: string }) {
   return (
     <span className={`font-display font-semibold tracking-tight text-ms-ink ${className}`}>
-      Monte <span className="text-ms-ink">&</span> So<span className="text-ms-blush">u</span>ri<span className="text-ms-sage">s</span>
+      Monte <span className="text-ms-slate">&</span> So<span className="text-ms-blush">u</span>ri<span className="text-ms-sage">s</span>
     </span>
   );
 }
