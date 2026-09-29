@@ -14,6 +14,12 @@ export interface Clip {
   question: string;
 }
 
+/**
+ * Présentation du garçon qui fait tous les gestes (couper, presser, éplucher,
+ * manger, laver) : jouée une fois, avant le premier mot animé de la séance.
+ */
+export const BOY_INTRO: Omit<Clip, "question"> = { src: "/animations/fruits/garcon.mp4", caption: "Voici le garçon : c'est lui qui fait les gestes" };
+
 const FRUIT_MEDIA = "https://pub-b05b6ac8db824a2d8799212649378e6c.r2.dev/media/2026/";
 
 /** Le geste filmé pour un fruit : `pomme-couper` → /animations/fruits/pomme-couper.mp4. */

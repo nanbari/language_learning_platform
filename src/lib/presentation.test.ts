@@ -3,6 +3,7 @@ import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";
 import { LETTER_STROKES } from "@/data/letterStrokes";
 import { LETTER_FORM_STROKES } from "@/data/letterFormStrokes";
 import { LETTER_POSITIONS, exerciseWords } from "@/data/letterWords";
+import { BOY_INTRO } from "@/data/animations";
 import { buildLetterDeck, buildVocabDeck, combineDecks, isRightForm, lessonQcms, lessonVocabWords, letterColor, qcmAnswerLabel, shuffle, stepsFor, lettersPerLesson, teacherInstruction, teacherQuestion, writingGlyph, CHARTER_COLORS, type Qcm, type VocabWord } from "./presentation";
 
 /** Générateur déterministe pour des decks reproductibles. */
@@ -289,9 +290,22 @@ describe("buildVocabDeck", () => {
     const deck = buildVocabDeck("Les fruits", words, 8, [], undefined, seeded());
     const kinds = deck.map((s) => s.kind);
     const at = deck.findIndex((s) => s.kind === "flashcard" && s.word.id === WORDS[2].id);
-    expect(kinds.slice(at, at + 3)).toEqual(["flashcard", "video", "video"]);
-    expect(deck.flatMap((s) => (s.kind === "video" ? [s.src] : []))).toEqual(clips.map((c) => c.src));
+    expect(kinds.slice(at - 1, at + 3)).toEqual(["video", "flashcard", "video", "video"]);
+    expect(deck.flatMap((s) => (s.kind === "video" ? [s.src] : []))).toEqual([BOY_INTRO.src, ...clips.map((c) => c.src)]);
     expect(stepsFor(deck[at + 1])).toBe(0);
+  });
+
+  it("présente le garçon une seule fois, juste avant le premier mot animé", () => {
+    const clip = (id: string) => [{ src: `/animations/fruits/${id}.mp4`, caption: id, question: `أَيْنَ ${id}؟` }];
+    const animated = WORDS.map((w, i) => (i === 1 || i === 2 ? { ...w, clips: clip(w.id) } : w));
+    const deck = buildVocabDeck("Les fruits", animated, 8, [], undefined, seeded());
+    const intros = deck.flatMap((s, i) => (s.kind === "video" && s.src === BOY_INTRO.src ? [i] : []));
+    expect(intros).toHaveLength(1);
+    const next = deck[intros[0] + 1];
+    expect(next.kind === "flashcard" && next.word.clips?.length).toBeTruthy();
+    expect(deck.slice(0, intros[0]).some((s) => s.kind === "flashcard" && s.word.clips?.length)).toBe(false);
+    // Sans mot animé, pas de présentation.
+    expect(buildVocabDeck("Les fruits", WORDS, 8, [], undefined, seeded()).some((s) => s.kind === "video")).toBe(false);
   });
 
   it("fait choisir la bonne animation parmi celles des mots présentés, dès deux mots animés", () => {

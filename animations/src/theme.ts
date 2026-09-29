@@ -18,6 +18,19 @@ export const theme = {
     steelDark: "#8F979E",
     glass: "rgba(255, 255, 255, 0.55)",
     glassEdge: "rgba(123, 134, 142, 0.55)",
+    // Le garçon : peau, cheveux, t-shirt bleu de la charte.
+    skin: "#EDBE98",
+    skinLight: "#F8D9BE",
+    skinShade: "#C98F6A",
+    hair: "#3A2A22",
+    hairLight: "#5E4637",
+    shirt: "#8BA3B1",
+    shirtLight: "#A9BECA",
+    shirtDark: "#6C8594",
+    // Table et planche : bois clair.
+    wood: "#D8B48C",
+    woodLight: "#EBCFAE",
+    woodDark: "#B68B5F",
   },
   ease: {
     out: Easing.bezier(0.16, 1, 0.3, 1),

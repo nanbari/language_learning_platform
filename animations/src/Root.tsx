@@ -6,6 +6,11 @@ import { Manger } from "./scenes/Manger";
 import { Jus } from "./scenes/Jus";
 import { Eplucher } from "./scenes/Eplucher";
 import { Laver } from "./scenes/Laver";
+import { Garcon } from "./scenes/Garcon";
+import { LettersRecap } from "./recap/LettersRecap";
+import { VocabRecap, vocabDuration } from "./recap/VocabRecap";
+import { LETTER_FRAMES, endFrames } from "./recap/types";
+import { SAMPLE_LETTERS, SAMPLE_VOCAB } from "./recap/samples";
 
 export const FPS = 30;
 export const DURATION = 120;
@@ -38,5 +43,28 @@ export const Root: React.FC = () => (
         height={HEIGHT}
       />
     ))}
+    {/* Présentation du garçon qui fait tous les gestes : public/animations/fruits/garcon.mp4. */}
+    <Composition id="garcon" component={Garcon} durationInFrames={DURATION} fps={FPS} width={WIDTH} height={HEIGHT} />
+    {/* Vidéos récapitulatives des cours en direct : données passées au rendu (src/lib/recapVideo.ts du site). */}
+    <Composition
+      id="recap-lettres"
+      component={LettersRecap}
+      defaultProps={SAMPLE_LETTERS}
+      calculateMetadata={({ props }) => ({ durationInFrames: props.letters.length * LETTER_FRAMES + endFrames(props.letters.length) })}
+      durationInFrames={1}
+      fps={FPS}
+      width={WIDTH}
+      height={HEIGHT}
+    />
+    <Composition
+      id="recap-vocabulaire"
+      component={VocabRecap}
+      defaultProps={SAMPLE_VOCAB}
+      calculateMetadata={({ props }) => ({ durationInFrames: vocabDuration(props.words) })}
+      durationInFrames={1}
+      fps={FPS}
+      width={WIDTH}
+      height={HEIGHT}
+    />
   </>
 );

@@ -118,6 +118,11 @@ function Setup({ onStart }: { onStart: (deck: Slide[]) => void }) {
   const ready = parts.every((part) => (part === "vocab" ? lesson !== null : letterIds.length === perLesson));
 
   const start = () => {
+    // Chaque partie du cours donne sa vidéo récapitulative, placée en tête de sa leçon (rendue en arrière-plan).
+    for (const part of parts) {
+      const body = part === "letter" ? { kind: "letters", letterIds } : lesson && { kind: "vocab", lessonId: lesson.id };
+      if (body) fetch("/api/recap", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => {});
+    }
     onStart(combineDecks(parts.map((part) => {
       if (part === "letter") return buildLetterDeck(letterIds, level, reviewIds);
       return lesson ? buildVocabDeck(lesson.title, lesson.words, wordCount, lesson.qcms, charterColor(usable.indexOf(lesson))) : [];

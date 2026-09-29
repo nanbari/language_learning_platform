@@ -4,89 +4,119 @@ import { theme } from "../theme";
 import { FRUITS, type FruitId } from "../fruits";
 import { Stage } from "../components/Layers";
 import { Glass, Straw } from "../components/Props";
-import { Drop, FruitSvg, GroundShadow, SceneFrame, useBreathe, useEnter } from "../components/Motion";
+import { Drop, FruitSvg, GroundShadow, SceneFrame, useEnter } from "../components/Motion";
+import { BoyScene, REST, TABLE_TOP, path, useBoyBreath, type BoyPose, type Pt } from "../components/Boy";
 
 /**
- * Jus : le verre se pose, une moitié de fruit arrive au-dessus, face coupée
- * vers le bas ; trois pressions l'écrasent, des gouttes tombent, le verre se
- * remplit ; la paille se plante.
+ * Jus : une moitié de fruit attend sur la table, à côté d'un verre vide. Le
+ * garçon la prend à deux mains, la lève au-dessus du verre, face coupée vers
+ * le bas, et la presse trois fois ; le jus coule, le verre se remplit. Il la
+ * repose, et une paille se plante dans le verre.
  */
-const FRUIT_SIZE = 300;
-const FX = 640, FY = 190;
-const GX = 640, GY = 330; // coin haut-gauche de la boîte du verre (200 × 300)
-const SQUEEZES = [40, 58, 76];
-const STRAW_AT = 96;
+const FRUIT_SIZE = 230;
+const GLASS_SCALE = 0.72;
+const CONTACT = TABLE_TOP + 36;
+const GX = 800;
+/** Coin haut-gauche de la boîte du verre (200 × 300) : son fond (y = 280) touche la table. */
+const GY = CONTACT - 280 * GLASS_SCALE;
+/** Centre de la moitié posée sur la table (sa tranche, y = 272, touche la table) et levée au-dessus du verre. */
+const ON_TABLE: Pt = { x: 640, y: CONTACT - (272 / 400 - 0.5) * FRUIT_SIZE };
+const ABOVE: Pt = { x: GX, y: GY + 30 * GLASS_SCALE - 30 - (272 / 400 - 0.5) * FRUIT_SIZE - 6 };
+/** Les mains serrent le dôme de part et d'autre, juste au-dessus de la tranche (demi-largeur 135 / 400). */
+const GRIP = { dx: FRUIT_SIZE * (135 / 400) + 16, dy: FRUIT_SIZE * 0.03 };
+const PICK_AT = 6, TAKEN_AT = 18, LIFTED_AT = 32;
+const SQUEEZES = [38, 54, 70];
+const PUT_FROM = 84, PUT_AT = 98, STRAW_AT = 100;
 
 export const Jus: React.FC<{ fruit: FruitId }> = ({ fruit }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const { juice } = FRUITS[fruit].palette;
   const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
+  const breath = useBoyBreath();
 
   const glassIn = useEnter(0, theme.spring.smooth);
-  const fruitIn = useEnter(10);
-  const breathe = useBreathe();
+  const fruitIn = useEnter(2);
 
-  // Pression : le fruit s'aplatit puis rebondit ; chaque pression laisse le fruit un peu plus petit.
-  const squeeze = SQUEEZES.reduce((acc, at) => {
-    const p = spring({ frame: frame - at, fps, config: theme.spring.bouncy });
-    return acc + Math.sin(Math.min(1, p) * Math.PI);
-  }, 0);
-  const pressed = SQUEEZES.filter((at) => frame >= at + 8).length;
-  const shrink = 1 - pressed * 0.06;
-  const sx = (1 + squeeze * 0.22) * shrink * breathe.scale;
-  const sy = (1 - squeeze * 0.3) * shrink * breathe.scale;
+  // La moitié : posée, levée au-dessus du verre, puis reposée.
+  const at = path(frame, [[TAKEN_AT, ON_TABLE], [LIFTED_AT, ABOVE], [PUT_FROM, ABOVE], [PUT_AT, ON_TABLE]]);
 
-  const level = interpolate(frame, [SQUEEZES[0] + 10, SQUEEZES[2] + 22], [0, 0.82], { easing: theme.ease.inOut, ...clamp });
-  // Une fois pressée, la moitié remonte pour laisser la place à la paille.
-  const lift = interpolate(frame, [SQUEEZES[2] + 14, STRAW_AT + 4], [0, -110], { easing: theme.ease.inOut, ...clamp });
+  // Pression des mains : le dôme se resserre puis reprend sa forme ; il rapetisse un peu à chaque fois.
+  const squeeze = SQUEEZES.reduce((acc, s) => acc + Math.sin(Math.min(1, spring({ frame: frame - s, fps, config: theme.spring.bouncy })) * Math.PI), 0);
+  const pressed = SQUEEZES.filter((s) => frame >= s + 8).length;
+  const shrink = 1 - pressed * 0.04;
+  const sx = (1 - squeeze * 0.12) * shrink;
+  const sy = (1 + squeeze * 0.05) * shrink;
+  const grip = GRIP.dx * sx;
+
+  const level = interpolate(frame, [SQUEEZES[0] + 8, SQUEEZES[2] + 20], [0, 0.8], { easing: theme.ease.inOut, ...clamp });
   const strawIn = spring({ frame: frame - STRAW_AT, fps, config: theme.spring.snappy });
+
+  // Mains : vont chercher la moitié, la tiennent, puis la lâchent.
+  const holding = (p: Pt, side: number): Pt => ({ x: p.x + side * grip, y: p.y + GRIP.dy });
+  const l = frame < TAKEN_AT ? path(frame, [[PICK_AT, REST.l], [TAKEN_AT, holding(ON_TABLE, -1)]]) : frame <= PUT_AT ? holding(at, -1) : path(frame, [[PUT_AT + 2, holding(ON_TABLE, -1)], [PUT_AT + 16, REST.l]]);
+  const r = frame < TAKEN_AT ? path(frame, [[PICK_AT, REST.r], [TAKEN_AT, holding(ON_TABLE, 1)]]) : frame <= PUT_AT ? holding(at, 1) : path(frame, [[PUT_AT + 2, holding(ON_TABLE, 1)], [PUT_AT + 16, REST.r]]);
+  const gripping = frame >= TAKEN_AT - 4 && frame <= PUT_AT + 4;
+
+  const pose: BoyPose = {
+    l, r,
+    lAngle: gripping ? 0 : undefined,
+    rAngle: gripping ? 180 : undefined,
+    // À chaque pression, le buste se tasse un peu.
+    y: breath + squeeze * 3,
+    tilt: interpolate(frame, [TAKEN_AT, LIFTED_AT, PUT_FROM, PUT_AT], [0, 6, 6, 0], { easing: theme.ease.inOut, ...clamp }),
+    nod: interpolate(frame, [TAKEN_AT, LIFTED_AT], [2, 6], { easing: theme.ease.inOut, ...clamp }),
+  };
+
+  const lifted = interpolate(frame, [TAKEN_AT, LIFTED_AT, PUT_FROM, PUT_AT], [0, 1, 1, 0], clamp);
 
   return (
     <Stage>
       <SceneFrame>
-        <GroundShadow x={GX} y={GY + 296} width={220} opacity={glassIn} lift={1 - glassIn} />
-        <svg
-          width="200" height="300" viewBox="0 0 200 300"
-          style={{
-            position: "absolute", left: GX - 100, top: GY, overflow: "visible",
-            opacity: glassIn, transform: `translateY(${interpolate(glassIn, [0, 1], [80, 0])}px) scale(${interpolate(glassIn, [0, 1], [0.8, 1])})`,
-            transformOrigin: "50% 100%",
-          }}
+        <BoyScene
+          pose={pose}
+          front={SQUEEZES.flatMap((s, i) =>
+            [0, 1, 2].map((k) => (
+              <Drop key={`${i}-${k}`} x={GX - 16 + k * 16} y0={ABOVE.y + (272 / 400 - 0.5) * FRUIT_SIZE} y1={GY + (280 - 250 * level) * GLASS_SCALE} start={s + 4 + k * 3} color={juice} r={6 + (k % 2) * 2} />
+            )),
+          )}
         >
-          <Glass level={level} juice={juice} />
-        </svg>
-
-        <div
-          style={{
-            position: "absolute", left: FX - FRUIT_SIZE / 2, top: FY - FRUIT_SIZE / 2 + breathe.y,
-            width: FRUIT_SIZE, height: FRUIT_SIZE, opacity: fruitIn,
-            transform: `translateY(${interpolate(fruitIn, [0, 1], [-60, 0]) + lift}px) scale(${interpolate(fruitIn, [0, 1], [0.6, 1]) * sx}, ${interpolate(fruitIn, [0, 1], [0.6, 1]) * sy})`,
-            transformOrigin: "50% 100%",
-          }}
-        >
-          <FruitSvg id={fruit} mode="half" size={FRUIT_SIZE} />
-        </div>
-
-        {SQUEEZES.flatMap((at, i) =>
-          [0, 1, 2].map((k) => (
-            <Drop key={`${i}-${k}`} x={FX - 24 + k * 24} y0={FY + 30} y1={GY + 280 - 250 * level} start={at + 4 + k * 3} color={juice} r={8 + (k % 2) * 3} />
-          )),
-        )}
-
-        {frame >= STRAW_AT && (
+          <GroundShadow x={GX} y={CONTACT} width={170} opacity={glassIn} lift={1 - glassIn} />
+          <GroundShadow x={ON_TABLE.x} y={CONTACT} width={FRUIT_SIZE * 0.9} opacity={fruitIn * (1 - lifted)} lift={lifted} />
           <svg
-            width="24" height="300" viewBox="0 0 24 300"
+            width="200" height="300" viewBox="0 0 200 300"
             style={{
-              position: "absolute", left: GX - 25, top: GY - 70, overflow: "visible",
-              opacity: strawIn,
-              transform: `translateY(${interpolate(strawIn, [0, 1], [-140, 0])}px) rotate(${interpolate(strawIn, [0, 1], [24, 12])}deg)`,
-              transformOrigin: "50% 100%",
+              position: "absolute", left: GX - 100, top: GY, overflow: "visible",
+              opacity: glassIn, transform: `translateY(${interpolate(glassIn, [0, 1], [60, 0])}px) scale(${GLASS_SCALE * interpolate(glassIn, [0, 1], [0.85, 1])})`,
+              transformOrigin: "50% 0%",
             }}
           >
-            <Straw />
+            <Glass level={level} juice={juice} />
           </svg>
-        )}
+          {frame >= STRAW_AT && (
+            <svg
+              width="24" height="300" viewBox="0 0 24 300"
+              style={{
+                position: "absolute", left: GX - 12, top: GY + 190 - 300, overflow: "visible",
+                opacity: strawIn,
+                transform: `translateY(${interpolate(strawIn, [0, 1], [-120, 0])}px) rotate(${interpolate(strawIn, [0, 1], [24, 12])}deg) scale(${GLASS_SCALE})`,
+                transformOrigin: "50% 100%",
+              }}
+            >
+              <Straw />
+            </svg>
+          )}
+          <div
+            style={{
+              position: "absolute", left: at.x - FRUIT_SIZE / 2, top: at.y - FRUIT_SIZE / 2,
+              width: FRUIT_SIZE, height: FRUIT_SIZE, opacity: fruitIn,
+              transform: `scale(${interpolate(fruitIn, [0, 1], [0.6, 1]) * sx}, ${interpolate(fruitIn, [0, 1], [0.6, 1]) * sy})`,
+              transformOrigin: "50% 60%",
+            }}
+          >
+            <FruitSvg id={fruit} mode="half" size={FRUIT_SIZE} />
+          </div>
+        </BoyScene>
       </SceneFrame>
     </Stage>
   );

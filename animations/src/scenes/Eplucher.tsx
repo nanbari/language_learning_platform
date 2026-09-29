@@ -3,27 +3,28 @@ import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { theme } from "../theme";
 import { FRUITS, type FruitId } from "../fruits";
 import { Stage } from "../components/Layers";
-import { FRUIT_SHADOW, GroundShadow, SceneFrame, useBreathe, useEnter } from "../components/Motion";
+import { FRUIT_SHADOW, GroundShadow, SceneFrame, useEnter } from "../components/Motion";
+import { BoyScene, REST, TABLE_TOP, path, useBoyBreath, type BoyPose, type Pt } from "../components/Boy";
 
 /**
- * Éplucher : la banane entre debout ; la tige se casse, puis la peau s'ouvre
- * en trois pans qui basculent vers l'extérieur et pendent le long du fruit,
- * face interne claire visible. La chair apparaît au fur et à mesure que la
- * déchirure descend.
+ * Éplucher : la banane est couchée sur la table. Le garçon la prend par le
+ * bas de la main droite (à l'écran) et la redresse ; de la main gauche, il
+ * casse la tige et tire la peau vers le bas : elle s'ouvre en trois pans qui
+ * basculent vers l'extérieur et pendent le long du fruit, face interne claire
+ * visible. La chair apparaît au fur et à mesure que la déchirure descend.
  *
  * La banane est un croissant dessiné dans une boîte 400 × 400 : un axe courbe
  * (quadratique, bombé à droite) et une largeur qui s'effile vers les deux
  * bouts. Le point de contrôle est à mi-hauteur, donc y est linéaire en t.
  */
-const SIZE = 470;
-const CX = 640, CY = 350;
-const SNAP_AT = 18;
-const PEEL_FROM = 30, PEEL_TO = 96;
+const K = 0.65;
+const SNAP_AT = 32;
+const PEEL_FROM = 40, PEEL_TO = 100;
+const PICK_AT = 4, TAKEN_AT = 14, UPRIGHT_AT = 28;
 const SKIN_W = 100;
 const TOP = { x: 196, y: 48 }, CTRL = { x: 292, y: 204 }, BOTTOM = { x: 214, y: 360 };
 const TEAR_START = TOP.y + 2, TEAR_END = TOP.y + 165;
 
-type Pt = { x: number; y: number };
 const axis = (t: number): Pt => ({
   x: (1 - t) ** 2 * TOP.x + 2 * (1 - t) * t * CTRL.x + t * t * BOTTOM.x,
   y: (1 - t) ** 2 * TOP.y + 2 * (1 - t) * t * CTRL.y + t * t * BOTTOM.y,
@@ -80,6 +81,12 @@ function petal(L: number, b: number, bend: number): string {
 const SKIN_PATH = crescent(1);
 const FLESH_PATH = crescent(0.8);
 
+/** Prise de la main droite : le bas du fruit, sur l'axe. */
+const GRIP = axis(0.86);
+/** La banane couchée (tournée d'un quart de tour, le ventre sur la table), puis redressée dans la main. */
+const LYING = { x: 660, y: TABLE_TOP + 20, rot: 90 };
+const UPRIGHT = { x: 770, y: 522, rot: -4 };
+
 export const Eplucher: React.FC<{ fruit: FruitId }> = ({ fruit }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -87,9 +94,9 @@ export const Eplucher: React.FC<{ fruit: FruitId }> = ({ fruit }) => {
   const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 
   const enter = useEnter(0);
-  const breathe = useBreathe(0.01);
+  const breath = useBoyBreath();
 
-  // Tige : elle se casse et se couche sur le côté, puis suit le premier pan.
+  // Tige : elle se casse et se couche sur le côté, puis suit le pan de gauche, que tire la main gauche.
   const snap = spring({ frame: frame - SNAP_AT, fps, config: theme.spring.snappy });
   const stemRot = interpolate(snap, [0, 1], [0, -70]);
 
@@ -100,10 +107,19 @@ export const Eplucher: React.FC<{ fruit: FruitId }> = ({ fruit }) => {
   const tearC = axis(tT), tearN = normal(tT), tearW = widthAt(tT);
   const baseAngle = (Math.atan2(tangent(tT).y, tangent(tT).x) * 180) / Math.PI - 90;
 
-  // Secousse à chaque pan qui cède, et légère torsion du fruit.
-  const tug = Math.sin(Math.min(1, spring({ frame: frame - PEEL_FROM, fps, config: theme.spring.bouncy })) * Math.PI) * 0.04;
-  const scale = interpolate(enter, [0, 1], [0.6, 1]) * breathe.scale * (1 - tug);
-  const tilt = -4 + Math.sin(frame / 26) * 1.5;
+  // Secousse quand la peau cède, et léger balancement du fruit dans la main.
+  const tug = Math.sin(Math.min(1, spring({ frame: frame - PEEL_FROM, fps, config: theme.spring.bouncy })) * Math.PI) * 3;
+
+  // La banane : couchée, prise par le bas, redressée.
+  const raise = interpolate(frame, [TAKEN_AT, UPRIGHT_AT], [0, 1], { easing: theme.ease.inOut, ...clamp });
+  const bx = interpolate(raise, [0, 1], [LYING.x, UPRIGHT.x]);
+  const by = interpolate(raise, [0, 1], [LYING.y, UPRIGHT.y]) + (frame > UPRIGHT_AT ? breath : 0);
+  const brot = interpolate(raise, [0, 1], [LYING.rot, UPRIGHT.rot]) + (frame > UPRIGHT_AT ? Math.sin(frame / 26) * 1.5 - tug : 0);
+  /** D'un point de la boîte du fruit à l'écran. */
+  const toScreen = (q: Pt): Pt => {
+    const a = (brot * Math.PI) / 180, dx = (q.x - GRIP.x) * K, dy = (q.y - GRIP.y) * K;
+    return { x: bx + dx * Math.cos(a) - dy * Math.sin(a), y: by + dx * Math.sin(a) + dy * Math.cos(a) };
+  };
 
   /** Les trois pans : gauche, droit (pivotent vers l'extérieur) et avant (bascule vers le spectateur). */
   const pans = [
@@ -120,8 +136,33 @@ export const Eplucher: React.FC<{ fruit: FruitId }> = ({ fruit }) => {
     const inner = interpolate(theta, [70, 110], [0, 1], clamp);
     return { side, front, p, L, b, hinge, theta, inner, d: petal(L, b, side * p * 0.35) };
   });
+  // Pointe du pan de gauche (et de la tige), dans la boîte : c'est là que tire la main gauche.
+  const pulled = pans[0];
+  const ra = ((baseAngle + pulled.side * pulled.theta) * Math.PI) / 180;
+  const rtx = pulled.side * pulled.p * 0.35 * pulled.L, rty = -pulled.L;
+  const pulledTip = toScreen({ x: pulled.hinge.x + rtx * Math.cos(ra) - rty * Math.sin(ra), y: pulled.hinge.y + rtx * Math.sin(ra) + rty * Math.cos(ra) });
 
-  const Pan: React.FC<{ pan: (typeof pans)[number]; withStem?: boolean }> = ({ pan, withStem }) => {
+  // Mains : la droite prend et tient le bas ; la gauche pince la tige, la casse, tire le pan, lâche.
+  const grip = toScreen(GRIP);
+  const r = frame < TAKEN_AT ? path(frame, [[PICK_AT, REST.r], [TAKEN_AT, toScreen(GRIP)]]) : grip;
+  // La main pince la tige, dans le prolongement du pan.
+  const hingeS = toScreen(pulled.hinge);
+  const len = Math.hypot(pulledTip.x - hingeS.x, pulledTip.y - hingeS.y) || 1;
+  const pinch = { x: pulledTip.x + ((pulledTip.x - hingeS.x) / len) * 22, y: pulledTip.y + ((pulledTip.y - hingeS.y) / len) * 22 };
+  const l = frame < SNAP_AT
+    ? path(frame, [[UPRIGHT_AT - 10, REST.l], [SNAP_AT - 2, pinch]])
+    : frame <= PEEL_TO + 5 ? pinch : path(frame, [[PEEL_TO + 6, pinch], [PEEL_TO + 18, REST.l]]);
+
+  const pose: BoyPose = {
+    l, r,
+    rAngle: frame >= TAKEN_AT - 2 ? 180 + brot : undefined,
+    lAngle: frame >= SNAP_AT - 4 && frame <= PEEL_TO + 8 ? 30 : undefined,
+    y: breath,
+    tilt: interpolate(frame, [TAKEN_AT, UPRIGHT_AT], [2, 7], { easing: theme.ease.inOut, ...clamp }),
+    nod: 4,
+  };
+
+  const renderPan = (pan: (typeof pans)[number], withStem?: boolean) => {
     const { side, front, hinge, theta, inner, d, L, b } = pan;
     const transform = front
       ? `translate(${hinge.x} ${hinge.y}) rotate(${baseAngle + 14 * pan.p}) scale(${1 + Math.abs(Math.sin((theta * Math.PI) / 180)) * 0.25} ${Math.cos((theta * Math.PI) / 180)})`
@@ -146,16 +187,10 @@ export const Eplucher: React.FC<{ fruit: FruitId }> = ({ fruit }) => {
   return (
     <Stage>
       <SceneFrame>
-        <GroundShadow x={CX + 14} y={CY + SIZE * 0.43} width={SIZE * 0.5 * scale} opacity={enter} lift={1 - enter} />
-        <div
-          style={{
-            position: "absolute", left: CX - SIZE / 2, top: CY - SIZE / 2 + breathe.y,
-            width: SIZE, height: SIZE, opacity: enter,
-            transform: `scale(${scale}) rotate(${tilt}deg) translateY(${interpolate(enter, [0, 1], [40, 0])}px)`,
-            transformOrigin: "50% 70%",
-          }}
-        >
-          <svg width={SIZE} height={SIZE} viewBox="0 0 400 400" style={{ overflow: "visible", filter: FRUIT_SHADOW }}>
+        <BoyScene pose={pose}>
+          <GroundShadow x={bx + 60} y={TABLE_TOP + 40} width={220} opacity={enter * (1 - raise)} lift={raise} />
+          <svg width="1280" height="720" viewBox="0 0 1280 720" style={{ position: "absolute", left: 0, top: 0, overflow: "visible", filter: FRUIT_SHADOW, opacity: Math.min(1, enter * 2) }}>
+          <g transform={`translate(${bx} ${by + interpolate(enter, [0, 1], [-50, 0])}) rotate(${brot}) scale(${K}) translate(${-GRIP.x} ${-GRIP.y})`}>
             <defs>
               <clipPath id="skinBelowTear">
                 <rect x="-100" y={tearY} width="600" height={500 - tearY} />
@@ -211,11 +246,12 @@ export const Eplucher: React.FC<{ fruit: FruitId }> = ({ fruit }) => {
             <path d={`M${tearC.x + tearN.x * tearW / 2} ${tearC.y + tearN.y * tearW / 2} Q${tearC.x} ${tearC.y + 7} ${tearC.x - tearN.x * tearW / 2} ${tearC.y - tearN.y * tearW / 2}`} stroke="#A8720B" strokeWidth="3" fill="none" opacity="0.7" />
 
             {/* Pans : les deux côtés, puis celui de devant. La tige suit le pan gauche. */}
-            <Pan pan={pans[0]} withStem />
-            <Pan pan={pans[1]} />
-            <Pan pan={pans[2]} />
+            {renderPan(pans[1])}
+            {renderPan(pans[0], true)}
+            {renderPan(pans[2])}
+          </g>
           </svg>
-        </div>
+        </BoyScene>
       </SceneFrame>
     </Stage>
   );

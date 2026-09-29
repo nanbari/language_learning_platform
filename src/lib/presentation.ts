@@ -1,6 +1,6 @@
 import { ARABIC_ALPHABET, type ArabicLetter } from "@/data/arabicAlphabet";
 import { LETTER_POSITIONS, LETTER_WORDS, exerciseWords, type LetterPosition, type LetterWord } from "@/data/letterWords";
-import type { Clip } from "@/data/animations";
+import { BOY_INTRO, type Clip } from "@/data/animations";
 
 /**
  * Mode présentation : construit la suite d'écrans qu'un enseignant projette
@@ -460,6 +460,7 @@ export function qcmAnswerLabel(qcm: Qcm): string {
  * images est tiré des mots présentés qui ont une écriture. La séance se
  * termine, dès deux mots animés, par « quelle animation ? » : jusqu'à trois
  * tours où l'élève touche, parmi deux ou trois clips, le geste demandé.
+ * Avant le premier mot animé, un clip présente le garçon qui fait les gestes.
  */
 export function buildVocabDeck(
   title: string,
@@ -477,9 +478,12 @@ export function buildVocabDeck(
   const words = cover ? [cover, ...ranked, ...others].slice(0, wordCount) : [];
   // Écran d'accueil pendant que les élèves se connectent : le titre de la leçon
   // n'y est écrit que s'il est en arabe (aucun texte français à l'écran).
+  // Le garçon des animations est présenté une fois, juste avant le premier mot animé.
+  const firstAnimated = words.findIndex((w) => w.clips?.length);
   const deck: Slide[] = [
     { kind: "title", title, arabic: arabicTitle(title), color },
-    ...words.flatMap((word): Slide[] => [
+    ...words.flatMap((word, i): Slide[] => [
+      ...(i === firstAnimated ? [{ kind: "video", src: BOY_INTRO.src, caption: BOY_INTRO.caption, color } as Slide] : []),
       { kind: "flashcard", word, color },
       ...(word.clips ?? []).map((clip): Slide => ({ kind: "video", src: clip.src, caption: clip.caption, color })),
     ]),

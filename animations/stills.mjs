@@ -12,7 +12,8 @@ const wanted = process.argv.slice(2).map((arg) => {
   const [id, frame] = arg.split(":");
   return { id, frame: Number(frame) };
 });
-const serveUrl = await bundle({ entryPoint: path.resolve("src/index.ts") });
+// Les clips des mots (staticFile) sont lus dans le public/ du site.
+const serveUrl = await bundle({ entryPoint: path.resolve("src/index.ts"), publicDir: path.resolve("../public") });
 const compositions = await getCompositions(serveUrl);
 
 for (const { id, frame } of wanted) {
