@@ -3,23 +3,20 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, ChevronLeft, ChevronRight, Maximize, Minimize, Play, Users, Wifi, WifiOff, X } from "lucide-react";
-import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";
 import { fetchLessons } from "@/lib/lessonsApi";
-import { buildLetterDeck, buildVocabDeck, charterColor, combineDecks, lessonQcms, lessonVocabWords, letterColor, lettersPerLesson, qcmAnswerLabel, stepsFor, teacherInstruction, teacherQuestion, MAX_REVIEW_LETTERS, MIN_VOCAB_WORDS, WORD_COUNTS, type LetterLevel, type Qcm, type Slide, type VocabWord } from "@/lib/presentation";
+import { charterColor, qcmAnswerLabel, stepsFor, teacherInstruction, teacherQuestion, type Slide } from "@/lib/presentation";
+import type { SavedDeck } from "@/lib/liveDeck";
 import { generateCode, isGame, summarize, type LiveState } from "@/lib/liveSession";
 import { useLiveHost } from "@/lib/useLiveSession";
 import { SlideView } from "@/components/present/Slides";
 import { LETTER_POSITIONS } from "@/data/letterWords";
-import { clipRank, clipsFor } from "@/data/animations";
-import { imageWord } from "@/data/imageWords";
-import { LetterGlyph } from "@/components/present/LetterTracing";
 
-type LessonKind = "letter" | "vocab";
+type RuleKind = "beginner" | "advanced" | "vocab";
 
 /** Règles de chaque écran, rappelées à l'enseignant avant la séance, pour le mode qu'il a choisi. */
-const GAME_RULES: { kind: LessonKind; mode: string; games: { name: string; rule: string }[] }[] = [
+const GAME_RULES: { kind: RuleKind; mode: string; games: { name: string; rule: string }[] }[] = [
   {
-    kind: "letter",
+    kind: "beginner",
     mode: "Lettres — niveau débutant",
     games: [
       { name: "Tracé de la lettre", rule: "La lettre s'écrit seule à l'écran, trait après trait. Vous dites son nom et son son ; le bouton ↻ rejoue le tracé." },
@@ -29,7 +26,7 @@ const GAME_RULES: { kind: LessonKind; mode: string; games: { name: string; rule:
     ],
   },
   {
-    kind: "letter",
+    kind: "advanced",
     mode: "Lettres — niveau avancé",
     games: [
       { name: "Les trois formes", rule: "Début, milieu et fin de mot se révèlent une à une, chacune avec un mot où la lettre est colorée. Vous lisez le mot ; son sens est rappelé dans la barre de commandes." },
@@ -52,8 +49,8 @@ const GAME_RULES: { kind: LessonKind; mode: string; games: { name: string; rule:
     ],
   },
 ];
-/** Leçon d'enseignant, réduite à ses mots illustrés et à ses QCM. */
-interface VocabLesson { id: string; title: string; words: VocabWord[]; qcms: Qcm[] }
+/** Leçon d'enseignant dont le diaporama est enregistré. */
+interface SavedLesson { id: string; title: string; live: SavedDeck }
 
 export default function TeacherPresentPage() {
   const [session, setSession] = useState<{ deck: Slide[]; code: string } | null>(null);
@@ -65,213 +62,29 @@ export default function TeacherPresentPage() {
   );
 }
 
+/** Parties d'un diaporama enregistré, pour n'en rappeler que les règles utiles. */
+function deckKinds(deck: readonly Slide[]): RuleKind[] {
+  const kinds: RuleKind[] = [];
+  if (deck.some((s) => s.kind === "forms")) kinds.push("advanced");
+  else if (deck.some((s) => s.kind === "letter")) kinds.push("beginner");
+  if (deck.some((s) => s.kind === "flashcard" || s.kind === "qcm" || s.kind === "quiz")) kinds.push("vocab");
+  return kinds;
+}
+
 function Setup({ onStart }: { onStart: (deck: Slide[]) => void }) {
-  // Parties de la séance, dans l'ordre où elles seront jouées : des lettres, une leçon de vocabulaire, ou les deux à la suite.
-  const [parts, setParts] = useState<LessonKind[]>(["letter"]);
-  const has = (part: LessonKind) => parts.includes(part);
-  // Toujours au moins une partie.
-  const togglePart = (part: LessonKind) => {
-    setParts((ps) => (ps.includes(part) ? (ps.length > 1 ? ps.filter((p) => p !== part) : ps) : [...ps, part]));
-  };
-  const playFirst = (first: LessonKind) => setParts([first, first === "letter" ? "vocab" : "letter"]);
-  const [letterIds, setLetterIds] = useState(() => ARABIC_ALPHABET.slice(0, lettersPerLesson("beginner")).map((l) => l.id));
-  const [level, setLevel] = useState<LetterLevel>("beginner");
-  const [reviewIds, setReviewIds] = useState<number[]>([]);
-  const perLesson = lettersPerLesson(level);
-  // Leçons de vocabulaire : celles que les enseignants ont créées sur la plateforme.
-  const [lessons, setLessons] = useState<VocabLesson[] | null>(null);
+  // Diaporamas enregistrés : ceux des leçons dont la vidéo d'introduction a été créée depuis l'éditeur.
+  const [lessons, setLessons] = useState<SavedLesson[] | null>(null);
   const [lessonsError, setLessonsError] = useState(false);
   const [lessonId, setLessonId] = useState<string | null>(null);
-  const [wordCount, setWordCount] = useState<number>(WORD_COUNTS[1]);
 
   useEffect(() => {
     fetchLessons()
-      .then((all) => setLessons(all.map((l) => ({
-        id: l.id,
-        title: l.title,
-        words: lessonVocabWords(l.blocks).map((w) => ({ ...w, clips: clipsFor(w.imageUrl), rank: clipRank(w.imageUrl) })),
-        qcms: lessonQcms(l.blocks, imageWord),
-      }))))
+      .then((all) => setLessons(all.flatMap((l) => (l.live ? [{ id: l.id, title: l.title, live: l.live }] : []))))
       .catch(() => { setLessonsError(true); setLessons([]); });
   }, []);
 
-  // Une leçon se présente avec assez d'images pour les devinettes, ou avec au moins un QCM.
-  const usable = (lessons ?? []).filter((l) => l.words.length >= MIN_VOCAB_WORDS || l.qcms.length > 0);
-  const lesson = usable.find((l) => l.id === lessonId) ?? usable[0] ?? null;
-
-  // Au-delà de trois lettres, la plus anciennement choisie cède sa place.
-  const toggleLetter = (id: number) => {
-    setLetterIds((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id].slice(-perLesson)));
-    setReviewIds((ids) => ids.filter((i) => i !== id));
-  };
-
-  const toggleReview = (id: number) => {
-    setReviewIds((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id].slice(-MAX_REVIEW_LETTERS)));
-  };
-
-  // En passant au niveau avancé, seule la dernière lettre choisie est conservée.
-  const changeLevel = (next: LetterLevel) => {
-    setLevel(next);
-    setLetterIds((ids) => ids.slice(-lettersPerLesson(next)));
-  };
-
-  const ready = parts.every((part) => (part === "vocab" ? lesson !== null : letterIds.length === perLesson));
-
-  const start = () => {
-    // Chaque partie du cours donne sa vidéo récapitulative, placée en tête de sa leçon (rendue en arrière-plan).
-    for (const part of parts) {
-      const body = part === "letter" ? { kind: "letters", letterIds } : lesson && { kind: "vocab", lessonId: lesson.id };
-      if (body) fetch("/api/recap", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => {});
-    }
-    onStart(combineDecks(parts.map((part) => {
-      if (part === "letter") return buildLetterDeck(letterIds, level, reviewIds);
-      return lesson ? buildVocabDeck(lesson.title, lesson.words, wordCount, lesson.qcms, charterColor(usable.indexOf(lesson))) : [];
-    })));
-  };
-
-  /** Réglages des lettres : niveau, lettres du jour, lettres à réviser. */
-  const letterPanel = (
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-6">
-          <p className="font-bold text-[#2d2d2d] mb-3">Niveau</p>
-          <div className="flex gap-2">
-            {([["beginner", "Débutant"], ["advanced", "Avancé"]] as const).map(([value, label]) => (
-              <button
-                key={value}
-                onClick={() => changeLevel(value)}
-                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-                  level === value ? "bg-[#6B705C] text-white shadow-md" : "bg-white border border-gray-200 text-gray-600 hover:border-[#BB908E]"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          <p className="font-bold text-[#2d2d2d] mt-5 mb-3">
-            {perLesson > 1 ? "Lettres étudiées" : "Lettre étudiée"}{" "}
-            <span className="font-semibold text-gray-400">
-              — {letterIds.length}/{perLesson} sélectionnée{perLesson > 1 ? "s" : ""}
-            </span>
-          </p>
-          <div className="grid grid-cols-7 gap-2" dir="rtl">
-            {ARABIC_ALPHABET.map((letter) => (
-              <button
-                key={letter.id}
-                onClick={() => toggleLetter(letter.id)}
-                aria-pressed={letterIds.includes(letter.id)}
-                title={letter.nameTranslit}
-                className={`aspect-square rounded-xl border-2 transition-all flex items-center justify-center ${
-                  letterIds.includes(letter.id) ? "text-white shadow-md scale-105" : "bg-white text-[#2d2d2d] hover:scale-105"
-                }`}
-                style={{
-                  borderColor: letterColor(letter),
-                  background: letterIds.includes(letter.id) ? letterColor(letter) : undefined,
-                }}
-              >
-                <LetterGlyph char={letter.isolated} className="w-3/4 h-3/4" />
-              </button>
-            ))}
-          </div>
-          <p className="font-bold text-[#2d2d2d] mt-5 mb-1">
-            Lettres à réviser{" "}
-            <span className="font-semibold text-gray-400">
-              — facultatif, {reviewIds.length}/{MAX_REVIEW_LETTERS} au plus
-            </span>
-          </p>
-          <p className="text-xs text-gray-500 mb-3">
-            Rappelées puis proposées en exercice à la fin de la séance, après les lettres du jour.
-          </p>
-          <div className="grid grid-cols-7 gap-2" dir="rtl">
-            {ARABIC_ALPHABET.map((letter) => {
-              const inLesson = letterIds.includes(letter.id);
-              const selected = reviewIds.includes(letter.id);
-              return (
-                <button
-                  key={letter.id}
-                  onClick={() => toggleReview(letter.id)}
-                  disabled={inLesson}
-                  aria-pressed={selected}
-                  title={inLesson ? `${letter.nameTranslit} — lettre de la leçon` : letter.nameTranslit}
-                  className={`aspect-square rounded-xl border-2 transition-all flex items-center justify-center disabled:opacity-25 disabled:cursor-not-allowed ${
-                    selected ? "text-white shadow-md scale-105" : "bg-white text-[#2d2d2d] enabled:hover:scale-105"
-                  }`}
-                  style={{ borderColor: "#7B868E", background: selected ? "#7B868E" : undefined }}
-                >
-                  <LetterGlyph char={letter.isolated} className="w-3/4 h-3/4" />
-                </button>
-              );
-            })}
-          </div>
-
-          <p className="text-xs text-gray-500 mt-4">
-            {level === "beginner"
-              ? "Déroulé : tracé animé de chaque lettre isolée. Les exercices sont regroupés en fin de séance : l'élève écrit chaque lettre au doigt, sur son pointillé ; chacune des trois lettres est à retrouver parmi les trois lettres de la leçon ; puis, la lettre étant montrée, l'élève écoute trois sons et choisit le sien. Les lettres à réviser suivent, avec les mêmes exercices. Aucune forme liée ni mot écrit en arabe, hormis le « أَحْسَنْتُمْ » de l'écran final ; le nom des lettres n'est jamais écrit."
-              : "Une lettre par séance. Déroulé : tracé animé, puis les trois formes (début, milieu, fin), chacune avec un mot illustré où la lettre est mise en couleur. Les exercices viennent en fin de séance : trois mots à compléter en choisissant la bonne forme, un par position ; les lettres à réviser, à reconnaître en couleur dans un mot ; enfin l'écriture au doigt de chaque forme liée, sur son pointillé. Le nom des lettres n'est jamais écrit."}
-          </p>
-        </div>
-  );
-
-  /** Réglages du vocabulaire : leçon et nombre d'images. */
-  const vocabPanel = (
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-6">
-          <p className="font-bold text-[#2d2d2d] mb-1">Leçon</p>
-          <p className="text-xs text-gray-500 mb-3">
-            Les cartes proviennent des leçons créées sur la plateforme : chaque image d&apos;une « leçon illustrée »
-            en devient une, avec son mot s&apos;il est écrit. Le quiz final reprend les « quiz à choix multiple » de la leçon.
-            Il faut au moins {MIN_VOCAB_WORDS} images, ou un quiz.
-          </p>
-          {lessons === null ? (
-            <p className="text-sm text-gray-400 mb-5">Chargement des leçons…</p>
-          ) : usable.length === 0 ? (
-            <div className="text-sm text-gray-600 bg-[#F5EEE8] rounded-xl p-4 mb-5">
-              {lessonsError
-                ? "Les leçons n'ont pas pu être chargées. Vérifiez votre connexion, puis rechargez la page."
-                : `Aucune leçon ne contient encore ${MIN_VOCAB_WORDS} images ni de quiz à choix multiple.`}{" "}
-              <Link href="/teacher/create" className="font-bold text-[#BB908E] hover:underline">Créer une leçon</Link>
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-2 mb-5">
-              {usable.map((l, i) => (
-                <button
-                  key={l.id}
-                  onClick={() => setLessonId(l.id)}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold transition-all ${
-                    lesson?.id === l.id ? "text-white shadow-md" : "bg-white border border-gray-200 text-gray-600 hover:border-[#BB908E]"
-                  }`}
-                  style={lesson?.id === l.id ? { background: charterColor(i) } : {}}
-                >
-                  {l.title}{" "}
-                  <span className="font-semibold opacity-70">
-                    · {l.words.length} images{l.qcms.length > 0 && ` · ${l.qcms.length} QCM`}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-          <p className="font-bold text-[#2d2d2d] mb-3">Nombre d&apos;images présentées</p>
-          <div className="flex gap-2">
-            {WORD_COUNTS.map((count) => (
-              <button
-                key={count}
-                onClick={() => setWordCount(count)}
-                disabled={!lesson || lesson.words.length < count}
-                className={`disabled:opacity-30 disabled:cursor-not-allowed w-12 h-10 rounded-xl text-sm font-bold transition-all ${
-                  wordCount === count ? "bg-[#6B705C] text-white shadow-md" : "bg-white border border-gray-200 text-gray-600 hover:border-[#BB908E]"
-                }`}
-              >
-                {count}
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-gray-500 mt-4">
-            Déroulé : cartes (l&apos;image, puis le mot s&apos;il est écrit, puis ses animations s&apos;il en a), devinettes floutées, « Qu&apos;est-ce qui a disparu ? »
-            à partir de {MIN_VOCAB_WORDS} images, puis le quiz, et enfin « Quelle animation ? » dès deux mots animés. La première image de la leçon ouvre toujours la séance, suivie des mots animés dans un ordre fixe ; les autres sont tirés au sort à chaque présentation.
-            {lesson && lesson.qcms.length > 0
-              ? ` Le quiz joue les ${lesson.qcms.length} QCM de la leçon, dans son ordre ; sans question écrite, elle vous est proposée en arabe quand l'image de la bonne réponse est connue.`
-              : " Sans QCM dans la leçon, le quiz est tiré des mots écrits, en images."}
-          </p>
-        </div>
-  );
+  const lesson = lessons?.find((l) => l.id === lessonId) ?? lessons?.[0] ?? null;
+  const kinds = lesson ? deckKinds(lesson.live.slides) : [];
 
   return (
     <div className="min-h-screen bg-[#fffef9]">
@@ -290,55 +103,54 @@ function Setup({ onStart }: { onStart: (deck: Slide[]) => void }) {
           Présenter une leçon
         </h1>
         <p className="text-gray-500 text-sm mb-6">
-          Choisissez le contenu de la séance — des lettres, une leçon de vocabulaire, ou les deux à la suite —, puis partagez cet écran dans votre visioconférence.
+          Choisissez le diaporama d&apos;une leçon, puis partagez cet écran dans votre visioconférence.
           La présentation est entièrement visuelle : vous en assurez le commentaire.
         </p>
 
-        <p className="font-bold text-[#2d2d2d] mb-2">
-          Contenu de la séance{" "}
-          <span className="font-semibold text-gray-400">— une partie, ou les deux à la suite</span>
-        </p>
-        <div className="flex flex-wrap gap-2 mb-3">
-          {([["letter", "🔤 Des lettres"], ["vocab", "🖼️ Une leçon de vocabulaire"]] as const).map(([value, label]) => (
-            <button
-              key={value}
-              onClick={() => togglePart(value)}
-              aria-pressed={has(value)}
-              className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-                has(value) ? "bg-[#6B705C] text-white shadow-md" : "bg-white border border-gray-200 text-gray-600 hover:border-[#BB908E]"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-6">
+          <p className="font-bold text-[#2d2d2d] mb-1">Diaporamas enregistrés</p>
+          <p className="text-xs text-gray-500 mb-3">
+            Chaque diaporama est tiré de la vidéo d&apos;introduction de sa leçon : mêmes lettres, mêmes images, dans le même ordre.
+            Pour en créer un, ouvrez la leçon dans l&apos;éditeur et cliquez sur « Créer la vidéo et le diaporama ».
+          </p>
+          {lessons === null ? (
+            <p className="text-sm text-gray-400">Chargement des diaporamas…</p>
+          ) : lessons.length === 0 ? (
+            <div className="text-sm text-gray-600 bg-[#F5EEE8] rounded-xl p-4">
+              {lessonsError
+                ? "Les leçons n'ont pas pu être chargées. Vérifiez votre connexion, puis rechargez la page."
+                : "Aucun diaporama n'est encore enregistré."}{" "}
+              <Link href="/teacher/create" className="font-bold text-[#BB908E] hover:underline">Créer une leçon</Link>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {lessons.map((l, i) => (
+                <button
+                  key={l.id}
+                  onClick={() => setLessonId(l.id)}
+                  aria-pressed={lesson?.id === l.id}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold transition-all ${
+                    lesson?.id === l.id ? "text-white shadow-md" : "bg-white border border-gray-200 text-gray-600 hover:border-[#BB908E]"
+                  }`}
+                  style={lesson?.id === l.id ? { background: charterColor(i) } : {}}
+                >
+                  {l.title}{" "}
+                  <span className="font-semibold opacity-70">· {l.live.slides.length} écrans</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {lesson && (
+            <p className="text-xs text-gray-500 mt-3">
+              Enregistré le {new Date(lesson.live.createdAt).toLocaleString("fr-BE", { dateStyle: "long", timeStyle: "short" })}.{" "}
+              <Link href={`/teacher/create?edit=${lesson.id}`} className="font-bold text-[#BB908E] hover:underline">Modifier la leçon</Link>
+            </p>
+          )}
         </div>
-        {parts.length === 2 ? (
-          <div className="flex flex-wrap items-center gap-2 mb-6">
-            <span className="text-sm font-bold text-[#2d2d2d] mr-1">Ordre</span>
-            {(["letter", "vocab"] as const).map((first) => (
-              <button
-                key={first}
-                onClick={() => playFirst(first)}
-                aria-pressed={parts[0] === first}
-                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-                  parts[0] === first ? "bg-[#7B868E] text-white shadow-md" : "bg-white border border-gray-200 text-gray-600 hover:border-[#BB908E]"
-                }`}
-              >
-                {first === "letter" ? "Les lettres, puis le vocabulaire" : "Le vocabulaire, puis les lettres"}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="mb-3" />
-        )}
-
-        {parts.map((part) => (
-          <div key={part}>{part === "letter" ? letterPanel : vocabPanel}</div>
-        ))}
 
         <button
-          onClick={start}
-          disabled={!ready}
+          onClick={() => lesson && onStart(lesson.live.slides)}
+          disabled={!lesson}
           className="flex items-center gap-2 px-6 py-3 rounded-full font-bold text-white shadow hover:shadow-md hover:scale-105 transition-all disabled:opacity-40 disabled:hover:scale-100"
           style={{ background: "#BB908E" }}
         >
@@ -359,7 +171,7 @@ function Setup({ onStart }: { onStart: (deck: Slide[]) => void }) {
 
           <p className="font-bold text-[#8b6f47] mt-5 mb-2">🎲 Règles des jeux</p>
           <div className="space-y-4">
-            {parts.flatMap((part) => GAME_RULES.filter((group) => group.kind === part)).map((group) => (
+            {kinds.flatMap((kind) => GAME_RULES.filter((group) => group.kind === kind)).map((group) => (
               <div key={group.mode}>
                 <p className="text-xs font-bold uppercase tracking-wide text-[#8b6f47]/70 mb-1">{group.mode}</p>
                 <dl className="space-y-1.5 text-sm text-[#8b6f47]">

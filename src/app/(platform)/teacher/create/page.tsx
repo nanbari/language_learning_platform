@@ -5,10 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   Trash2, Save, ArrowLeft, HelpCircle, Shuffle, Layers,
   Mic, Square, Play, CheckCircle, ImagePlus, X, Type, Image, LayoutGrid,
-  Video, Plus, BookOpen, ChevronUp, ChevronDown, Copy, AlignJustify, Upload,
+  Video, Plus, BookOpen, ChevronUp, ChevronDown, Copy, AlignJustify, Upload, PenLine, Film,
 } from "lucide-react";
 import { uploadMedia, externalizeMediaToR2 } from "@/lib/mediaUpload";
 import { fetchLesson, createLesson, updateLesson } from "@/lib/lessonsApi";
+import { lettersPerLesson } from "@/lib/presentation";
+import type { LettersBlock, SavedDeck } from "@/lib/liveDeck";
+import { LettersPicker } from "@/components/present/LettersPicker";
 
 /* ── Types ── */
 interface SlideItem { id: string; imageDataUrl: string; text?: string; audioDataUrl?: string; audioDuration?: number; }
@@ -30,7 +33,7 @@ type Exercise = QuizExercise | MatchExercise | DragExercise | WordOrderExercise;
 type VideoBlock     = { id: string; type: "video";     url: string; title: string; }
 type SlideshowBlock = { id: string; type: "slideshow"; slides: SlideItem[]; }
 type ExerciseBlock  = { id: string; type: "exercise";  exercise: Exercise; }
-type ContentBlock   = VideoBlock | SlideshowBlock | ExerciseBlock;
+type ContentBlock   = VideoBlock | SlideshowBlock | ExerciseBlock | LettersBlock;
 
 /* ── Config ── */
 const exerciseTypeConfig = {
@@ -44,6 +47,7 @@ const blockMeta: Record<ContentBlock["type"], { label: string; color: string }> 
   video:     { label: "Vidéo",            color: "#74c2e8" },
   slideshow: { label: "Leçon illustrée",  color: "#c9b1e8" },
   exercise:  { label: "Exercice",         color: "#f9a875" },
+  letters:   { label: "Lettres",          color: "#8BA3B1" },
 };
 
 const answerModes: { value: AnswerMode; icon: React.ComponentType<{ size?: number; className?: string }>; label: string }[] = [
@@ -100,6 +104,9 @@ function CreateLessonPageInner() {
   const [blocks, setBlocks] = useState<ContentBlock[]>([]);
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState("");
+  /** Diaporama du cours en direct déjà enregistré, et état de la demande de vidéo. */
+  const [live,   setLive]   = useState<SavedDeck | null>(null);
+  const [recap,  setRecap]  = useState<"idle" | "sending" | "started" | "uptodate">("idle");
 
   /* ── Load for edit ── */
   useEffect(() => {
@@ -109,6 +116,7 @@ function CreateLessonPageInner() {
       if (!lesson) return;
       setTitle(lesson.title);
       setBlocks(lesson.blocks as ContentBlock[]);
+      setLive(lesson.live);
     })();
   }, [editId]);
 
@@ -243,8 +251,10 @@ function CreateLessonPageInner() {
   };
 
   /* ── Block operations ── */
-  const addBlock = (type: "video" | "slideshow" | ExerciseType) => {
-    if (type === "video") {
+  const addBlock = (type: "video" | "slideshow" | "letters" | ExerciseType) => {
+    if (type === "letters") {
+      setBlocks((p) => [...p, { id: uid(), type: "letters", level: "beginner", letterIds: [], reviewIds: [] }]);
+    } else if (type === "video") {
       setBlocks((p) => [...p, { id: uid(), type: "video", url: "", title: "" }]);
     } else if (type === "slideshow") {
       setBlocks((p) => [...p, { id: uid(), type: "slideshow", slides: [{ id: uid(), imageDataUrl: "" }] }]);
@@ -287,25 +297,63 @@ function CreateLessonPageInner() {
     updateExercise(blockId, (ex) => updater(ex as QuizExercise));
 
   /* ── Save ── */
-  const handleSave = async () => {
+  /** Enregistre la leçon ; renvoie son id, ou null si elle n'est pas valide ou si l'enregistrement échoue. */
+  const persist = async (): Promise<string | null> => {
     setError("");
-    if (!title.trim()) { setError("Veuillez donner un titre à la leçon."); return; }
+    if (!title.trim()) { setError("Veuillez donner un titre à la leçon."); return null; }
     const quizMissingAnswer = blocks.some(
       (b) => b.type === "exercise" && b.exercise.type === "quiz" && !(b.exercise as QuizExercise).correctId
     );
-    if (quizMissingAnswer) { setError("Marquez la bonne réponse pour chaque exercice quiz."); return; }
+    if (quizMissingAnswer) { setError("Marquez la bonne réponse pour chaque exercice quiz."); return null; }
+    const lettersIncomplete = blocks.find(
+      (b): b is LettersBlock => b.type === "letters" && b.letterIds.length !== lettersPerLesson(b.level)
+    );
+    if (lettersIncomplete) {
+      const n = lettersPerLesson(lettersIncomplete.level);
+      setError(`Choisissez ${n > 1 ? `${n} lettres` : "une lettre"} dans le bloc « Lettres ».`);
+      return null;
+    }
 
     setSaving(true);
     try {
       // Les images/audios encore inline partent vers R2 ; la base ne reçoit
       // que du JSON avec des URLs.
       const cleanBlocks = (await externalizeMediaToR2(blocks)) as unknown[];
-      if (editId) await updateLesson(editId, title.trim(), cleanBlocks);
-      else await createLesson(title.trim(), cleanBlocks);
-      router.push("/teacher?published=1");
+      if (editId) return (await updateLesson(editId, title.trim(), cleanBlocks)).id;
+      return (await createLesson(title.trim(), cleanBlocks)).id;
     } catch (err) {
       setError(`Erreur lors de la sauvegarde : ${(err as Error).message || "inconnue"}.`);
+      return null;
+    } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (await persist()) router.push("/teacher?published=1");
+  };
+
+  /**
+   * Enregistre la leçon, puis demande sa vidéo d'introduction ; le diaporama
+   * du cours en direct en sera tiré et enregistré avec la leçon.
+   */
+  const createVideo = async () => {
+    const id = await persist();
+    if (!id) return;
+    if (!editId) router.replace(`/teacher/create?edit=${id}`);
+    setRecap("sending");
+    try {
+      const res = await fetch("/api/recap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lessonId: id }),
+      });
+      const data = await res.json().catch(() => null) as { started?: boolean; error?: string } | null;
+      if (!res.ok) throw new Error(data?.error ?? `Erreur serveur (${res.status})`);
+      setRecap(data?.started ? "started" : "uptodate");
+    } catch (err) {
+      setError(`La vidéo n'a pas pu être demandée : ${(err as Error).message}.`);
+      setRecap("idle");
     }
   };
 
@@ -367,6 +415,7 @@ function CreateLessonPageInner() {
                 <div className="flex items-center gap-2">
                   {block.type === "video"     && <Video    size={15} style={{ color: meta.color }} />}
                   {block.type === "slideshow" && <BookOpen size={15} style={{ color: meta.color }} />}
+                  {block.type === "letters"   && <PenLine  size={15} style={{ color: meta.color }} />}
                   {block.type === "exercise"  && (() => {
                     const cfg = exerciseTypeConfig[(block as ExerciseBlock).exercise.type as ExerciseType];
                     return <cfg.icon size={15} style={{ color: cfg.color }} />;
@@ -400,6 +449,16 @@ function CreateLessonPageInner() {
                   </button>
                 </div>
               </div>
+
+              {/* ── LETTERS block body ── */}
+              {block.type === "letters" && (
+                <div className="p-4">
+                  <LettersPicker
+                    value={block}
+                    onChange={(choice) => updateBlock(block.id, (b) => ({ ...(b as LettersBlock), ...choice }))}
+                  />
+                </div>
+              )}
 
               {/* ── VIDEO block body ── */}
               {block.type === "video" && (
@@ -934,6 +993,13 @@ function CreateLessonPageInner() {
               <Video size={22} className="text-[#74c2e8]" />
               <span className="text-xs font-bold text-gray-600">Vidéo</span>
             </button>
+            <button onClick={() => addBlock("letters")} disabled={blocks.some((b) => b.type === "letters")}
+              title={blocks.some((b) => b.type === "letters") ? "La leçon a déjà un bloc « Lettres »" : undefined}
+              className="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-dashed transition-all enabled:hover:scale-105 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ borderColor: "#8BA3B150", background: "#8BA3B108" }}>
+              <PenLine size={22} className="text-[#8BA3B1]" />
+              <span className="text-xs font-bold text-gray-600">Lettres</span>
+            </button>
             <button onClick={() => addBlock("slideshow")}
               className="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-dashed transition-all hover:scale-105"
               style={{ borderColor: "#c9b1e850", background: "#c9b1e808" }}>
@@ -949,6 +1015,31 @@ function CreateLessonPageInner() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Vidéo d'introduction, puis diaporama du cours en direct */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <h3 className="font-black text-[#2d2d2d] mb-1 flex items-center gap-2"><Film size={18} className="text-[#BB908E]" /> Vidéo d&apos;introduction et cours en direct</h3>
+          <p className="text-sm text-gray-500 mb-4">
+            La vidéo reprend les lettres du bloc « Lettres » et les images des leçons illustrées ; elle est placée en tête de la leçon.
+            Le diaporama du cours en direct est ensuite construit à partir du même contenu et enregistré : vous le retrouvez dans « Cours en direct ».
+            Comptez quelques minutes. Si vous modifiez la leçon, redemandez la vidéo pour mettre le diaporama à jour.
+          </p>
+          {live && (
+            <p className="text-sm text-[#6B705C] font-semibold mb-3">
+              ✓ Diaporama enregistré le {new Date(live.createdAt).toLocaleString("fr-BE", { dateStyle: "long", timeStyle: "short" })}
+            </p>
+          )}
+          {recap === "started" && (
+            <p className="text-sm text-[#6B705C] font-semibold mb-3">La vidéo est en préparation : la vidéo et le diaporama seront prêts dans quelques minutes.</p>
+          )}
+          {recap === "uptodate" && (
+            <p className="text-sm text-[#6B705C] font-semibold mb-3">La vidéo et le diaporama correspondent déjà au contenu de la leçon.</p>
+          )}
+          <button onClick={createVideo} disabled={saving || recap === "sending"}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm text-white bg-[#BB908E] hover:bg-[#a87e7c] hover:shadow-md transition-all disabled:opacity-60">
+            <Film size={15} /> {recap === "sending" ? "Envoi…" : live ? "Mettre à jour la vidéo et le diaporama" : "Créer la vidéo et le diaporama"}
+          </button>
         </div>
 
         {error && (

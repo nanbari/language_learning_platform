@@ -1,17 +1,15 @@
 /**
- * Vidéos récapitulatives des cours en direct. Quand un enseignant lance un
- * cours, chaque partie (lettres, vocabulaire) donne une vidéo, rendue par le
- * projet Remotion (animations/recap.mjs) et placée en tête de la leçon
- * correspondante, où l'élève la voit en premier.
+ * Vidéo d'introduction d'une leçon, puis son diaporama de cours en direct.
+ * Depuis l'éditeur, l'enseignant demande la vidéo : elle est rendue par le
+ * projet Remotion (animations/recap.mjs) et placée en tête de la leçon ; le
+ * diaporama est alors construit à partir du même contenu (src/lib/liveDeck)
+ * et enregistré avec la leçon, prêt à être lancé en direct.
  *
- *  - lettres : la leçon « Lettres ب ت ث » (ou « Lettre ب » au niveau avancé),
- *    créée si elle n'existe pas ;
- *  - vocabulaire : la leçon présentée.
- *
- * Une vidéo est identifiée par l'empreinte de son contenu : relancer le même
- * cours ne refait rien ; si la leçon a changé, la nouvelle vidéo remplace
- * l'ancienne. Le rendu demande Chrome et ffmpeg (fournis par Remotion) : en
- * ligne, il est confié à GitHub Actions (voir requestRecap).
+ * La vidéo est identifiée par l'empreinte de son contenu : redemander la
+ * vidéo d'une leçon inchangée ne refait rien ; si la leçon a changé, la
+ * nouvelle vidéo et le nouveau diaporama remplacent les anciens. Le rendu
+ * demande Chrome et ffmpeg (fournis par Remotion) : en ligne, il est confié
+ * à GitHub Actions (voir requestRecap).
  */
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -20,76 +18,38 @@ import os from "node:os";
 import path from "node:path";
 import { supabaseAdmin } from "@/lib/supabase";
 import { presignUpload, publicUrl } from "@/lib/r2";
-import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";
-import { LETTER_STROKES } from "@/data/letterStrokes";
-import { clipRank, clipsFor } from "@/data/animations";
-import { charterColor, lessonVocabWords, letterColor } from "@/lib/presentation";
+import { charterColor } from "@/lib/presentation";
+import { buildLessonDeck, lessonParts, recapProps, type LessonPart, type SavedDeck } from "@/lib/liveDeck";
 
 type Block = { id?: string; type?: string; recap?: boolean };
-type Composition = "recap-lettres" | "recap-vocabulaire";
+type Exercises = { blocks?: Block[]; live?: SavedDeck };
 
-export type RecapRequest =
-  | { kind: "letters"; letterIds: number[] }
-  | { kind: "vocab"; lessonId: string };
+export interface RecapRequest { lessonId: string }
 
+const COMPOSITION = "recap-lecon";
 const ANIMATIONS_DIR = path.join(process.cwd(), "animations");
-// L'éditeur ne demande ni matière ni tranche d'âge — la base les exige (voir lessonsApi).
-const DEFAULT_SUBJECT = "général";
-const DEFAULT_AGE_GROUP = "tous";
+
+/** À augmenter quand les animations changent : les vidéos déjà placées seront refaites. */
+const RECAP_VERSION = 6;
 
 /** Rendus en cours, pour ne pas lancer deux fois la même vidéo. */
 const running = new Set<string>();
 
-function lettersProps(letterIds: number[]) {
-  const letters = letterIds
-    .map((id) => ARABIC_ALPHABET.find((l) => l.id === id))
-    .filter((l) => l !== undefined)
-    .flatMap((letter) => {
-      const glyph = LETTER_STROKES[letter.isolated];
-      if (!glyph) return [];
-      return [{
-        char: letter.isolated,
-        color: letterColor(letter),
-        outline: glyph.outline,
-        strokes: glyph.strokes.map(({ d, width }) => ({ d, width })),
-        marks: glyph.marks,
-      }];
-    });
-  return { letters };
+function fingerprint(props: unknown): string {
+  return createHash("sha1").update(RECAP_VERSION + COMPOSITION + JSON.stringify(props)).digest("hex").slice(0, 16);
 }
 
-/** Mots dans l'ordre de la séance : la couverture, les mots animés dans leur ordre fixe, puis les autres. */
-function vocabProps(title: string, blocks: unknown[], color: string) {
-  const [cover, ...rest] = lessonVocabWords(blocks);
-  const ranked = rest.filter((w) => clipRank(w.imageUrl) !== undefined).sort((a, b) => clipRank(a.imageUrl)! - clipRank(b.imageUrl)!);
-  const others = rest.filter((w) => clipRank(w.imageUrl) === undefined);
-  const words = (cover ? [cover, ...ranked, ...others] : []).map((w) => {
-    const clip = clipsFor(w.imageUrl)[0];
-    return { imageUrl: w.imageUrl, arabic: w.arabic, ...(clip && { clip: clip.src.replace(/^\//, "") }) };
-  });
-  // Le titre n'est écrit que s'il est en arabe (aucun texte français). `null`
-  // explicite : sinon Remotion garderait le titre de l'exemple (defaultProps).
-  return { title: /[؀-ۿ]/.test(title) ? title : null, color, words };
-}
-
-/** À augmenter quand les animations changent : les vidéos déjà placées seront refaites. */
-const RECAP_VERSION = 5;
-
-function fingerprint(composition: Composition, props: unknown): string {
-  return createHash("sha1").update(RECAP_VERSION + composition + JSON.stringify(props)).digest("hex").slice(0, 16);
-}
-
-function render(composition: Composition, props: unknown, output: string): Promise<void> {
+function render(props: unknown, output: string): Promise<void> {
   return (async () => {
     const propsFile = path.join(os.tmpdir(), `${path.basename(output)}.json`);
     await fs.writeFile(propsFile, JSON.stringify(props));
     try {
       await new Promise<void>((resolve, reject) => {
-        const child = spawn(process.execPath, ["recap.mjs", composition, propsFile, output], { cwd: ANIMATIONS_DIR, stdio: ["ignore", "ignore", "pipe"] });
+        const child = spawn(process.execPath, ["recap.mjs", COMPOSITION, propsFile, output], { cwd: ANIMATIONS_DIR, stdio: ["ignore", "ignore", "pipe"] });
         let errors = "";
         child.stderr.on("data", (chunk) => { errors += chunk; });
         child.on("error", reject);
-        child.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`Rendu ${composition} échoué (${code}) : ${errors.slice(-800)}`))));
+        child.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`Rendu ${COMPOSITION} échoué (${code}) : ${errors.slice(-800)}`))));
       });
     } finally {
       await fs.rm(propsFile, { force: true });
@@ -120,90 +80,63 @@ async function store(file: string, key: string): Promise<string> {
   return publicUrl(objectKey);
 }
 
-/** La vidéo récapitulative en tête de la leçon, à la place de la précédente. */
-function withRecap(blocks: Block[], key: string, url: string): Block[] {
-  return [{ id: `recap-${key}`, type: "video", url, title: "", recap: true } as Block, ...blocks.filter((b) => !b.recap)];
-}
-
-interface RecapPlan {
-  composition: Composition;
-  props: unknown;
+export interface RecapPlan {
+  lessonId: string;
+  parts: LessonPart[];
+  props: ReturnType<typeof recapProps>;
   key: string;
-  /** Titre de la leçon ; pour les lettres, elle est retrouvée (ou créée) par ce titre. */
-  title: string;
-  lessonId: string | null;
 }
 
-/** Ce que la vidéo d'une partie du cours doit montrer, ou `null` si sa leçon l'a déjà. */
+/**
+ * Ce que la vidéo de la leçon doit montrer, ou `null` si la leçon a déjà
+ * cette vidéo et son diaporama. Lève une erreur si la leçon n'a ni bloc
+ * « Lettres » complet ni assez de vocabulaire.
+ */
 export async function planRecap(request: RecapRequest): Promise<RecapPlan | null> {
   const db = supabaseAdmin();
-  let composition: Composition;
-  let props: unknown;
-  let lesson: { id: string; blocks: Block[] } | null;
-  let title: string;
+  const { data, error } = await db.from("lessons").select("id, title, exercises").eq("id", request.lessonId).single();
+  if (error || !data) throw new Error(`Leçon ${request.lessonId} introuvable`);
+  // Même couleur qu'en séance jusqu'ici : celle du rang de la leçon dans la liste.
+  const { data: ids } = await db.from("lessons").select("id").order("created_at", { ascending: false });
+  const rank = Math.max(0, (ids ?? []).findIndex((l) => l.id === data.id));
+  const exercises = (data.exercises ?? {}) as Exercises;
 
-  if (request.kind === "vocab") {
-    const { data, error } = await db.from("lessons").select("id, title, exercises").eq("id", request.lessonId).single();
-    if (error || !data) throw new Error(`Leçon ${request.lessonId} introuvable`);
-    // Même couleur qu'en séance : celle du rang de la leçon dans la liste.
-    const { data: ids } = await db.from("lessons").select("id").order("created_at", { ascending: false });
-    const rank = Math.max(0, (ids ?? []).findIndex((l) => l.id === data.id));
-    const blocks = (data.exercises?.blocks ?? []) as Block[];
-    composition = "recap-vocabulaire";
-    props = vocabProps(data.title, blocks, charterColor(rank));
-    lesson = { id: data.id, blocks };
-    title = data.title;
-  } else {
-    title = lettersTitle(request.letterIds);
-    const { data } = await db.from("lessons").select("id, exercises").eq("title", title).limit(1).maybeSingle();
-    composition = "recap-lettres";
-    props = lettersProps(request.letterIds);
-    lesson = data ? { id: data.id, blocks: (data.exercises?.blocks ?? []) as Block[] } : null;
-  }
-
-  const key = fingerprint(composition, props);
-  if (lesson?.blocks.some((b) => b.id === `recap-${key}`)) return null;
-  return { composition, props, key, title, lessonId: lesson?.id ?? null };
+  const parts = lessonParts(data.title, exercises.blocks ?? [], charterColor(rank));
+  if (parts.length === 0) throw new Error("La leçon n'a ni lettres ni assez de vocabulaire pour une vidéo");
+  const props = recapProps(parts);
+  const key = fingerprint(props);
+  if (exercises.live?.key === key) return null;
+  return { lessonId: data.id, parts, props, key };
 }
 
-function lettersTitle(letterIds: number[]): string {
-  const chars = letterIds.map((id) => ARABIC_ALPHABET.find((l) => l.id === id)?.isolated).filter(Boolean);
-  return `${chars.length > 1 ? "Lettres" : "Lettre"} ${chars.join(" ")}`;
-}
-
-/** Place la vidéo en tête de la leçon, relue au dernier moment (l'enseignant a pu la modifier) ; crée la leçon de lettres au besoin. */
-async function saveRecap(plan: RecapPlan, url: string, authorId: string): Promise<void> {
+/**
+ * Place la vidéo en tête de la leçon et enregistre le diaporama tiré des
+ * mêmes parties. La leçon est relue au dernier moment : l'enseignant a pu la
+ * modifier pendant le rendu.
+ */
+async function saveRecap(plan: RecapPlan, videoUrl: string): Promise<void> {
   const db = supabaseAdmin();
-  const query = db.from("lessons").select("id, exercises");
-  const { data: current } = await (plan.lessonId ? query.eq("id", plan.lessonId) : query.eq("title", plan.title)).limit(1).maybeSingle();
-  if (current) {
-    const exercises = current.exercises ?? {};
-    const blocks = withRecap((exercises.blocks ?? []) as Block[], plan.key, url);
-    const { error } = await db.from("lessons").update({ exercises: { ...exercises, blocks } }).eq("id", current.id);
-    if (error) throw new Error(error.message);
-  } else {
-    const { error } = await db.from("lessons").insert({
-      title: plan.title,
-      subject: DEFAULT_SUBJECT,
-      age_group: DEFAULT_AGE_GROUP,
-      author_id: authorId,
-      exercises: { blocks: withRecap([], plan.key, url) },
-      published_at: new Date().toISOString(),
-    });
-    if (error) throw new Error(error.message);
-  }
+  const { data } = await db.from("lessons").select("exercises").eq("id", plan.lessonId).single();
+  const exercises = (data?.exercises ?? {}) as Exercises;
+  const blocks = [
+    { id: `recap-${plan.key}`, type: "video", url: videoUrl, title: "", recap: true },
+    ...(exercises.blocks ?? []).filter((b) => !b.recap),
+  ];
+  const live: SavedDeck = { key: plan.key, slides: buildLessonDeck(plan.parts), videoUrl, createdAt: new Date().toISOString() };
+  const { error } = await db.from("lessons").update({ exercises: { ...exercises, blocks, live } }).eq("id", plan.lessonId);
+  if (error) throw new Error(error.message);
 }
 
-/** Rend la vidéo d'une partie du cours et la place dans sa leçon (créée au besoin). */
-export async function makeRecap(request: RecapRequest, authorId: string): Promise<void> {
+/** Rend la vidéo d'une leçon, la place en tête et enregistre son diaporama. */
+export async function makeRecap(request: RecapRequest): Promise<void> {
   const plan = await planRecap(request);
   if (!plan || running.has(plan.key)) return;
   running.add(plan.key);
 
   const output = path.join(os.tmpdir(), `recap-${plan.key}.mp4`);
   try {
-    await render(plan.composition, plan.props, output);
-    await saveRecap(plan, await store(output, plan.key), authorId);
+    await render(plan.props, output);
+    await saveRecap(plan, await store(output, plan.key));
   } finally {
     running.delete(plan.key);
     await fs.rm(output, { force: true });
@@ -211,22 +144,27 @@ export async function makeRecap(request: RecapRequest, authorId: string): Promis
 }
 
 /**
- * Demande la vidéo au lancement d'un cours. Si GitHub est configuré
- * (GITHUB_RECAP_TOKEN, GITHUB_RECAP_REPO), le rendu est confié au workflow
- * .github/workflows/recap.yml — l'hébergeur du site n'a pas Chrome ; sinon
- * il se fait ici (développement local).
+ * Demande la vidéo d'une leçon. Si GitHub est configuré (GITHUB_RECAP_TOKEN,
+ * GITHUB_RECAP_REPO), le rendu est confié au workflow
+ * .github/workflows/recap.yml — l'hébergeur du site n'a pas Chrome ; sinon il
+ * se fait ici, en arrière-plan (développement local). Renvoie `false` si la
+ * leçon a déjà cette vidéo et son diaporama.
  */
-export async function requestRecap(request: RecapRequest, authorId: string): Promise<void> {
+export async function requestRecap(request: RecapRequest): Promise<boolean> {
+  const plan = await planRecap(request);
+  if (!plan) return false;
+
   const token = process.env.GITHUB_RECAP_TOKEN;
   const repo = process.env.GITHUB_RECAP_REPO;
-  if (!token || !repo) return makeRecap(request, authorId);
-
-  const plan = await planRecap(request);
-  if (!plan) return;
+  if (!token || !repo) {
+    makeRecap(request).catch((e) => console.error("[recap]", e));
+    return true;
+  }
   const res = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/recap.yml/dispatches`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
-    body: JSON.stringify({ ref: "main", inputs: { request: JSON.stringify(request), author: authorId, key: plan.key } }),
+    body: JSON.stringify({ ref: "main", inputs: { request: JSON.stringify(request), key: plan.key } }),
   });
   if (!res.ok) throw new Error(`Workflow recap non lancé (${res.status}) : ${await res.text()}`);
+  return true;
 }

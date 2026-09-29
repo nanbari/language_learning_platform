@@ -69,6 +69,13 @@ export async function PATCH(req: NextRequest) {
   void _ignoredAuthorId; // never trust the client-supplied author_id
   if (!id) return NextResponse.json({ error: "id requis" }, { status: 400 });
 
+  // L'éditeur n'envoie que les blocs : le diaporama du cours en direct
+  // (exercises.live, voir lib/recapVideo) est conservé.
+  if (updates.exercises) {
+    const { data: current } = await supabase().from("lessons").select("exercises").eq("id", id).single();
+    updates.exercises = { ...(current?.exercises ?? {}), ...updates.exercises };
+  }
+
   let query = supabase().from("lessons").update(updates).eq("id", id);
   // Teachers can only patch their own lessons; admins can patch any.
   if (!session.isAdmin) query = query.eq("author_id", session.id);

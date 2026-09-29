@@ -11,6 +11,7 @@ import { LettersRecap } from "./recap/LettersRecap";
 import { VocabRecap, vocabDuration } from "./recap/VocabRecap";
 import { LETTER_FRAMES, endFrames } from "./recap/types";
 import { SAMPLE_LETTERS, SAMPLE_VOCAB } from "./recap/samples";
+import { LessonRecap, lessonDuration } from "./recap/LessonRecap";
 
 export const FPS = 30;
 export const DURATION = 120;
@@ -51,6 +52,17 @@ export const Root: React.FC = () => (
       component={LettersRecap}
       defaultProps={SAMPLE_LETTERS}
       calculateMetadata={({ props }) => ({ durationInFrames: props.letters.length * LETTER_FRAMES + endFrames(props.letters.length) })}
+      durationInFrames={1}
+      fps={FPS}
+      width={WIDTH}
+      height={HEIGHT}
+    />
+    {/* Vidéo d'introduction d'une leçon, d'où est tiré son diaporama de cours en direct (src/lib/liveDeck.ts du site). */}
+    <Composition
+      id="recap-lecon"
+      component={LessonRecap}
+      defaultProps={{ parts: [{ kind: "letters" as const, ...SAMPLE_LETTERS }, { kind: "vocab" as const, ...SAMPLE_VOCAB }] }}
+      calculateMetadata={({ props }) => ({ durationInFrames: lessonDuration(props.parts) })}
       durationInFrames={1}
       fps={FPS}
       width={WIDTH}

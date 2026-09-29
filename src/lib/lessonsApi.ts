@@ -5,6 +5,7 @@
  * médias des blocs sont des URLs publiques R2 (voir mediaUpload). Ce module
  * fait la traduction ligne SQL ↔ objet leçon utilisé par les pages.
  */
+import type { SavedDeck } from "@/lib/liveDeck";
 
 export interface ApiLesson {
   id: string;
@@ -12,13 +13,15 @@ export interface ApiLesson {
   createdAt: string;
   authorId: string | null;
   blocks: { type: string }[];
+  /** Diaporama du cours en direct, tiré de la vidéo d'introduction (voir lib/liveDeck). */
+  live: SavedDeck | null;
 }
 
 interface LessonRow {
   id: string;
   title: string;
   author_id: string | null;
-  exercises: { blocks?: { type: string }[] } | null;
+  exercises: { blocks?: { type: string }[]; live?: SavedDeck } | null;
   created_at: string;
 }
 
@@ -29,6 +32,7 @@ function rowToLesson(row: LessonRow): ApiLesson {
     createdAt: row.created_at,
     authorId: row.author_id,
     blocks: row.exercises?.blocks ?? [],
+    live: row.exercises?.live ?? null,
   };
 }
 

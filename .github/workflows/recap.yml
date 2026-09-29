@@ -1,16 +1,14 @@
 name: Vidéo récapitulative
 
 # Lancé par le site (src/lib/recapVideo.ts → requestRecap) quand un enseignant
-# démarre un cours en direct : rend la vidéo avec Remotion, la dépose sur R2
-# et la place en tête de la leçon. L'hébergeur du site n'a pas Chrome.
+# demande, depuis l'éditeur, la vidéo d'introduction d'une leçon : rend la
+# vidéo avec Remotion, la dépose sur R2, la place en tête de la leçon et
+# enregistre le diaporama du cours en direct. L'hébergeur du site n'a pas Chrome.
 on:
   workflow_dispatch:
     inputs:
       request:
-        description: 'Partie du cours, en JSON ({"kind":"letters","letterIds":[2,3,4]} ou {"kind":"vocab","lessonId":"…"})'
-        required: true
-      author:
-        description: Enseignant qui a lancé le cours (auteur de la leçon de lettres si elle est créée)
+        description: 'Leçon, en JSON ({"lessonId":"…"})'
         required: true
       key:
         description: Empreinte de la vidéo
@@ -42,7 +40,6 @@ jobs:
       - run: npx tsx scripts/make-recap.mts
         env:
           RECAP_REQUEST: ${{ inputs.request }}
-          RECAP_AUTHOR: ${{ inputs.author }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

@@ -36,7 +36,8 @@ function isSafeVideoUrl(url: string): boolean {
 function uid() { return Math.random().toString(36).slice(2, 8); }
 
 function getLessonBlocks(lesson: StoredLesson): ContentBlock[] {
-  if (lesson.blocks?.length) return lesson.blocks;
+  // Le bloc « Lettres » ne sert qu'à préparer la vidéo d'introduction et le cours en direct : l'élève ne le voit pas.
+  if (lesson.blocks?.length) return lesson.blocks.filter((b) => (b.type as string) !== "letters");
   const blocks: ContentBlock[] = [];
   for (const v of lesson.videos ?? []) blocks.push({ id: v.id, type: "video", url: v.url, title: v.title });
   if (lesson.slideshow?.length) blocks.push({ id: uid(), type: "slideshow", slides: lesson.slideshow });

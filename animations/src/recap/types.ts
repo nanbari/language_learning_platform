@@ -48,3 +48,10 @@ export const END_HOLD = 120;
 export function endFrames(cards: number): number {
   return END_DELAY + cards * END_STAGGER + END_HOLD;
 }
+
+/** Vidéo d'introduction d'une leçon : ses parties (lettres, vocabulaire) dans l'ordre de la leçon. */
+export type LessonRecapPart = ({ kind: "letters" } & LettersRecapProps) | ({ kind: "vocab" } & VocabRecapProps);
+
+export type LessonRecapProps = {
+  parts: LessonRecapPart[];
+};
