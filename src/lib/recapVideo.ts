@@ -154,8 +154,8 @@ export async function requestRecap(request: RecapRequest): Promise<boolean> {
   const plan = await planRecap(request);
   if (!plan) return false;
 
-  const token = process.env.GITHUB_RECAP_TOKEN;
-  const repo = process.env.GITHUB_RECAP_REPO;
+  const token = process.env.GITHUB_RECAP_TOKEN?.trim();
+  const repo = process.env.GITHUB_RECAP_REPO?.trim();
   if (!token || !repo) {
     makeRecap(request).catch((e) => console.error("[recap]", e));
     return true;
