@@ -1,0 +1,53 @@
+name: Vidéo récapitulative
+
+# Lancé par le site (src/lib/recapVideo.ts → requestRecap) quand un enseignant
+# démarre un cours en direct : rend la vidéo avec Remotion, la dépose sur R2
+# et la place en tête de la leçon. L'hébergeur du site n'a pas Chrome.
+on:
+  workflow_dispatch:
+    inputs:
+      request:
+        description: 'Partie du cours, en JSON ({"kind":"letters","letterIds":[2,3,4]} ou {"kind":"vocab","lessonId":"…"})'
+        required: true
+      author:
+        description: Enseignant qui a lancé le cours (auteur de la leçon de lettres si elle est créée)
+        required: true
+      key:
+        description: Empreinte de la vidéo
+        required: true
+
+permissions:
+  contents: read
+
+# Une même vidéo n'est rendue qu'une fois à la fois ; le second rendu voit que la leçon l'a déjà.
+concurrency:
+  group: recap-${{ inputs.key }}
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            animations/package-lock.json
+      - run: npm ci
+      - run: npm ci
+        working-directory: animations
+      - run: npx tsx scripts/make-recap.mts
+        env:
+          RECAP_REQUEST: ${{ inputs.request }}
+          RECAP_AUTHOR: ${{ inputs.author }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_PUBLIC_BASE_URL: ${{ secrets.R2_PUBLIC_BASE_URL }}

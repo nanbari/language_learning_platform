@@ -10,7 +10,7 @@ export default function ArabicHub() {
         </Link>
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-black text-sm" style={{ background: "#BB908E" }}>م</div>
-          <span className="font-black text-[#2D2D2D]" style={{ fontFamily: "'Fredoka One', cursive" }}>Monte & Souris</span>
+          <span className="font-black text-[#2D2D2D]" style={{ fontFamily: "'Fredoka One', cursive" }}>Monte <span className="text-[#8BA3B1]">&</span> Souris</span>
         </div>
         <div className="w-20" />
       </div>
