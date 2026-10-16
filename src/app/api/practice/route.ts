@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { supabaseAdmin } from "@/lib/supabase";
 import { COOKIE_NAME, verifySession } from "@/lib/auth";
-import { analyseWeakSpots } from "@/lib/weakSpots";
+import { analyseWeakSpots, isTextSpot } from "@/lib/weakSpots";
 import { generatePracticeSet, PracticeConfigError, PracticeGenerationError } from "@/lib/practiceGenerator";
 import { toReplayBlocks, toPracticeSources, type PracticeBlock, type PracticeSet, type PracticeSource } from "@/lib/practice";
 import type { ContentBlock } from "@/components/lesson/ExerciseRenderers";
@@ -154,7 +154,18 @@ export async function POST(req: NextRequest) {
       usage: { input_tokens: null, output_tokens: null },
     };
   } else try {
-    result = await generatePracticeSet({ lessonTitle: lesson.title, weakSpots });
+    // L'agent ne sait varier que les exercices textuels : les jeux de lettres
+    // ratés sont rejoués tels quels à la suite de la série générée.
+    const textSpots = weakSpots.filter(isTextSpot);
+    const letterSpots = weakSpots.filter((s) => !isTextSpot(s));
+    const generated = textSpots.length > 0
+      ? await generatePracticeSet({ lessonTitle: lesson.title, weakSpots: textSpots })
+      : { blocks: [], sources: [], model: REPLAY_MODEL, usage: { input_tokens: null, output_tokens: null } };
+    result = {
+      ...generated,
+      blocks: [...generated.blocks, ...toReplayBlocks(letterSpots)],
+      sources: [...generated.sources, ...toPracticeSources(letterSpots)],
+    };
   } catch (err) {
     if (err instanceof PracticeConfigError) {
       return NextResponse.json({ error: "L'agent de révision n'est pas configuré" }, { status: 503 });

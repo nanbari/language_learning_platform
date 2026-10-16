@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, RotateCcw, Volume2 } from "lucide-react";
 import { Confetti } from "@/components/Confetti";
@@ -8,7 +8,7 @@ import { LetterGlyph, LetterTracing } from "@/components/present/LetterTracing";
 import { LetterWriting } from "@/components/present/LetterWriting";
 import { isRightForm, writingGlyph, type Slide, type VocabWord } from "@/lib/presentation";
 import { joinedSegments } from "@/lib/arabicWord";
-import { playLetterSound } from "@/lib/letterSound";
+import { loadSounds, playLetterSound } from "@/lib/letterSound";
 import type { ArabicLetter } from "@/data/arabicAlphabet";
 
 // Naskh : le style des cahiers d'école, cohérent avec le tracé animé des lettres.
@@ -264,6 +264,8 @@ function PickSoundSlide({ slide, game }: { slide: Extract<Slide, { kind: "pickSo
   const [wrong, setWrong] = useState<number[]>([]);
   const [found, setFound] = useState(false);
   const [playing, setPlaying] = useState<number | null>(null);
+  // Les sons enregistrés sont chargés dès l'affichage, pas au premier clic.
+  useEffect(() => { loadSounds(); }, []);
   const solved = found || game?.revealed === true;
   const { target } = slide;
   return (

@@ -13,7 +13,7 @@ export interface ApiLesson {
   createdAt: string;
   authorId: string | null;
   blocks: { type: string }[];
-  /** Diaporama du cours en direct, tiré de la vidéo d'introduction (voir lib/liveDeck). */
+  /** Diaporama du cours en direct, enregistré depuis l'éditeur (voir lib/lessonDeck). */
   live: SavedDeck | null;
 }
 

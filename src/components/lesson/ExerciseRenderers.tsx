@@ -8,7 +8,6 @@
  */
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Volume2, ChevronRight, CheckCircle, XCircle } from "lucide-react";
-import { useGameStore } from "@/store/gameStore";
 import { Confetti } from "@/components/Confetti";
 import { useExerciseTracker } from "@/lib/useExerciseTracker";
 
@@ -47,7 +46,6 @@ export function QuizRenderer({ ex, color, onNext, idx, total, lessonId, blockId 
   const [wrongId, setWrongId]   = useState<string | null>(null);
   const [correct, setCorrect]   = useState(false);
   const [shake, setShake]       = useState(false);
-  const { addPoints } = useGameStore();
   const track = useExerciseTracker({ lessonId, blockId, exerciseType: "quiz" });
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -85,7 +83,6 @@ export function QuizRenderer({ ex, color, onNext, idx, total, lessonId, blockId 
     if (correct) return;
     track.attempt(id === ex.correctId, { optionId: id });
     if (id === ex.correctId) {
-      addPoints(10);
       setWrongId(null);
       setCorrect(true);
       playSuccessSound();
@@ -194,7 +191,6 @@ export function QuizRenderer({ ex, color, onNext, idx, total, lessonId, blockId 
 export function WordOrderRenderer({ ex, color, onNext, lessonId, blockId }: {
   ex: WordOrderExercise; color: string; onNext: () => void; lessonId: string; blockId: string;
 }) {
-  const { addPoints } = useGameStore();
   const track = useExerciseTracker({ lessonId, blockId, exerciseType: "wordorder" });
   const targetWords = ex.sentence.split(/\s+/).filter(Boolean);
   // Detect Arabic so the answer zone reads right-to-left
@@ -281,7 +277,6 @@ export function WordOrderRenderer({ ex, color, onNext, lessonId, blockId }: {
     const ok = chosen.every((c, i) => c.word === targetWords[i]);
     track.attempt(ok, { words: chosen.map((c) => c.word) });
     if (ok) {
-      addPoints(10);
       setFeedback("correct");
       const BRAVO_MS  = 2300;
       const POST_DELAY = 2500;

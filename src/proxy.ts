@@ -5,6 +5,7 @@ import { COOKIE_NAME, verifySession, isStaff } from "@/lib/auth";
  * Route protection.
  *
  *  /teacher/*   → enseignants et admins
+ *  /teacher/letters (sons des lettres) → admins seulement
  *  /student/*   → élèves et admins (aperçu des leçons)
  *
  * Unauthenticated users are redirected to /login with a ?next= param so they
@@ -28,6 +29,10 @@ export async function proxy(req: NextRequest) {
 
   if (isTeacherArea && session && !isStaff(session)) {
     return NextResponse.redirect(new URL("/student", req.url));
+  }
+
+  if (pathname.startsWith("/teacher/letters") && session && !session.isAdmin) {
+    return NextResponse.redirect(new URL("/teacher", req.url));
   }
 
   if (isStudentArea && session && session.role !== "student" && !session.isAdmin) {

@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, Img, OffthreadVideo, Sequence, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Img, Loop, OffthreadVideo, Sequence, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { loadFont } from "@remotion/google-fonts/NotoNaskhArabic";
 import { theme } from "../theme";
 import { BgMesh, Grade } from "../components/Layers";
@@ -55,7 +55,7 @@ export const VocabRecap: React.FC<VocabRecapProps> = ({ title, color, words }) =
   );
 };
 
-const Opening: React.FC<{ title?: string | null; color: string }> = ({ title, color }) => {
+export const Opening: React.FC<{ title?: string | null; color: string }> = ({ title, color }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const p = spring({ frame, fps, config: theme.spring.bouncy });
@@ -77,7 +77,7 @@ const Picture: React.FC<{ word: RecapWord; size: number }> = ({ word, size }) =>
     <span style={{ fontSize: size * 0.8, lineHeight: 1 }}>{word.emoji}</span>
   );
 
-const WordCard: React.FC<{ word: RecapWord; color: string }> = ({ word, color }) => {
+export const WordCard: React.FC<{ word: RecapWord; color: string }> = ({ word, color }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const enter = spring({ frame, fps, config: theme.spring.bouncy });
@@ -105,7 +105,7 @@ const WordCard: React.FC<{ word: RecapWord; color: string }> = ({ word, color })
 };
 
 /** L'animation du mot, dans un cadre de la couleur de la leçon, comme en séance. */
-const ClipFrame: React.FC<{ src: string; color: string }> = ({ src, color }) => {
+export const ClipFrame: React.FC<{ src: string; color: string; loop?: boolean }> = ({ src, color, loop }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const p = spring({ frame, fps, config: theme.spring.smooth });
@@ -117,14 +117,18 @@ const ClipFrame: React.FC<{ src: string; color: string }> = ({ src, color }) => 
           boxShadow: "0 24px 60px rgba(45,45,45,0.14)", transform: `scale(${interpolate(p, [0, 1], [0.9, 1])})`, opacity: p,
         }}
       >
-        <OffthreadVideo src={staticFile(src)} muted style={{ width: "100%", height: "100%" }} />
+        {loop ? (
+          <Loop durationInFrames={CLIP_FRAMES}><OffthreadVideo src={staticFile(src)} muted style={{ width: "100%", height: "100%" }} /></Loop>
+        ) : (
+          <OffthreadVideo src={staticFile(src)} muted style={{ width: "100%", height: "100%" }} />
+        )}
       </div>
     </AbsoluteFill>
   );
 };
 
 /** Fin : toutes les images de la leçon, en grille, qui apparaissent l'une après l'autre. */
-const AllWords: React.FC<{ words: RecapWord[]; color: string }> = ({ words, color }) => {
+export const AllWords: React.FC<{ words: RecapWord[]; color: string }> = ({ words, color }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const perRow = words.length <= 4 ? words.length : Math.ceil(words.length / 2);

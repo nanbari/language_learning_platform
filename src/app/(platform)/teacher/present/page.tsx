@@ -2,13 +2,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, ChevronLeft, ChevronRight, Maximize, Minimize, Play, Users, Wifi, WifiOff, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Maximize, Minimize, MicOff, Play, Users, Wifi, WifiOff, X } from "lucide-react";
 import { fetchLessons } from "@/lib/lessonsApi";
 import { charterColor, qcmAnswerLabel, stepsFor, teacherInstruction, teacherQuestion, type Slide } from "@/lib/presentation";
 import type { SavedDeck } from "@/lib/liveDeck";
-import { generateCode, isGame, summarize, type LiveState } from "@/lib/liveSession";
+import { isGame, summarize, type LiveState } from "@/lib/liveSession";
+import type { ClassRow } from "@/lib/classes";
+import { fetchTeacherClasses, startLive, stopLive } from "@/lib/classesApi";
 import { useLiveHost } from "@/lib/useLiveSession";
+import { useVideoCall } from "@/lib/useLiveVideo";
+import { useAuthStore } from "@/store/authStore";
 import { SlideView } from "@/components/present/Slides";
+import { CallButtons, VideoTile } from "@/components/present/VideoCall";
 import { LETTER_POSITIONS } from "@/data/letterWords";
 
 type RuleKind = "beginner" | "advanced" | "vocab";
@@ -52,13 +57,29 @@ const GAME_RULES: { kind: RuleKind; mode: string; games: { name: string; rule: s
 /** Leçon d'enseignant dont le diaporama est enregistré. */
 interface SavedLesson { id: string; title: string; live: SavedDeck }
 
+/** Séance en cours : le diaporama, la classe et le salon (tiré au hasard par le serveur). */
+interface LiveSessionInfo { deck: Slide[]; classId: string; className: string; room: string }
+
 export default function TeacherPresentPage() {
-  const [session, setSession] = useState<{ deck: Slide[]; code: string } | null>(null);
+  const [session, setSession] = useState<LiveSessionInfo | null>(null);
+
+  // Onglet fermé ou page quittée sans « Quitter » : le cours se termine quand même.
+  useEffect(() => {
+    if (!session) return;
+    const end = () => void stopLive(session.classId, session.room);
+    window.addEventListener("pagehide", end);
+    return () => window.removeEventListener("pagehide", end);
+  }, [session]);
 
   return session ? (
-    <Player deck={session.deck} code={session.code} onQuit={() => setSession(null)} />
+    <Player
+      deck={session.deck}
+      code={session.room}
+      className={session.className}
+      onQuit={() => { void stopLive(session.classId, session.room); setSession(null); }}
+    />
   ) : (
-    <Setup onStart={(deck) => setSession({ deck, code: generateCode() })} />
+    <Setup onStart={setSession} />
   );
 }
 
@@ -71,11 +92,21 @@ function deckKinds(deck: readonly Slide[]): RuleKind[] {
   return kinds;
 }
 
-function Setup({ onStart }: { onStart: (deck: Slide[]) => void }) {
+function Setup({ onStart }: { onStart: (session: LiveSessionInfo) => void }) {
   // Diaporamas enregistrés : ceux des leçons dont la vidéo d'introduction a été créée depuis l'éditeur.
   const [lessons, setLessons] = useState<SavedLesson[] | null>(null);
   const [lessonsError, setLessonsError] = useState(false);
   const [lessonId, setLessonId] = useState<string | null>(null);
+  const [classes, setClasses] = useState<ClassRow[] | null>(null);
+  const [classId, setClassId] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchTeacherClasses()
+      .then((data) => setClasses(data.classes))
+      .catch(() => setClasses([]));
+  }, []);
 
   useEffect(() => {
     fetchLessons()
@@ -85,6 +116,20 @@ function Setup({ onStart }: { onStart: (deck: Slide[]) => void }) {
 
   const lesson = lessons?.find((l) => l.id === lessonId) ?? lessons?.[0] ?? null;
   const kinds = lesson ? deckKinds(lesson.live.slides) : [];
+  const cls = classes?.find((c) => c.id === classId) ?? classes?.[0] ?? null;
+
+  const start = async () => {
+    if (!lesson || !cls) return;
+    setStarting(true);
+    setStartError(null);
+    try {
+      const { room } = await startLive(cls.id);
+      onStart({ deck: lesson.live.slides, classId: cls.id, className: cls.name, room });
+    } catch (e) {
+      setStartError((e as Error).message);
+      setStarting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#fffef9]">
@@ -148,9 +193,41 @@ function Setup({ onStart }: { onStart: (deck: Slide[]) => void }) {
           )}
         </div>
 
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-6">
+          <p className="font-bold text-[#2d2d2d] mb-1">Classe</p>
+          <p className="text-xs text-gray-500 mb-3">
+            Seuls les élèves de la classe choisie voient le cours dans leur espace et peuvent le rejoindre.
+          </p>
+          {classes === null ? (
+            <p className="text-sm text-gray-400">Chargement des classes…</p>
+          ) : classes.length === 0 ? (
+            <div className="text-sm text-gray-600 bg-[#F5EEE8] rounded-xl p-4">
+              Aucune classe pour l&apos;instant.{" "}
+              <Link href="/teacher/classes" className="font-bold text-[#BB908E] hover:underline">Créer une classe</Link>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {classes.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setClassId(c.id)}
+                  aria-pressed={cls?.id === c.id}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold transition-all ${
+                    cls?.id === c.id ? "text-white shadow-md bg-[#6B705C]" : "bg-white border border-gray-200 text-gray-600 hover:border-[#6B705C]"
+                  }`}
+                >
+                  {c.name}{" "}
+                  <span className="font-semibold opacity-70">· {c.studentIds.length} élève{c.studentIds.length > 1 ? "s" : ""}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {startError && <p className="text-sm font-bold text-red-500 mb-3">{startError}</p>}
         <button
-          onClick={() => lesson && onStart(lesson.live.slides)}
-          disabled={!lesson}
+          onClick={() => void start()}
+          disabled={!lesson || !cls || starting}
           className="flex items-center gap-2 px-6 py-3 rounded-full font-bold text-white shadow hover:shadow-md hover:scale-105 transition-all disabled:opacity-40 disabled:hover:scale-100"
           style={{ background: "#BB908E" }}
         >
@@ -162,7 +239,7 @@ function Setup({ onStart }: { onStart: (deck: Slide[]) => void }) {
           <ul className="space-y-1 text-sm text-[#8b6f47]">
             <li>• Passez en plein écran, puis partagez la fenêtre dans votre visioconférence</li>
             <li>• Les flèches du clavier ← → ou la barre d&apos;espace font avancer la présentation</li>
-            <li>• Communiquez le code de séance aux élèves : depuis leur espace, ils suivent les écrans et répondent eux-mêmes aux jeux</li>
+            <li>• Les élèves de la classe voient le cours dans leur espace et le rejoignent d&apos;un clic : ils suivent les écrans, répondent eux-mêmes aux jeux et vous voient en vidéo</li>
             <li>• Pendant un jeu, cliquez sur la bonne réponse pour afficher la solution chez tous les élèves</li>
             <li>• Les écrans de lettres ne comportent aucun texte français : vous énoncez les consignes. Au jeu « Où est la lettre ? », la lettre à annoncer est rappelée dans la barre de commandes</li>
             <li>• Les QCM affichent la question telle que vous l&apos;avez rédigée ; la bonne réponse est rappelée dans la barre de commandes</li>
@@ -191,7 +268,7 @@ function Setup({ onStart }: { onStart: (deck: Slide[]) => void }) {
   );
 }
 
-function Player({ deck, code, onQuit }: { deck: Slide[]; code: string; onQuit: () => void }) {
+function Player({ deck, code, className, onQuit }: { deck: Slide[]; code: string; className: string; onQuit: () => void }) {
   const [pos, setPos] = useState({ index: 0, step: 0 });
   const [revealedIndex, setRevealedIndex] = useState<number | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
@@ -204,6 +281,8 @@ function Player({ deck, code, onQuit }: { deck: Slide[]; code: string; onQuit: (
   );
   const { participants, tally, connected } = useLiveHost(code, liveState);
   const summary = summarize(tally, pos.index);
+  const { user } = useAuthStore();
+  const call = useVideoCall(code, { id: user?.id ?? `teacher-${code}`, name: user?.name ?? "Enseignant", role: "teacher" });
 
   const next = useCallback(() => {
     setPos((p) => {
@@ -262,11 +341,12 @@ function Player({ deck, code, onQuit }: { deck: Slide[]; code: string; onQuit: (
       <div className="flex items-center justify-between gap-4 px-5 py-2 text-sm font-bold text-[#2D2D2D]/60">
         <span className="flex items-center gap-2">
           {connected ? <Wifi size={15} className="text-[#6B705C]" /> : <WifiOff size={15} className="text-[#BB908E]" />}
-          Espace élève › Cours en direct · code
-          <span className="px-2.5 py-0.5 rounded-lg bg-[#FFFDF8] border border-[#EDE5D8] text-lg font-black tracking-[0.25em] text-[#2D2D2D]">
-            {code}
+          Cours en direct · classe
+          <span className="px-2.5 py-0.5 rounded-lg bg-[#FFFDF8] border border-[#EDE5D8] text-[#2D2D2D]">
+            {className}
           </span>
         </span>
+        {call.error && <span className="text-[#BB908E]">{call.error}</span>}
         <span className="flex items-center gap-1.5" title={participants.map((p) => p.name).join(", ")}>
           <Users size={15} /> {participants.length} élève{participants.length > 1 ? "s" : ""} connecté{participants.length > 1 ? "s" : ""}
         </span>
@@ -290,6 +370,7 @@ function Player({ deck, code, onQuit }: { deck: Slide[]; code: string; onQuit: (
       )}
 
       {/* Scène : un clic dans le vide révèle l'étape suivante */}
+      <div className="flex-1 min-h-0 flex">
       <div className="flex-1 flex items-center justify-center px-6 cursor-pointer" onClick={next}>
         <AnimatePresence mode="wait">
           <motion.div
@@ -312,6 +393,15 @@ function Player({ deck, code, onQuit }: { deck: Slide[]; code: string; onQuit: (
             />
           </motion.div>
         </AnimatePresence>
+      </div>
+
+      {/* Appel vidéo : l'enseignant et ses élèves */}
+      <div className="w-[19vw] min-w-36 max-w-64 shrink-0 overflow-y-auto flex flex-col gap-2 pr-4 pb-2">
+        <VideoTile stream={call.local} name={user?.name ?? "Enseignant"} cam={call.cam} mic={call.mic} self />
+        {call.peers.map((peer) => (
+          <VideoTile key={peer.session} stream={peer.stream} name={peer.name} cam={peer.cam} mic={peer.mic} />
+        ))}
+      </div>
       </div>
 
       {/* Réponses des élèves au jeu en cours */}
@@ -406,6 +496,15 @@ function Player({ deck, code, onQuit }: { deck: Slide[]; code: string; onQuit: (
           </span>
         )}
 
+        <div className="flex items-center gap-1">
+        <CallButtons cam={call.cam} mic={call.mic} onCam={call.toggleCam} onMic={call.toggleMic} disabled={!call.local} />
+        <button
+          onClick={call.muteAll}
+          disabled={call.peers.length === 0}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-bold text-[#2D2D2D]/50 hover:text-[#BB908E] hover:bg-[#BB908E]/10 transition-colors disabled:opacity-30"
+        >
+          <MicOff size={16} /> Micros des élèves
+        </button>
         <button
           onClick={toggleFullscreen}
           className="flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-bold text-[#2D2D2D]/50 hover:text-[#6B705C] hover:bg-[#6B705C]/10 transition-colors"
@@ -413,6 +512,7 @@ function Player({ deck, code, onQuit }: { deck: Slide[]; code: string; onQuit: (
           {fullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
           {fullscreen ? "Réduire" : "Plein écran"}
         </button>
+        </div>
       </div>
     </div>
   );

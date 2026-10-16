@@ -83,7 +83,5 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await supabase().rpc("increment_points", { user_id_param: userId, pts: Math.round(score / 10) });
-
   return NextResponse.json(data, { status: 201 });
 }

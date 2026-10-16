@@ -1,16 +1,17 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { BookOpen, Plus, Users, BarChart2, Star, LogOut, CheckCircle, AlertTriangle, UserPlus, Check, X, ShieldCheck, Presentation } from "lucide-react";
+import { Plus, LogOut, CheckCircle, UserPlus, Users, Check, X, ShieldCheck, Presentation, Mic, ChevronDown } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { fetchLessons, deleteLesson as apiDeleteLesson, type ApiLesson } from "@/lib/lessonsApi";
 import { fetchTeacherInsights } from "@/lib/teacherApi";
-import type { TeacherInsights, AnswerDescriptor } from "@/lib/teacherInsights";
+import type { TeacherInsights, AnswerDescriptor, ExerciseStatus, StudentProgress } from "@/lib/teacherInsights";
 import { fetchSignupRequests, reviewSignupRequest } from "@/lib/signupApi";
 import type { SignupRequestRow } from "@/lib/signup";
-import { fetchStaff, setStaffAdmin } from "@/lib/staffApi";
+import { createTeacher, fetchStaff, setStaffAdmin, type CreatedTeacher } from "@/lib/staffApi";
+import { MIN_NAME } from "@/lib/signup";
 import type { StaffRow } from "@/lib/staff";
 
 const LESSON_COLORS = ["#BB908E", "#8BA3B1", "#999B84", "#CCB9B5", "#7B868E", "#6B705C"];
@@ -58,6 +59,243 @@ function AnswerChip({ answer, count, size = 28 }: { answer: AnswerDescriptor; co
   );
 }
 
+const STATUS: Record<ExerciseStatus, { label: string; color: string; solid: boolean }> = {
+  first_try:    { label: "Réussi du 1er coup",   color: "#6B705C", solid: true },
+  after_errors: { label: "Réussi après erreurs", color: "#999B84", solid: true },
+  failed:       { label: "À revoir",             color: "#BB908E", solid: true },
+  seen:         { label: "Vu, sans réponse",     color: "#8BA3B1", solid: false },
+  not_started:  { label: "Pas commencé",         color: "#7B868E", solid: false },
+};
+
+function StatusBadge({ status }: { status: ExerciseStatus }) {
+  const { label, color, solid } = STATUS[status];
+  return (
+    <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap"
+      style={solid ? { background: color, color: "#fff" } : { color, border: `1px solid ${color}55` }}>
+      {label}
+    </span>
+  );
+}
+
+function ProgressBar({ done, total, color = "#8BA3B1" }: { done: number; total: number; color?: string }) {
+  const share = total > 0 ? done / total : 0;
+  return (
+    <div className="flex items-center gap-2">
+      <div className="w-20 h-2 bg-[#EDE5D8] rounded-full overflow-hidden">
+        <div className="h-full rounded-full" style={{ width: `${Math.round(share * 100)}%`, background: color }} />
+      </div>
+      <span className="text-xs text-[#2D2D2D]/50 whitespace-nowrap">{done}/{total}</span>
+    </div>
+  );
+}
+
+/** Formulaire admin : crée un compte enseignant ; l'invitation part par e-mail (ou lien de secours). */
+function NewTeacherForm({ onCreated }: { onCreated: (created: CreatedTeacher) => void }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [admin, setAdmin] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      onCreated(await createTeacher({ name, email, isAdmin: admin }));
+      setName(""); setEmail(""); setAdmin(false); setOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur inattendue");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const input = "w-full px-3 py-2 rounded-lg border border-[#EDE5D8] bg-[#F5EEE8]/50 focus:border-[#6B705C] outline-none text-sm text-[#2D2D2D]";
+
+  if (!open) {
+    return (
+      <div className="px-5 py-3 border-b border-[#EDE5D8]">
+        <button onClick={() => setOpen(true)}
+          className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold text-white hover:opacity-90 transition-all"
+          style={{ background: "#6B705C" }}>
+          <UserPlus size={14} /> Créer un compte enseignant
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} className="px-5 py-4 border-b border-[#EDE5D8] bg-[#F5EEE8]/40 space-y-3">
+      <div className="grid sm:grid-cols-2 gap-3">
+        <input className={input} placeholder="Nom complet" value={name} onChange={(e) => setName(e.target.value)} required minLength={MIN_NAME} />
+        <input className={input} type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="off" />
+      </div>
+      <p className="text-xs text-[#2D2D2D]/50">
+        Un e-mail d&apos;invitation lui sera envoyé : c&apos;est l&apos;enseignant qui choisira son mot de passe en ouvrant le lien.
+      </p>
+      <label className="flex items-center gap-2 text-sm text-[#2D2D2D]/70 select-none cursor-pointer">
+        <input type="checkbox" checked={admin} onChange={(e) => setAdmin(e.target.checked)} className="w-4 h-4 accent-[#6B705C]" />
+        Lui donner aussi le droit admin
+      </label>
+      {error && <p className="text-sm text-red-400">{error}</p>}
+      <div className="flex gap-2">
+        <button type="submit" disabled={busy}
+          className="px-4 py-1.5 rounded-lg text-xs font-bold text-white hover:opacity-90 transition-all disabled:opacity-50"
+          style={{ background: "#6B705C" }}>
+          {busy ? "Création…" : "Créer le compte"}
+        </button>
+        <button type="button" onClick={() => { setOpen(false); setError(null); }}
+          className="px-4 py-1.5 rounded-lg text-xs font-semibold border-2 border-[#EDE5D8] text-[#2D2D2D]/60 hover:bg-[#F5EEE8]">
+          Annuler
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** Lien d'invitation d'un enseignant tout juste créé, à copier et lui transmettre. */
+function InviteLinkBox({ name, email, link, onClose }: { name: string; email: string; link: string; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(link); setCopied(true); } catch { /* sélection manuelle possible */ }
+  };
+  return (
+    <div className="px-5 py-4 border-b border-[#EDE5D8] bg-[#6B705C]/10 space-y-2">
+      <p className="text-sm text-[#2D2D2D]">
+        Compte enseignant créé pour <span className="font-bold">{name}</span>, mais l&apos;e-mail d&apos;invitation n&apos;a
+        pas pu être envoyé. Transmettez-lui vous-même ce lien ({email}) : il y choisira son mot de passe, puis pourra se connecter.
+      </p>
+      <div className="flex gap-2">
+        <input readOnly value={link} onFocus={(e) => e.target.select()}
+          className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-[#EDE5D8] bg-[#FFFDF8] text-xs text-[#2D2D2D]/70" />
+        <button onClick={copy} className="px-4 py-1.5 rounded-lg text-xs font-bold text-white hover:opacity-90" style={{ background: "#6B705C" }}>
+          {copied ? "Copié ✓" : "Copier"}
+        </button>
+      </div>
+      <p className="text-xs text-[#2D2D2D]/50">
+        Le lien ne sert qu&apos;une fois et expire (1 h par défaut dans Supabase). Passé ce délai, l&apos;enseignant peut
+        utiliser « Mot de passe oublié » sur la page de connexion.{" "}
+        <button onClick={onClose} className="underline">Fermer</button>
+      </p>
+    </div>
+  );
+}
+
+/** Tableau d'un élève : une ligne de titre par leçon, puis une ligne par exercice. */
+function StudentProgressTable({ student, defaultOpen }: { student: StudentProgress; defaultOpen: boolean }) {
+  const seen = student.lessons.reduce((n, l) => n + l.exercisesSeen, 0);
+  const total = student.lessons.reduce((n, l) => n + l.exercisesTotal, 0);
+  return (
+    <details open={defaultOpen} className="group">
+      <summary className="px-5 py-4 flex flex-wrap items-center gap-x-4 gap-y-2 cursor-pointer list-none hover:bg-[#F5EEE8]/60 transition-colors">
+        <ChevronDown size={16} className="text-[#2D2D2D]/40 transition-transform -rotate-90 group-open:rotate-0" />
+        <span className="font-black text-[#2D2D2D] min-w-[8rem]">{student.userName}</span>
+        <span className="text-xs text-[#2D2D2D]/50">
+          {student.lessons.length} leçon{student.lessons.length > 1 ? "s" : ""}
+        </span>
+        <ProgressBar done={seen} total={total} />
+        <span className="text-xs text-[#2D2D2D]/50">
+          1er coup : <span className="font-bold" style={{ color: rateColor(student.firstTryRate) }}>{percent(student.firstTryRate)}</span>
+        </span>
+        {student.toReview > 0 ? (
+          <span className="px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{ background: "#BB908E" }}>
+            {student.toReview} à revoir
+          </span>
+        ) : (
+          <span className="text-xs font-semibold" style={{ color: "#6B705C" }}>✓ rien à revoir</span>
+        )}
+        <span className="text-xs text-[#2D2D2D]/50">
+          {student.wrongAttempts} erreur{student.wrongAttempts > 1 ? "s" : ""}
+          {student.earlierWrongAttempts > 0 && (
+            <span className="text-[#2D2D2D]/35" title="Erreurs lors de tentatives précédentes"> (+{student.earlierWrongAttempts} avant)</span>
+          )}
+        </span>
+        <span className="text-xs text-[#2D2D2D]/35 ml-auto">{relativeDay(student.lastActivityAt)}</span>
+      </summary>
+
+      <div className="overflow-x-auto px-5 pb-5">
+        <table className="w-full text-sm border border-[#EDE5D8] rounded-xl overflow-hidden">
+          <thead className="bg-[#F5EEE8]">
+            <tr>
+              {["Exercice", "Statut", "Erreurs", "Réponses erronées", "Dernière activité"].map((h) => (
+                <th key={h} className="text-left px-4 py-2.5 text-xs font-bold text-[#2D2D2D]/40 uppercase tracking-wide">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          {student.lessons.map((lesson) => (
+            <tbody key={lesson.lessonId} className="divide-y divide-[#EDE5D8] border-t-2 border-[#EDE5D8]">
+              <tr className="bg-[#FFFDF8]">
+                <td colSpan={5} className="px-4 py-2.5">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                    <span className="font-bold text-[#2D2D2D]">{lesson.lessonTitle}</span>
+                    <ProgressBar done={lesson.exercisesSeen} total={lesson.exercisesTotal} />
+                    <span className="text-xs text-[#2D2D2D]/50">
+                      1er coup : <span className="font-bold" style={{ color: rateColor(lesson.firstTryRate) }}>{percent(lesson.firstTryRate)}</span>
+                      <span className="text-[#2D2D2D]/35"> ({lesson.firstTrySuccesses}/{lesson.exercisesAttempted})</span>
+                    </span>
+                    {lesson.toReview > 0 && (
+                      <span className="text-xs font-bold" style={{ color: "#BB908E" }}>{lesson.toReview} à revoir</span>
+                    )}
+                    <span className="text-xs text-[#2D2D2D]/35 ml-auto">{relativeDay(lesson.lastActivityAt)}</span>
+                  </div>
+                </td>
+              </tr>
+              {lesson.exercises.map((ex) => (
+                <tr key={ex.blockId} className={`align-top ${ex.status === "not_started" ? "opacity-50" : ""}`}>
+                  <td className="px-4 py-2.5 max-w-xs">
+                    <div className="flex items-center gap-3">
+                      {ex.correctAnswer?.imageUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={ex.correctAnswer.imageUrl} alt="réponse attendue"
+                          className="w-10 h-10 rounded-lg object-cover border-2 flex-shrink-0" style={{ borderColor: "#6B705C" }} />
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-semibold text-[#2D2D2D] truncate" title={ex.label}>{ex.position}. {ex.label}</p>
+                        <p className="text-xs text-[#2D2D2D]/40">
+                          {TYPE_LABEL[ex.type] ?? ex.type}
+                          {ex.hasAudio && " · consigne audio"}
+                          {ex.correctAnswer?.text && <> · attendu : <span className="font-semibold text-[#6B705C]">{ex.correctAnswer.text}</span></>}
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-2.5"><StatusBadge status={ex.status} /></td>
+                  <td className="px-4 py-2.5 whitespace-nowrap">
+                    <span className="font-bold" style={{ color: ex.wrongAttempts > 0 ? "#BB908E" : "#2D2D2D59" }}>{ex.wrongAttempts}</span>
+                    {ex.earlierWrongAttempts > 0 && (
+                      <span className="text-xs text-[#2D2D2D]/35 ml-1" title="Erreurs lors de tentatives précédentes">+{ex.earlierWrongAttempts} avant</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {ex.wrongAnswers.length === 0 && ex.earlierWrongAnswers.length === 0 ? (
+                      <span className="text-xs text-[#2D2D2D]/35">—</span>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {ex.wrongAnswers.map((w) => <AnswerChip key={w.key} answer={w} count={w.count} size={22} />)}
+                        {ex.earlierWrongAnswers.length > 0 && (
+                          <span className="inline-flex flex-wrap items-center gap-1.5 opacity-50" title="Réponses erronées lors de tentatives précédentes">
+                            <span className="text-xs text-[#2D2D2D]/60">avant :</span>
+                            {ex.earlierWrongAnswers.map((w) => <AnswerChip key={w.key} answer={w} count={w.count} size={22} />)}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5 text-xs text-[#2D2D2D]/35 whitespace-nowrap">
+                    {ex.lastActivityAt ? relativeDay(ex.lastActivityAt) : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          ))}
+        </table>
+      </div>
+    </details>
+  );
+}
+
 function TeacherPageInner() {
   const { user, logout, login } = useAuthStore();
   const router = useRouter();
@@ -69,7 +307,7 @@ function TeacherPageInner() {
     fetch("/api/auth")
       .then((r) => r.json())
       .then((data: { user: { id: string; email: string; name: string; role: "teacher" | "student"; isAdmin: boolean } | null }) => {
-        if (data.user) login({ ...data.user, points: 0, badges: [] });
+        if (data.user) login({ ...data.user, badges: [] });
       })
       .catch(() => {});
   }, [login]);
@@ -87,6 +325,8 @@ function TeacherPageInner() {
   const [staff, setStaff] = useState<StaffRow[] | null>(null);
   const [staffBusy, setStaffBusy] = useState<string | null>(null);
   const [staffMessage, setStaffMessage] = useState<string | null>(null);
+  // Lien d'invitation du dernier enseignant créé, à transmettre.
+  const [invite, setInvite] = useState<{ name: string; email: string; link: string } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -158,12 +398,6 @@ function TeacherPageInner() {
   };
 
   const pending = insights === null && insightsError === null;
-  const stats = [
-    { label: "Leçons créées",    value: String(savedLessons.length), icon: BookOpen, color: "#BB908E" },
-    { label: "Élèves actifs (30 j)", value: pending ? "…" : String(insights?.stats.activeStudents ?? 0), icon: Users, color: "#6B705C" },
-    { label: "Exercices joués",  value: pending ? "…" : String(insights?.stats.exercisesPlayed ?? 0), icon: Star, color: "#999B84" },
-    { label: "Réussite du 1er coup", value: pending ? "…" : percent(insights?.stats.firstTryRate ?? null), icon: BarChart2, color: "#8BA3B1" },
-  ];
 
   return (
     <div className="min-h-screen bg-[#F5EEE8]">
@@ -217,21 +451,6 @@ function TeacherPageInner() {
             Bonjour, {user?.name?.split(" ")[0]} !
           </h1>
           <p className="text-[#2D2D2D]/50">Gérez vos leçons et suivez la progression de vos élèves</p>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-          {stats.map(({ label, value, icon: Icon, color }) => (
-            <div key={label} className="bg-[#FFFDF8] rounded-2xl p-5 shadow-sm border border-[#EDE5D8]">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-[#2D2D2D]/50">{label}</span>
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${color}20` }}>
-                  <Icon size={16} style={{ color }} />
-                </div>
-              </div>
-              <div className="text-3xl font-black" style={{ color }}>{value}</div>
-            </div>
-          ))}
         </div>
 
         {/* Demandes d'inscription (admin) */}
@@ -292,6 +511,18 @@ function TeacherPageInner() {
                 Un enseignant admin approuve les demandes de compte et peut modifier toutes les leçons.
               </p>
             </div>
+            <NewTeacherForm onCreated={(created) => {
+              const row = created.user;
+              setStaff((prev) => [...(prev ?? []), row].sort((a, b) => a.name.localeCompare(b.name)));
+              if (created.emailSent) {
+                setInvite(null);
+                setStaffMessage(`Compte enseignant créé pour ${row.name}. Une invitation a été envoyée à ${row.email} : il y choisira son mot de passe.`);
+              } else {
+                setStaffMessage(null);
+                setInvite({ name: row.name, email: row.email, link: created.inviteLink });
+              }
+            }} />
+            {invite && <InviteLinkBox {...invite} onClose={() => setInvite(null)} />}
             {staffMessage && (
               <p className="px-5 py-3 text-sm border-b border-[#EDE5D8] text-[#2D2D2D]/70 bg-[#F5EEE8]/60">{staffMessage}</p>
             )}
@@ -341,6 +572,16 @@ function TeacherPageInner() {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-black text-[#2D2D2D]">Mes leçons</h2>
           <div className="flex items-center gap-2">
+            {isAdmin && (
+              <Link href="/teacher/letters"
+                className="flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm border-2 border-[#6B705C] text-[#6B705C] hover:bg-[#6B705C]/10 transition-all">
+                <Mic size={14} /> Sons des lettres
+              </Link>
+            )}
+            <Link href="/teacher/classes"
+              className="flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm border-2 border-[#6B705C] text-[#6B705C] hover:bg-[#6B705C]/10 transition-all">
+              <Users size={14} /> Mes classes
+            </Link>
             <Link href="/teacher/present"
               className="flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm text-white hover:shadow-md hover:scale-105 transition-all"
               style={{ background: "#6B705C" }}>
@@ -401,152 +642,26 @@ function TeacherPageInner() {
           </Link>
         </div>
 
-        {/* Exercices les moins réussis */}
+        {/* Progression par élève */}
         <div className="mt-10 bg-[#FFFDF8] rounded-2xl shadow-sm border border-[#EDE5D8] overflow-hidden">
           <div className="p-5 border-b border-[#EDE5D8]">
             <h2 className="font-black text-[#2D2D2D] flex items-center gap-2">
-              <AlertTriangle size={18} style={{ color: "#BB908E" }} /> Exercices les moins réussis
+              <Users size={18} style={{ color: "#6B705C" }} /> Progression par élève
             </h2>
             <p className="text-xs text-[#2D2D2D]/50 mt-1">
-              Pour chaque exercice : la réponse attendue, les élèves n&apos;ayant pas réussi du premier coup lors de leur dernière tentative, et les réponses erronées de chacun.
+              Un tableau par élève : chaque leçon jouée, puis chaque exercice avec son statut, ses erreurs et ses réponses erronées lors de la dernière tentative. Les erreurs des tentatives précédentes sont indiquées à part, en gris («&nbsp;+2 avant&nbsp;»).
             </p>
           </div>
           {insightsError && (
-            <p className="p-5 text-sm text-red-400">Impossible de charger l&apos;analyse : {insightsError}</p>
+            <p className="p-5 text-sm text-red-400">Impossible de charger la progression : {insightsError}</p>
           )}
           {pending && <p className="p-5 text-sm text-[#2D2D2D]/40">Chargement…</p>}
-          {insights && insights.hardest.length === 0 && (
-            <p className="p-5 text-sm text-[#2D2D2D]/40">Aucune réponse erronée enregistrée pour l&apos;instant.</p>
-          )}
-          {insights && insights.hardest.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-[#F5EEE8]">
-                  <tr>
-                    {["Exercice", "Leçon", "Élèves en difficulté", "Réponses erronées", "Réponses erronées fréquentes"].map((h) => (
-                      <th key={h} className="text-left px-4 py-3 text-xs font-bold text-[#2D2D2D]/40 uppercase tracking-wide">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#EDE5D8]">
-                  {insights.hardest.map((h) => {
-                    const share = h.studentsAttempted > 0 ? h.studentsFailedFirstTry / h.studentsAttempted : 0;
-                    return (
-                      <tr key={`${h.lessonId}-${h.blockId}`} className="hover:bg-[#F5EEE8]/60 transition-colors align-top">
-                        <td className="px-4 py-3 max-w-xs">
-                          <div className="flex items-center gap-3">
-                            {h.correctAnswer?.imageUrl && (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={h.correctAnswer.imageUrl} alt="réponse attendue"
-                                className="w-12 h-12 rounded-xl object-cover border-2 flex-shrink-0" style={{ borderColor: "#6B705C" }} />
-                            )}
-                            <div className="min-w-0">
-                              <p className="font-semibold text-[#2D2D2D] truncate" title={h.label}>{h.label}</p>
-                              <p className="text-xs text-[#2D2D2D]/40">
-                                {TYPE_LABEL[h.type] ?? h.type}
-                                {h.hasAudio && " · consigne audio"}
-                                {h.correctAnswer?.text && <> · réponse attendue : <span className="font-semibold text-[#6B705C]">{h.correctAnswer.text}</span></>}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-[#2D2D2D]/60">{h.lessonTitle}</td>
-                        <td className="px-4 py-3 min-w-[16rem]">
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className="w-20 h-2 bg-[#EDE5D8] rounded-full overflow-hidden">
-                              <div className="h-full rounded-full" style={{ width: `${Math.round(share * 100)}%`, background: "#BB908E" }} />
-                            </div>
-                            <span className="font-bold text-[#2D2D2D] whitespace-nowrap">
-                              {h.studentsFailedFirstTry} / {h.studentsAttempted}
-                            </span>
-                          </div>
-                          <ul className="space-y-1.5">
-                            {h.students.map((st) => (
-                              <li key={st.userId} className="flex flex-wrap items-center gap-1.5 text-xs">
-                                <span className="font-semibold text-[#2D2D2D]">{st.userName}</span>
-                                <span className="text-[#2D2D2D]/50">
-                                  · {st.wrongAttempts} erreur{st.wrongAttempts > 1 ? "s" : ""}{st.completed ? "" : ", non terminé"}
-                                </span>
-                                {st.wrongAnswers.map((w) => <AnswerChip key={w.key} answer={w} count={w.count} size={22} />)}
-                              </li>
-                            ))}
-                          </ul>
-                        </td>
-                        <td className="px-4 py-3 font-bold" style={{ color: "#BB908E" }}>{h.wrongAttempts}</td>
-                        <td className="px-4 py-3">
-                          {h.topWrongAnswers.length === 0 ? (
-                            <span className="text-xs text-[#2D2D2D]/35">—</span>
-                          ) : (
-                            <div className="flex flex-wrap gap-1.5">
-                              {h.topWrongAnswers.map((w) => <AnswerChip key={w.key} answer={w} count={w.count} />)}
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Progression des élèves */}
-        <div className="mt-10 bg-[#FFFDF8] rounded-2xl shadow-sm border border-[#EDE5D8] overflow-hidden">
-          <div className="p-5 border-b border-[#EDE5D8]">
-            <h2 className="font-black text-[#2D2D2D]">Progression des élèves</h2>
-            <p className="text-xs text-[#2D2D2D]/50 mt-1">
-              Une ligne par élève et par leçon jouée. La réussite compte les exercices réussis du premier coup.
-            </p>
-          </div>
-          {pending && <p className="p-5 text-sm text-[#2D2D2D]/40">Chargement…</p>}
-          {insights && insights.rows.length === 0 && (
+          {insights && insights.students.length === 0 && (
             <p className="p-5 text-sm text-[#2D2D2D]/40">Aucun élève n&apos;a encore joué vos leçons.</p>
           )}
-          {insights && insights.rows.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-[#F5EEE8]">
-                  <tr>
-                    {["Élève", "Leçon", "Réussite 1er coup", "Progression", "À revoir", "Dernière activité"].map((h) => (
-                      <th key={h} className="text-left px-4 py-3 text-xs font-bold text-[#2D2D2D]/40 uppercase tracking-wide">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#EDE5D8]">
-                  {insights.rows.map((row) => {
-                    const progress = row.exercisesTotal > 0 ? row.exercisesSeen / row.exercisesTotal : 0;
-                    return (
-                      <tr key={`${row.userId}-${row.lessonId}`} className="hover:bg-[#F5EEE8]/60 transition-colors">
-                        <td className="px-4 py-3 font-semibold text-[#2D2D2D]">{row.userName}</td>
-                        <td className="px-4 py-3 text-[#2D2D2D]/60">{row.lessonTitle}</td>
-                        <td className="px-4 py-3">
-                          <span className="font-bold" style={{ color: rateColor(row.firstTryRate) }}>{percent(row.firstTryRate)}</span>
-                          <span className="text-xs text-[#2D2D2D]/35 ml-1">({row.firstTrySuccesses}/{row.exercisesAttempted})</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-24 h-2 bg-[#EDE5D8] rounded-full overflow-hidden">
-                              <div className="h-full rounded-full" style={{ width: `${Math.round(progress * 100)}%`, background: "#8BA3B1" }} />
-                            </div>
-                            <span className="text-xs text-[#2D2D2D]/50 whitespace-nowrap">{row.exercisesSeen}/{row.exercisesTotal}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          {row.toReview > 0 ? (
-                            <span className="inline-block px-2 py-0.5 rounded-full text-xs font-bold text-white" style={{ background: "#BB908E" }}>
-                              {row.toReview}
-                            </span>
-                          ) : (
-                            <span className="text-xs font-semibold" style={{ color: "#6B705C" }}>✓</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-[#2D2D2D]/35 text-xs whitespace-nowrap">{relativeDay(row.lastActivityAt)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          {insights && insights.students.length > 0 && (
+            <div className="divide-y divide-[#EDE5D8]">
+              {insights.students.map((st, idx) => <StudentProgressTable key={st.userId} student={st} defaultOpen={idx === 0} />)}
             </div>
           )}
         </div>

@@ -65,6 +65,21 @@ describe("analyseWeakSpots", () => {
     expect(spots[0]).toMatchObject({ completed: false, wrongAnswers: ["المدرسة أنا أحب"] });
   });
 
+  it("lit une réussite du premier coup même si la réussite et la réponse ont la même date, dans n'importe quel ordre", () => {
+    const at = new Date(Date.UTC(2026, 0, 2)).toISOString();
+    const events = [
+      // Passe précédente ratée
+      ev({ block_id: "q1", event_type: "attempt", correct: false, attempt_number: 1 }),
+      ev({ block_id: "q1", event_type: "attempt", correct: true, attempt_number: 2 }),
+      ev({ block_id: "q1", event_type: "complete", correct: true, attempt_number: 2 }),
+      // Révision réussie du premier coup, envoyée en un seul lot (même created_at)
+      ev({ block_id: "q1", event_type: "complete", correct: true, attempt_number: 1, created_at: at }),
+      ev({ block_id: "q1", event_type: "attempt", correct: true, attempt_number: 1, created_at: at }),
+    ];
+    expect(analyseWeakSpots(blocks, events)).toEqual([]);
+    expect(analyseWeakSpots(blocks, [...events].reverse())).toEqual([]);
+  });
+
   it("ne tient compte que de la dernière passe", () => {
     const events = [
       // Première passe : ratée puis réussie

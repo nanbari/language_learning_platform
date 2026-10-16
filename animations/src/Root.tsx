@@ -10,8 +10,9 @@ import { Garcon } from "./scenes/Garcon";
 import { LettersRecap } from "./recap/LettersRecap";
 import { VocabRecap, vocabDuration } from "./recap/VocabRecap";
 import { LETTER_FRAMES, endFrames } from "./recap/types";
-import { SAMPLE_LETTERS, SAMPLE_VOCAB } from "./recap/samples";
+import { SAMPLE_LETTERS, SAMPLE_SCENARIO, SAMPLE_VOCAB } from "./recap/samples";
 import { LessonRecap, lessonDuration } from "./recap/LessonRecap";
+import { ScenarioRecap, scenarioDuration } from "./recap/ScenarioRecap";
 
 export const FPS = 30;
 export const DURATION = 120;
@@ -63,6 +64,17 @@ export const Root: React.FC = () => (
       component={LessonRecap}
       defaultProps={{ parts: [{ kind: "letters" as const, ...SAMPLE_LETTERS }, { kind: "vocab" as const, ...SAMPLE_VOCAB }] }}
       calculateMetadata={({ props }) => ({ durationInFrames: lessonDuration(props.parts) })}
+      durationInFrames={1}
+      fps={FPS}
+      width={WIDTH}
+      height={HEIGHT}
+    />
+    {/* Vidéo d'introduction tirée du scénario écrit par l'enseignant (src/lib/lessonScenario.ts du site). */}
+    <Composition
+      id="scenario-lecon"
+      component={ScenarioRecap}
+      defaultProps={SAMPLE_SCENARIO}
+      calculateMetadata={({ props }) => ({ durationInFrames: scenarioDuration(props.scenes) })}
       durationInFrames={1}
       fps={FPS}
       width={WIDTH}

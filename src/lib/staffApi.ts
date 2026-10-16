@@ -16,6 +16,20 @@ export async function fetchStaff(): Promise<StaffRow[]> {
   return jsonOrThrow<StaffRow[]>(await fetch("/api/admin/staff"));
 }
 
+/** Résultat de la création : invitation partie par e-mail, ou lien à transmettre soi-même. */
+export type CreatedTeacher =
+  | { user: StaffRow; emailSent: true }
+  | { user: StaffRow; emailSent: false; inviteLink: string; emailError: string | null };
+
+/** Crée un compte enseignant ; l'enseignant choisira son mot de passe via l'invitation. */
+export async function createTeacher(input: { name: string; email: string; isAdmin: boolean }): Promise<CreatedTeacher> {
+  return jsonOrThrow<CreatedTeacher>(await fetch("/api/admin/teachers", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  }));
+}
+
 /** Donne ou retire le droit admin à un enseignant. */
 export async function setStaffAdmin(id: string, isAdmin: boolean): Promise<StaffRow> {
   const { user } = await jsonOrThrow<{ user: StaffRow }>(await fetch("/api/admin/staff", {

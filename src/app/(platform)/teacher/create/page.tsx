@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   Trash2, Save, ArrowLeft, HelpCircle, Shuffle, Layers,
   Mic, Square, Play, CheckCircle, ImagePlus, X, Type, Image, LayoutGrid,
-  Video, Plus, BookOpen, ChevronUp, ChevronDown, Copy, AlignJustify, Upload, PenLine, Film,
+  Video, Plus, BookOpen, ChevronUp, ChevronDown, Copy, AlignJustify, Upload, PenLine, Presentation,
 } from "lucide-react";
 import { uploadMedia, externalizeMediaToR2 } from "@/lib/mediaUpload";
 import { fetchLesson, createLesson, updateLesson } from "@/lib/lessonsApi";
@@ -104,9 +104,9 @@ function CreateLessonPageInner() {
   const [blocks, setBlocks] = useState<ContentBlock[]>([]);
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState("");
-  /** Diaporama du cours en direct déjà enregistré, et état de la demande de vidéo. */
-  const [live,   setLive]   = useState<SavedDeck | null>(null);
-  const [recap,  setRecap]  = useState<"idle" | "sending" | "started" | "uptodate">("idle");
+  /** Diaporama du cours en direct déjà enregistré, et état de sa création. */
+  const [live,      setLive]      = useState<SavedDeck | null>(null);
+  const [deckState, setDeckState] = useState<"idle" | "sending" | "saved" | "uptodate">("idle");
 
   /* ── Load for edit ── */
   useEffect(() => {
@@ -115,7 +115,8 @@ function CreateLessonPageInner() {
       const lesson = await fetchLesson(editId);
       if (!lesson) return;
       setTitle(lesson.title);
-      setBlocks(lesson.blocks as ContentBlock[]);
+      // Les vidéos d'introduction (abandonnées) sont retirées de la leçon à la prochaine sauvegarde.
+      setBlocks((lesson.blocks as (ContentBlock & { recap?: boolean })[]).filter((b) => !b.recap));
       setLive(lesson.live);
     })();
   }, [editId]);
@@ -333,27 +334,25 @@ function CreateLessonPageInner() {
     if (await persist()) router.push("/teacher?published=1");
   };
 
-  /**
-   * Enregistre la leçon, puis demande sa vidéo d'introduction ; le diaporama
-   * du cours en direct en sera tiré et enregistré avec la leçon.
-   */
-  const createVideo = async () => {
+  /** Enregistre la leçon, puis construit et enregistre son diaporama du cours en direct. */
+  const createDeck = async () => {
     const id = await persist();
     if (!id) return;
     if (!editId) router.replace(`/teacher/create?edit=${id}`);
-    setRecap("sending");
+    setDeckState("sending");
     try {
-      const res = await fetch("/api/recap", {
+      const res = await fetch("/api/live-deck", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lessonId: id }),
       });
-      const data = await res.json().catch(() => null) as { started?: boolean; error?: string } | null;
-      if (!res.ok) throw new Error(data?.error ?? `Erreur serveur (${res.status})`);
-      setRecap(data?.started ? "started" : "uptodate");
+      const data = await res.json().catch(() => null) as { deck?: SavedDeck; changed?: boolean; error?: string } | null;
+      if (!res.ok || !data?.deck) throw new Error(data?.error ?? `Erreur serveur (${res.status})`);
+      setLive(data.deck);
+      setDeckState(data.changed ? "saved" : "uptodate");
     } catch (err) {
-      setError(`La vidéo n'a pas pu être demandée : ${(err as Error).message}.`);
-      setRecap("idle");
+      setError(`Le diaporama n'a pas pu être créé : ${(err as Error).message}.`);
+      setDeckState("idle");
     }
   };
 
@@ -1017,28 +1016,25 @@ function CreateLessonPageInner() {
           </div>
         </div>
 
-        {/* Vidéo d'introduction, puis diaporama du cours en direct */}
+        {/* Diaporama du cours en direct */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-          <h3 className="font-black text-[#2d2d2d] mb-1 flex items-center gap-2"><Film size={18} className="text-[#BB908E]" /> Vidéo d&apos;introduction et cours en direct</h3>
+          <h3 className="font-black text-[#2d2d2d] mb-1 flex items-center gap-2"><Presentation size={18} className="text-[#BB908E]" /> Diaporama du cours en direct</h3>
           <p className="text-sm text-gray-500 mb-4">
-            La vidéo reprend les lettres du bloc « Lettres » et les images des leçons illustrées ; elle est placée en tête de la leçon.
-            Le diaporama du cours en direct est ensuite construit à partir du même contenu et enregistré : vous le retrouvez dans « Cours en direct ».
-            Comptez quelques minutes. Si vous modifiez la leçon, redemandez la vidéo pour mettre le diaporama à jour.
+            Le diaporama reprend les lettres du bloc « Lettres » et les images des leçons illustrées, dans l&apos;ordre de la leçon.
+            {" "}Il est enregistré avec la leçon : vous le retrouvez dans « Cours en direct ».
+            Si vous modifiez la leçon, recréez le diaporama pour le mettre à jour.
           </p>
           {live && (
             <p className="text-sm text-[#6B705C] font-semibold mb-3">
-              ✓ Diaporama enregistré le {new Date(live.createdAt).toLocaleString("fr-BE", { dateStyle: "long", timeStyle: "short" })}
+              ✓ Diaporama enregistré le {new Date(live.createdAt).toLocaleString("fr-BE", { dateStyle: "long", timeStyle: "short" })} ({live.slides.length} écrans)
             </p>
           )}
-          {recap === "started" && (
-            <p className="text-sm text-[#6B705C] font-semibold mb-3">La vidéo est en préparation : la vidéo et le diaporama seront prêts dans quelques minutes.</p>
+          {deckState === "uptodate" && (
+            <p className="text-sm text-[#6B705C] font-semibold mb-3">Le diaporama correspond déjà au contenu de la leçon.</p>
           )}
-          {recap === "uptodate" && (
-            <p className="text-sm text-[#6B705C] font-semibold mb-3">La vidéo et le diaporama correspondent déjà au contenu de la leçon.</p>
-          )}
-          <button onClick={createVideo} disabled={saving || recap === "sending"}
+          <button onClick={createDeck} disabled={saving || deckState === "sending"}
             className="flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm text-white bg-[#BB908E] hover:bg-[#a87e7c] hover:shadow-md transition-all disabled:opacity-60">
-            <Film size={15} /> {recap === "sending" ? "Envoi…" : live ? "Mettre à jour la vidéo et le diaporama" : "Créer la vidéo et le diaporama"}
+            <Presentation size={15} /> {deckState === "sending" ? "Création…" : live ? "Mettre à jour le diaporama" : "Créer le diaporama"}
           </button>
         </div>
 

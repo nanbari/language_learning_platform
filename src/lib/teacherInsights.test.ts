@@ -48,13 +48,10 @@ function ev(p: Partial<ExerciseEventRow> & { user_id: string; block_id: string; 
     ...p,
   };
 }
-const NOW = new Date(Date.UTC(2026, 8, 4, 12, 0, 0));
 
 describe("buildTeacherInsights", () => {
   it("rend des listes vides sans activité", () => {
-    expect(buildTeacherInsights(lessons, users, [], NOW)).toEqual({
-      rows: [], hardest: [], stats: { activeStudents: 0, exercisesPlayed: 0, firstTryRate: null },
-    });
+    expect(buildTeacherInsights(lessons, users, [])).toEqual({ students: [] });
   });
 
   it("calcule la progression, la réussite du premier coup et la dernière activité par élève et leçon", () => {
@@ -70,53 +67,61 @@ describe("buildTeacherInsights", () => {
       ev({ user_id: BOB, block_id: "q1", event_type: "attempt", correct: false, answer: { optionId: "o2" }, attempt_number: 1 }),
       ev({ user_id: BOB, block_id: "q1", event_type: "attempt", correct: false, answer: { optionId: "o3" }, attempt_number: 2 }),
     ];
-    const { rows, stats } = buildTeacherInsights(lessons, users, events, NOW);
+    const { students } = buildTeacherInsights(lessons, users, events);
 
-    expect(rows.map((r) => r.userName)).toEqual(["Bob", "Anna"]); // activité la plus récente d'abord
-    const anna = rows[1];
+    expect(students.map((s) => s.userName)).toEqual(["Bob", "Anna"]); // activité la plus récente d'abord
+    const anna = students[1].lessons[0];
     expect(anna).toMatchObject({
       lessonTitle: "L'alphabet", exercisesTotal: 3, exercisesSeen: 3, exercisesAttempted: 2,
-      firstTrySuccesses: 1, firstTryRate: 0.5, wrongAttempts: 1, toReview: 1,
+      firstTrySuccesses: 1, firstTryRate: 0.5, toReview: 1,
     });
     expect(anna.lastActivityAt).toBe(events[5].created_at);
-    expect(rows[0]).toMatchObject({ userName: "Bob", exercisesSeen: 1, exercisesAttempted: 1, firstTryRate: 0, wrongAttempts: 2, toReview: 1 });
-
-    expect(stats).toEqual({ activeStudents: 2, exercisesPlayed: 4, firstTryRate: 1 / 3 });
+    expect(students[0].lessons[0]).toMatchObject({ exercisesSeen: 1, exercisesAttempted: 1, firstTryRate: 0, toReview: 1 });
   });
 
-  it("classe les exercices les moins réussis avec le détail par élève et les réponses erronées", () => {
+  it("détaille la progression de chaque élève, leçon par leçon et exercice par exercice", () => {
     const events = [
+      // Anna : quiz réussi après une erreur, remise en ordre du premier coup, appariement seulement vu
       ev({ user_id: ANNA, block_id: "q1", event_type: "attempt", correct: false, answer: { optionId: "o2" }, attempt_number: 1 }),
       ev({ user_id: ANNA, block_id: "q1", event_type: "attempt", correct: true, attempt_number: 2 }),
       ev({ user_id: ANNA, block_id: "q1", event_type: "complete", correct: true, attempt_number: 2 }),
-      ev({ user_id: BOB,  block_id: "q1", event_type: "attempt", correct: false, answer: { optionId: "o2" }, attempt_number: 1 }),
-      ev({ user_id: BOB,  block_id: "q1", event_type: "attempt", correct: false, answer: { optionId: "o3" }, attempt_number: 2 }),
-      ev({ user_id: BOB,  block_id: "w1", event_type: "attempt", correct: false, answer: { words: ["المدرسة", "أنا", "أحب"] }, attempt_number: 1 }),
-      ev({ user_id: BOB,  block_id: "w1", event_type: "attempt", correct: true, attempt_number: 2 }),
-      ev({ user_id: BOB,  block_id: "w1", event_type: "complete", correct: true, attempt_number: 2 }),
       ev({ user_id: ANNA, block_id: "w1", event_type: "attempt", correct: true, attempt_number: 1 }),
       ev({ user_id: ANNA, block_id: "w1", event_type: "complete", correct: true, attempt_number: 1 }),
+      ev({ user_id: ANNA, block_id: "m1", event_type: "view" }),
+      // Bob : quiz raté deux fois et abandonné ; remise en ordre et appariement jamais vus
+      ev({ user_id: BOB, block_id: "q1", event_type: "attempt", correct: false, answer: { optionId: "o2" }, attempt_number: 1 }),
+      ev({ user_id: BOB, block_id: "q1", event_type: "attempt", correct: false, answer: { optionId: "o3" }, attempt_number: 2 }),
+      ev({ user_id: BOB, block_id: "q1", event_type: "attempt", correct: false, answer: { optionId: "o2" }, attempt_number: 3 }),
     ];
-    const { hardest } = buildTeacherInsights(lessons, users, events, NOW);
-    expect(hardest.map((h) => h.blockId)).toEqual(["q1", "w1"]);
+    const { students } = buildTeacherInsights(lessons, users, events);
+    expect(students.map((s) => s.userName)).toEqual(["Bob", "Anna"]); // activité la plus récente d'abord
 
-    const q = hardest[0];
-    expect(q).toMatchObject({
-      lessonTitle: "L'alphabet", label: quiz.question, type: "quiz", position: 1, hasAudio: false,
-      correctAnswer: { key: "o1", text: "ب", imageUrl: null },
-      studentsAttempted: 2, studentsFailedFirstTry: 2, wrongAttempts: 3,
-      topWrongAnswers: [{ key: "o2", text: "ت", count: 2 }, { key: "o3", text: "ث", count: 1 }],
+    const [bob, anna] = students;
+    expect(anna).toMatchObject({ exercisesSeen: 3, exercisesAttempted: 2, firstTrySuccesses: 1, firstTryRate: 0.5, wrongAttempts: 1, toReview: 1 });
+    expect(anna.lessons).toHaveLength(1);
+    expect(anna.lessons[0].exercises.map((e) => [e.position, e.status])).toEqual([[1, "after_errors"], [2, "first_try"], [3, "seen"]]);
+    expect(anna.lessons[0].exercises[0]).toMatchObject({
+      label: quiz.question, type: "quiz", correctAnswer: { key: "o1", text: "ب", imageUrl: null },
+      wrongAttempts: 1, wrongAnswers: [{ key: "o2", text: "ت", count: 1 }],
     });
-    // Bob (abandonné, 2 erreurs) avant Anna (réussi après 1 erreur)
-    expect(q.students.map((s) => [s.userName, s.wrongAttempts, s.completed])).toEqual([["Bob", 2, false], ["Anna", 1, true]]);
-    expect(q.students[0].wrongAnswers).toMatchObject([{ text: "ت", count: 1 }, { text: "ث", count: 1 }]);
 
-    expect(hardest[1]).toMatchObject({
-      position: 2, correctAnswer: { text: "أنا أحب المدرسة" },
-      studentsAttempted: 2, studentsFailedFirstTry: 1, wrongAttempts: 1,
-      topWrongAnswers: [{ text: "المدرسة أنا أحب", count: 1 }],
-    });
-    expect(hardest[1].students.map((s) => s.userName)).toEqual(["Bob"]);
+    expect(bob).toMatchObject({ exercisesSeen: 1, firstTryRate: 0, wrongAttempts: 3, earlierWrongAttempts: 0, toReview: 1 });
+    expect(bob.lessons[0].exercises.map((e) => e.status)).toEqual(["failed", "not_started", "not_started"]);
+    expect(bob.lessons[0].exercises[0].wrongAnswers).toEqual([
+      { key: "o2", text: "ت", imageUrl: null, count: 2 },
+      { key: "o3", text: "ث", imageUrl: null, count: 1 },
+    ]);
+    expect(bob.lessons[0].exercises[1].lastActivityAt).toBeNull();
+  });
+
+  it("additionne les leçons d'un même élève, la plus récente d'abord", () => {
+    const events = [
+      ev({ user_id: ANNA, lesson_id: L2, block_id: "q1", event_type: "attempt", correct: true, attempt_number: 1 }),
+      ev({ user_id: ANNA, lesson_id: L1, block_id: "q1", event_type: "attempt", correct: false, attempt_number: 1 }),
+    ];
+    const [anna] = buildTeacherInsights(lessons, users, events).students;
+    expect(anna.lessons.map((l) => l.lessonTitle)).toEqual(["L'alphabet", "Les animaux"]);
+    expect(anna).toMatchObject({ exercisesAttempted: 2, firstTrySuccesses: 1, firstTryRate: 0.5, toReview: 1, wrongAttempts: 1 });
   });
 
   it("décrit un quiz en images sans texte par son rang, sa réponse attendue en image et les images choisies", () => {
@@ -130,17 +135,15 @@ describe("buildTeacherInsights", () => {
       ev({ user_id: ANNA, block_id: "iq", event_type: "attempt", correct: true, answer: { optionId: "i1" }, attempt_number: 3 }),
       ev({ user_id: ANNA, block_id: "iq", event_type: "complete", correct: true, attempt_number: 3 }),
     ];
-    const { hardest } = buildTeacherInsights(imgLessons, users, events, NOW);
-    expect(hardest).toHaveLength(1);
-    expect(hardest[0]).toMatchObject({
-      label: "Quiz n°1", position: 1, hasAudio: true,
+    const ex = buildTeacherInsights(imgLessons, users, events).students[0].lessons[0].exercises[0];
+    expect(ex).toMatchObject({
+      label: "Quiz n°1", position: 1, hasAudio: true, status: "after_errors", wrongAttempts: 2,
       correctAnswer: { key: "i1", text: null, imageUrl: "https://cdn/pomme.png" },
-      topWrongAnswers: [
+      wrongAnswers: [
         { key: "i2", text: null, imageUrl: "https://cdn/banane.png", count: 1 },
         { key: "i3", text: "Option n°3", imageUrl: null, count: 1 },
       ],
     });
-    expect(hardest[0].students[0]).toMatchObject({ userName: "Anna", wrongAttempts: 2, completed: true });
   });
 
   it("ne compte que la dernière passe pour le statut, mais toutes les erreurs pour le total", () => {
@@ -151,21 +154,26 @@ describe("buildTeacherInsights", () => {
       ev({ user_id: ANNA, block_id: "q1", event_type: "attempt", correct: true, attempt_number: 1 }),
       ev({ user_id: ANNA, block_id: "q1", event_type: "complete", correct: true, attempt_number: 1 }),
     ];
-    const { rows, hardest } = buildTeacherInsights(lessons, users, events, NOW);
-    expect(rows[0]).toMatchObject({ firstTryRate: 1, toReview: 0, wrongAttempts: 1 });
-    expect(hardest[0]).toMatchObject({ studentsFailedFirstTry: 0, wrongAttempts: 1, students: [] });
+    const { students } = buildTeacherInsights(lessons, users, events);
+    expect(students[0].lessons[0]).toMatchObject({ firstTryRate: 1, toReview: 0 });
+    // Réussi du premier coup à la dernière passe : 0 erreur, l'ancienne erreur est à part.
+    expect(students[0].lessons[0].exercises[0]).toMatchObject({
+      status: "first_try", wrongAttempts: 0, wrongAnswers: [],
+      earlierWrongAttempts: 1, earlierWrongAnswers: [{ key: "o2", text: "ت", count: 1 }],
+    });
+    expect(students[0]).toMatchObject({ wrongAttempts: 0, earlierWrongAttempts: 1 });
   });
 
-  it("sépare les leçons partageant des identifiants de bloc et ignore les élèves hors des 30 jours", () => {
+  it("sépare les leçons partageant des identifiants de bloc", () => {
     const old = new Date(Date.UTC(2026, 5, 1)).toISOString();
     const events = [
       ev({ user_id: ANNA, lesson_id: L2, block_id: "q1", event_type: "attempt", correct: true, attempt_number: 1, created_at: old }),
       ev({ user_id: ANNA, lesson_id: L2, block_id: "q1", event_type: "complete", correct: true, attempt_number: 1, created_at: old }),
       ev({ user_id: BOB,  lesson_id: L1, block_id: "q1", event_type: "attempt", correct: false, attempt_number: 1 }),
     ];
-    const { rows, stats } = buildTeacherInsights(lessons, users, events, NOW);
-    expect(rows.map((r) => [r.userName, r.lessonTitle])).toEqual([["Bob", "L'alphabet"], ["Anna", "Les animaux"]]);
-    expect(stats.activeStudents).toBe(1);
+    const { students } = buildTeacherInsights(lessons, users, events);
+    expect(students.map((s) => [s.userName, s.lessons.map((l) => l.lessonTitle)]))
+      .toEqual([["Bob", ["L'alphabet"]], ["Anna", ["Les animaux"]]]);
   });
 });
 

@@ -70,7 +70,7 @@ export async function PATCH(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "id requis" }, { status: 400 });
 
   // L'éditeur n'envoie que les blocs : le diaporama du cours en direct
-  // (exercises.live, voir lib/recapVideo) est conservé.
+  // (exercises.live, voir lib/lessonDeck) est conservé.
   if (updates.exercises) {
     const { data: current } = await supabase().from("lessons").select("exercises").eq("id", id).single();
     updates.exercises = { ...(current?.exercises ?? {}), ...updates.exercises };

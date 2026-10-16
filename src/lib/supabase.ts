@@ -64,6 +64,16 @@ export type Database = {
         Insert: { email: string; name: string; password_hash: string; status?: string };
         Update: { status?: string; password_hash?: string | null; reviewed_at?: string; reviewed_by?: string };
       };
+      classes: {
+        Row: { id: string; teacher_id: string; name: string; live_room: string | null; live_started_at: string | null; created_at: string };
+        Insert: { teacher_id: string; name: string };
+        Update: { name?: string; live_room?: string | null; live_started_at?: string | null };
+      };
+      class_members: {
+        Row: { class_id: string; student_id: string; created_at: string };
+        Insert: { class_id: string; student_id: string };
+        Update: never;
+      };
       practice_sets: {
         Row: {
           id: string; user_id: string; lesson_id: string; blocks: unknown; sources: unknown;

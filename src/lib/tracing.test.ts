@@ -124,6 +124,21 @@ describe("les formes liées (début, milieu, fin)", () => {
     }
   });
 
+  it("font écrire le mim du milieu et de fin d'un geste continu, sans demi-tour", () => {
+    // Le mim n'a ni dent ni hampe : un demi-tour du tracé serait un retour en
+    // arrière du stylo (le pointillé et la flèche montreraient le mauvais sens).
+    for (const char of ["ـمـ", "ـم"]) {
+      for (const points of LETTER_FORM_STROKES[char].strokes.map((st) => samplePath(st.d, 8))) {
+        for (let i = 1; i < points.length - 1; i++) {
+          const a = Math.atan2(points[i].y - points[i - 1].y, points[i].x - points[i - 1].x);
+          const b = Math.atan2(points[i + 1].y - points[i].y, points[i + 1].x - points[i].x);
+          const turn = Math.abs(((b - a) * 180) / Math.PI + 540) % 360 - 180;
+          expect(Math.abs(turn), `${char} au point ${i}`).toBeLessThan(150);
+        }
+      }
+    }
+  });
+
   it("tiennent dans le cadre d'écriture", () => {
     for (const [char, glyph] of Object.entries(LETTER_FORM_STROKES)) {
       for (const points of buildGuide(glyph).strokes) {

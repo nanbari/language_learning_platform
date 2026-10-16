@@ -18,7 +18,7 @@ import {
   MAX_SPOTS_PER_SET, VARIANTS_PER_SPOT, QUIZ_OPTIONS,
   type PracticeBlock, type PracticeSource,
 } from "./practice";
-import type { ReviewableExercise, WeakSpot } from "./weakSpots";
+import type { ReviewableExercise, TextWeakSpot } from "./weakSpots";
 
 export const DEFAULT_MODEL = "claude-opus-5";
 
@@ -58,7 +58,7 @@ interface SpotPayload {
   wrongAnswers: string[];
 }
 
-function spotPayload(spot: WeakSpot): SpotPayload {
+function spotPayload(spot: TextWeakSpot): SpotPayload {
   const ex = spot.exercise;
   const exercise: Record<string, unknown> =
     ex.type === "quiz"
@@ -93,7 +93,7 @@ export interface GenerationResult {
  */
 export async function generatePracticeSet(params: {
   lessonTitle: string;
-  weakSpots: WeakSpot[];
+  weakSpots: TextWeakSpot[];
 }): Promise<GenerationResult> {
   const spots = params.weakSpots.slice(0, MAX_SPOTS_PER_SET);
   if (spots.length === 0) return { blocks: [], sources: [], model: DEFAULT_MODEL, usage: { input_tokens: 0, output_tokens: 0 } };

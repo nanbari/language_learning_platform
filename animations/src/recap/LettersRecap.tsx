@@ -33,7 +33,7 @@ export const LettersRecap: React.FC<LettersRecapProps> = ({ letters }) => (
   </AbsoluteFill>
 );
 
-const LetterCard: React.FC<{ letter: RecapLetter }> = ({ letter }) => {
+export const LetterCard: React.FC<{ letter: RecapLetter }> = ({ letter }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const enter = spring({ frame, fps, config: theme.spring.bouncy });
@@ -89,7 +89,7 @@ const LetterCard: React.FC<{ letter: RecapLetter }> = ({ letter }) => {
 };
 
 /** Fin : les lettres du jour côte à côte, dans l'ordre de lecture (de droite à gauche). */
-const AllLetters: React.FC<{ letters: RecapLetter[] }> = ({ letters }) => {
+export const AllLetters: React.FC<{ letters: RecapLetter[] }> = ({ letters }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const size = Math.min(360, 1100 / letters.length - 40);

@@ -55,3 +55,20 @@ export type LessonRecapPart = ({ kind: "letters" } & LettersRecapProps) | ({ kin
 export type LessonRecapProps = {
   parts: LessonRecapPart[];
 };
+
+/**
+ * Vidéo tirée du scénario d'une leçon (src/lib/lessonScenario.ts du site) :
+ * les scènes dans l'ordre du script de l'enseignant, chacune avec sa durée.
+ */
+export type ScenarioScene =
+  | { kind: "title"; frames: number; title: string | null; color: string }
+  | { kind: "letter"; frames: number; letter: RecapLetter }
+  | { kind: "letters"; frames: number; letters: RecapLetter[] }
+  | { kind: "word"; frames: number; word: RecapWord; color: string }
+  | { kind: "clip"; frames: number; src: string; color: string }
+  | { kind: "words"; frames: number; words: RecapWord[]; color: string }
+  | { kind: "pause"; frames: number };
+
+export type ScenarioRecapProps = {
+  scenes: ScenarioScene[];
+};

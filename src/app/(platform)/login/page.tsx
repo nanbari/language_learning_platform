@@ -64,7 +64,7 @@ function LoginForm() {
         return;
       }
       // Mirror server-validated user into Zustand for UI use
-      login({ ...data.user, points: 0, badges: [] });
+      login({ ...data.user, badges: [] });
       const next = params.get("next");
       router.push(next && next.startsWith("/") ? next : dashboardFor(data.user));
     } catch {
@@ -154,6 +154,12 @@ function LoginForm() {
             ))}
           </div>
 
+          {params.get("reset") === "ok" && (
+            <div className="mb-4 bg-[#6B705C]/10 text-[#6B705C] text-sm rounded-xl px-4 py-2 border border-[#6B705C]/20">
+              Mot de passe enregistré. Vous pouvez vous connecter.
+            </div>
+          )}
+
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-[#2D2D2D]/70 mb-1">Email</label>
@@ -165,7 +171,12 @@ function LoginForm() {
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-[#2D2D2D]/70 mb-1">Mot de passe</label>
+              <div className="flex items-baseline justify-between mb-1">
+                <label className="block text-sm font-semibold text-[#2D2D2D]/70">Mot de passe</label>
+                <Link href="/mot-de-passe-oublie" className="text-xs text-[#6B705C] hover:underline font-semibold">
+                  Mot de passe oublié ?
+                </Link>
+              </div>
               <div className="relative">
                 <input
                   type={showPass ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}

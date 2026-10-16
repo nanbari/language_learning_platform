@@ -11,14 +11,16 @@
  *    point faible.
  *  - claude : l'agent génère des variantes (voir practiceGenerator). Les blocs
  *    générés ont un id préfixé `gen-` pour ne pas altérer l'analyse de
- *    l'exercice d'origine.
+ *    l'exercice d'origine. Les jeux de lettres, sans variante textuelle,
+ *    sont rejoués tels quels dans les deux modes.
  *
  * Ce module ne dépend pas du SDK Anthropic : la conversion de la sortie du
  * modèle en blocs (avec validation) est pure et testée à part.
  */
 import { z } from "zod";
 import type { ContentBlock, QuizExercise, WordOrderExercise } from "@/components/lesson/ExerciseRenderers";
-import type { ReviewableExercise, WeakSpot } from "./weakSpots";
+import type { ReviewableExercise, SpotExercise, WeakSpot } from "./weakSpots";
+import { letterGameLabel, type LetterGameExercise } from "./letterExercises";
 
 /** Préfixe des blocs générés (block_id dans exercise_events). */
 export const GENERATED_PREFIX = "gen-";
@@ -57,8 +59,10 @@ export const GeneratedSetSchema = z.object({
 export type GeneratedSet = z.infer<typeof GeneratedSetSchema>;
 export type GeneratedExercise = GeneratedSet["exercises"][number];
 
-/** Bloc d'exercice tel que stocké dans une série (sous-ensemble de ContentBlock). */
-export type PracticeBlock = Extract<ContentBlock, { type: "exercise" }>;
+/** Bloc d'exercice tel que stocké dans une série : un exercice de leçon ou un jeu de lettres. */
+export type PracticeBlock =
+  | Extract<ContentBlock, { type: "exercise" }>
+  | { id: string; type: "exercise"; exercise: LetterGameExercise };
 
 export interface PracticeSet {
   id: string;
@@ -71,7 +75,7 @@ export interface PracticeSet {
 
 export interface PracticeSource {
   blockId: string;
-  type: ReviewableExercise["type"];
+  type: SpotExercise["type"];
   /** Libellé court de l'exercice d'origine (question ou phrase). */
   label: string;
   wrongAttempts: number;
@@ -99,6 +103,10 @@ function shuffle<T>(items: T[]): T[] {
 export function toReplayBlocks(spots: WeakSpot[]): PracticeBlock[] {
   return spots.slice(0, MAX_REPLAY_PER_SET).map((spot) => {
     const ex = spot.exercise;
+    if (ex.type === "letterGame") {
+      const slide = { ...ex.slide, choices: shuffle<unknown>(ex.slide.choices) } as LetterGameExercise["slide"];
+      return { id: spot.blockId, type: "exercise", exercise: { type: "letterGame", slide } };
+    }
     const exercise: ReviewableExercise =
       ex.type === "quiz" ? { ...ex, options: shuffle(ex.options) } : { ...ex };
     return { id: spot.blockId, type: "exercise", exercise };
@@ -178,6 +186,7 @@ export function toPracticeBlocks(
 }
 
 /** Libellé court d'un exercice d'origine. */
-export function exerciseLabel(ex: ReviewableExercise): string {
+export function exerciseLabel(ex: SpotExercise): string {
+  if (ex.type === "letterGame") return letterGameLabel(ex.slide);
   return ex.type === "quiz" ? ex.question : ex.sentence;
 }

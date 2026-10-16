@@ -30,7 +30,7 @@ const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "Permissions-Policy", value: "microphone=(self), camera=(), geolocation=(), payment=()" },
+  { key: "Permissions-Policy", value: "microphone=(self), camera=(self), geolocation=(), payment=()" },
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   { key: "X-DNS-Prefetch-Control", value: "on" },
 ];
@@ -39,11 +39,6 @@ const nextConfig: NextConfig = {
   // Build autonome pour le déploiement Docker/Kubernetes : .next/standalone
   // contient le serveur et les seuls node_modules nécessaires.
   output: "standalone",
-  // Le projet Remotion n'est lancé qu'en local ou par GitHub Actions (voir
-  // src/lib/recapVideo.ts) : il ne doit pas être embarqué dans la fonction.
-  outputFileTracingExcludes: {
-    "/api/recap": ["./animations/**/*"],
-  },
   turbopack: {
     root: __dirname,
   },

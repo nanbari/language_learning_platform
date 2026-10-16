@@ -8,7 +8,6 @@ export interface User {
   /** Droits d'administration, cumulables avec le rôle (enseignant admin). */
   isAdmin?: boolean;
   avatar?: string;
-  points?: number;
   badges?: Badge[];
 }
 

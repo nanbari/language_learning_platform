@@ -1,26 +1,44 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, X } from "lucide-react";
+import { ArrowLeft, Radio, X } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
-import { CODE_LENGTH, normalizeCode, type Participant } from "@/lib/liveSession";
+import type { Participant } from "@/lib/liveSession";
+import type { LiveClass } from "@/lib/classes";
+import { fetchLiveClasses } from "@/lib/classesApi";
 import { useLiveGuest } from "@/lib/useLiveSession";
+import { useVideoCall } from "@/lib/useLiveVideo";
 import { SlideView } from "@/components/present/Slides";
+import { CallButtons, VideoTile } from "@/components/present/VideoCall";
+
+/** Fréquence de vérification des cours lancés dans les classes de l'élève. */
+const POLL_MS = 5000;
 
 export default function StudentLivePage() {
   const { user } = useAuthStore();
-  const [code, setCode] = useState<string | null>(null);
+  const [joined, setJoined] = useState<LiveClass | null>(null);
 
-  if (code && user) {
-    return <LiveRoom code={code} me={{ id: user.id, name: user.name }} onLeave={() => setCode(null)} />;
+  if (joined && user) {
+    return <LiveRoom code={joined.room} me={{ id: user.id, name: user.name }} onLeave={() => setJoined(null)} />;
   }
-  return <JoinForm onJoin={setCode} />;
+  return <LiveList onJoin={setJoined} />;
 }
 
-function JoinForm({ onJoin }: { onJoin: (code: string) => void }) {
-  const [input, setInput] = useState("");
-  const ready = input.length === CODE_LENGTH;
+/** Les cours en direct des classes de l'élève ; la liste se met à jour toute seule. */
+function LiveList({ onJoin }: { onJoin: (live: LiveClass) => void }) {
+  const [lives, setLives] = useState<LiveClass[] | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const check = () => fetchLiveClasses()
+      .then((list) => { if (active) { setLives(list); setFailed(false); } })
+      .catch(() => { if (active) setFailed(true); });
+    void check();
+    const timer = setInterval(check, POLL_MS);
+    return () => { active = false; clearInterval(timer); };
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#F5EEE8] flex flex-col">
@@ -29,34 +47,34 @@ function JoinForm({ onJoin }: { onJoin: (code: string) => void }) {
           <ArrowLeft size={18} /> Mon espace
         </Link>
       </div>
-      <form
-        className="flex-1 flex flex-col items-center justify-center px-4 pb-24 text-center"
-        onSubmit={(e) => { e.preventDefault(); if (ready) onJoin(input); }}
-      >
+      <div className="flex-1 flex flex-col items-center justify-center px-4 pb-24 text-center">
         <span className="text-7xl animate-float mb-4">🎬</span>
         <h1 className="text-3xl text-[#2D2D2D] mb-2" style={{ fontFamily: "'Fredoka One', cursive" }}>
           Cours en direct
         </h1>
-        <p className="text-[#2D2D2D]/60 font-semibold mb-6">Écris le code donné par ton enseignant</p>
-        <input
-          value={input}
-          onChange={(e) => setInput(normalizeCode(e.target.value))}
-          inputMode="numeric"
-          autoComplete="off"
-          autoFocus
-          placeholder="0000"
-          aria-label="Code de la séance"
-          className="w-56 text-center text-5xl font-black tracking-[0.3em] pl-[0.3em] py-3 rounded-2xl bg-[#FFFDF8] border-4 border-[#EDE5D8] focus:border-[#BB908E] outline-none text-[#2D2D2D] placeholder:text-[#2D2D2D]/15 mb-6"
-        />
-        <button
-          type="submit"
-          disabled={!ready}
-          className="px-8 py-3 rounded-full font-bold text-lg text-white shadow hover:shadow-md hover:scale-105 transition-all disabled:opacity-40 disabled:hover:scale-100"
-          style={{ background: "#BB908E" }}
-        >
-          Rejoindre
-        </button>
-      </form>
+        {lives === null ? (
+          <p className="text-[#2D2D2D]/60 font-semibold">{failed ? "Connexion impossible, nouvel essai…" : "Chargement…"}</p>
+        ) : lives.length === 0 ? (
+          <p className="text-[#2D2D2D]/60 font-semibold max-w-sm">
+            Pas de cours en direct pour le moment. Reste sur cette page : le bouton apparaîtra dès que ton enseignant lancera le cours.
+          </p>
+        ) : (
+          <div className="flex flex-col items-center gap-3 mt-4">
+            {lives.map((live) => (
+              <button
+                key={live.id}
+                onClick={() => onJoin(live)}
+                className="flex items-center gap-3 px-8 py-4 rounded-full font-bold text-lg text-white shadow hover:shadow-md hover:scale-105 transition-all"
+                style={{ background: "#BB908E" }}
+              >
+                <Radio size={20} className="animate-pulse" />
+                Rejoindre « {live.name} »
+                {live.teacherName && <span className="font-semibold opacity-80 text-base">avec {live.teacherName}</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -73,6 +91,9 @@ function Waiting({ emoji, title, text }: { emoji: string; title: string; text: s
 
 function LiveRoom({ code, me, onLeave }: { code: string; me: Participant; onLeave: () => void }) {
   const { state, status, sendAnswer } = useLiveGuest(code, me);
+  const call = useVideoCall(code, { ...me, role: "student" });
+  const teacher = call.peers.find((p) => p.role === "teacher");
+  const classmates = call.peers.filter((p) => p.role !== "teacher");
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[#F5EEE8] overflow-hidden select-none">
@@ -91,17 +112,20 @@ function LiveRoom({ code, me, onLeave }: { code: string; me: Participant; onLeav
             ))}
           </div>
         )}
-        <span>{me.name}</span>
+        <CallButtons cam={call.cam} mic={call.mic} onCam={call.toggleCam} onMic={call.toggleMic} disabled={!call.local} />
       </div>
 
-      <div className="flex-1 flex items-center justify-center px-4">
+      {call.error && <p className="text-center text-sm font-bold text-[#BB908E] px-4">{call.error}</p>}
+
+      {/* Marge à droite pour la colonne des vignettes */}
+      <div className="flex-1 flex items-center justify-center pl-4 pr-[max(7rem,calc(17vmin+2rem))]">
         {status === "ended" ? (
           <Waiting emoji="👋" title="Le cours est terminé" text="À bientôt !" />
         ) : status !== "live" || !state ? (
           <Waiting
             emoji="⏳"
             title={status === "connecting" ? "Connexion…" : "On attend ton enseignant"}
-            text={`Code ${code} — le cours va bientôt commencer`}
+            text="Le cours va bientôt commencer"
           />
         ) : (
           <AnimatePresence mode="wait">
@@ -125,6 +149,28 @@ function LiveRoom({ code, me, onLeave }: { code: string; me: Participant; onLeav
           </AnimatePresence>
         )}
       </div>
+
+      {status !== "ended" && (
+        <>
+          {/* L'enseignant en bas à gauche, en grand */}
+          {teacher && (
+            <VideoTile
+              stream={teacher.stream}
+              name={teacher.name}
+              cam={teacher.cam}
+              mic={teacher.mic}
+              className="fixed left-4 bottom-4 z-[60] w-[34vmin] min-w-40 max-w-80"
+            />
+          )}
+          {/* Soi-même et les camarades, en petit à droite */}
+          <div className="fixed right-4 top-16 bottom-4 z-[60] w-[17vmin] min-w-24 max-w-40 flex flex-col gap-2 overflow-y-auto pointer-events-none">
+            <VideoTile stream={call.local} name={me.name} cam={call.cam} mic={call.mic} self />
+            {classmates.map((p) => (
+              <VideoTile key={p.session} stream={p.stream} name={p.name} cam={p.cam} mic={p.mic} />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

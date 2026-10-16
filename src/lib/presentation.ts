@@ -1,6 +1,5 @@
 import { ARABIC_ALPHABET, type ArabicLetter } from "@/data/arabicAlphabet";
 import { LETTER_POSITIONS, LETTER_WORDS, exerciseWords, type LetterPosition, type LetterWord } from "@/data/letterWords";
-import { BOY_INTRO, type Clip } from "@/data/animations";
 
 /**
  * Mode présentation : construit la suite d'écrans qu'un enseignant projette
@@ -33,12 +32,15 @@ export type Slide =
    */
   | { kind: "completeWord"; letter: ArabicLetter; word: LetterWord; position: LetterPosition; choices: FormChoice[] }
   | { kind: "flashcard"; word: VocabWord; color: string }
-  /** Animation d'un mot (vidéo muette en boucle), jouée après sa carte ; le commentaire est pour l'enseignant. */
+  /**
+   * Animation d'un mot (vidéo muette en boucle), jouée après sa carte ; le commentaire est pour l'enseignant.
+   * Les nouveaux diaporamas n'en ont plus : seuls ceux déjà enregistrés peuvent en contenir.
+   */
   | { kind: "video"; src: string; caption: string; color: string }
   | { kind: "blur"; word: VocabWord; color: string }
   | { kind: "missing"; words: VocabWord[]; missingId: string; color: string }
   | { kind: "quiz"; target: VocabWord; choices: VocabWord[]; color: string }
-  /** Quelle animation ? Deux ou trois clips côte à côte ; l'enseignant demande un geste, l'élève touche le bon clip. */
+  /** Quelle animation ? Deux ou trois clips côte à côte (diaporamas déjà enregistrés seulement). */
   | { kind: "clipQuiz"; target: ClipChoice; choices: ClipChoice[]; color: string }
   /** QCM d'une leçon d'enseignant, joué en direct : question et réponses telles qu'il les a rédigées. */
   | { kind: "qcm"; qcm: Qcm; color: string }
@@ -56,10 +58,18 @@ export interface VocabWord {
   arabic?: string;
   imageUrl?: string;
   emoji?: string;
-  /** Animations du mot, jouées après sa carte. */
-  clips?: Clip[];
-  /** Rang fixe dans la présentation (mots animés) ; les mots sans rang sont tirés au sort après. */
+  /** Rang fixe dans la présentation ; les mots sans rang sont tirés au sort après. */
   rank?: number;
+  /** Le bloc de la leçon d'où vient l'image : un QCM en images ne mélange pas les images de blocs différents. */
+  group?: string;
+}
+
+/** Une animation d'un ancien diaporama : le fichier vidéo et, pour l'enseignant, ce qu'elle montre. */
+export interface Clip {
+  src: string;
+  caption: string;
+  /** Question en arabe qui désigne ce clip parmi d'autres, posée par l'enseignant. */
+  question?: string;
 }
 
 /** Un clip proposé au jeu « quelle animation ? » : celui d'un mot présenté. */
@@ -125,7 +135,7 @@ export function letterColor(letter: ArabicLetter): string {
   return letter.medial.endsWith("ـ") ? "#8BA3B1" : "#BB908E";
 }
 
-function inCharter(letter: ArabicLetter): ArabicLetter {
+export function inCharter(letter: ArabicLetter): ArabicLetter {
   return { ...letter, color: letterColor(letter) };
 }
 
@@ -192,7 +202,7 @@ export function teacherQuestion(slide: Slide): string | null {
     case "completeWord": return "أَيُّ شَكْلٍ يُكْمِلُ الْكَلِمَةَ؟";
     // Quiz en images de fin de leçon : le mot demandé est lu à voix haute.
     case "quiz": return `أَيْنَ صُورَةُ «${slide.target.arabic}»؟`;
-    case "clipQuiz": return slide.target.clip.question;
+    case "clipQuiz": return slide.target.clip.question ?? null;
     default: return null;
   }
 }
@@ -220,11 +230,11 @@ function pickChoices(target: ArabicLetter, pool: ArabicLetter[], rng: Rng): Arab
   return shuffle([target, ...others, ...fillers], rng);
 }
 
-function findLetterSlide(target: ArabicLetter, pool: ArabicLetter[], rng: Rng): Slide {
+export function findLetterSlide(target: ArabicLetter, pool: ArabicLetter[], rng: Rng): Slide {
   return { kind: "findLetter", target, choices: pickChoices(target, pool, rng) };
 }
 
-function pickSoundSlide(target: ArabicLetter, pool: ArabicLetter[], rng: Rng): Slide {
+export function pickSoundSlide(target: ArabicLetter, pool: ArabicLetter[], rng: Rng): Slide {
   return { kind: "pickSound", target, choices: pickChoices(target, pool, rng) };
 }
 
@@ -235,7 +245,7 @@ function pickWord(letter: ArabicLetter, position: LetterPosition, rng: Rng): Let
 }
 
 /** Un mot de la lettre (position tirée au sort) ; l'élève nomme la lettre colorée. */
-function findInWordSlide(target: ArabicLetter, pool: ArabicLetter[], rng: Rng): Slide {
+export function findInWordSlide(target: ArabicLetter, pool: ArabicLetter[], rng: Rng): Slide {
   const position = LETTER_POSITIONS[Math.floor(rng() * LETTER_POSITIONS.length)];
   return { kind: "findInWord", word: pickWord(target, position, rng), target, choices: pickChoices(target, pool, rng) };
 }
@@ -360,28 +370,38 @@ export function buildLetterDeck(
 }
 
 /**
- * Mots d'une leçon créée par un enseignant : les diapositives illustrées de
- * ses « leçons illustrées », avec le mot si elle en porte un. Les images sont
- * des URLs publiques ; une image encore embarquée (data:) serait trop lourde
- * pour la diffusion en direct et est écartée, comme les diapositives dont le
- * texte, trop long, est une phrase et non un mot. Un même mot, ou une même
- * image sans mot, n'est retenu qu'une fois.
+ * Mots d'une leçon créée par un enseignant, dans l'ordre de la leçon : les
+ * diapositives de ses « leçons illustrées » et les réponses en images de ses
+ * quiz, avec le mot s'il est écrit (pour un quiz, seulement si ses réponses
+ * affichent le texte). Les images sont des URLs publiques ; une image encore
+ * embarquée (data:) serait trop lourde pour la diffusion en direct et est
+ * écartée, comme les textes trop longs, qui sont une phrase et non un mot.
+ * Un même mot, ou une même image, n'est retenu qu'une fois, dans le premier
+ * bloc où il apparaît (son groupe).
  */
 export function lessonVocabWords(blocks: readonly unknown[]): VocabWord[] {
   const words: VocabWord[] = [];
   const seen = new Set<string>();
-  for (const block of blocks as { type?: string; slides?: { id?: string; imageDataUrl?: string; text?: string }[] }[]) {
-    if (block?.type !== "slideshow") continue;
-    for (const slide of block.slides ?? []) {
-      const text = slide.text?.trim() ?? "";
-      const imageUrl = publicUrl(slide.imageDataUrl);
-      if (!imageUrl || text.length > MAX_WORD_LENGTH) continue;
-      const key = text || imageUrl;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      words.push({ id: slide.id ?? `mot-${words.length}`, ...(text && { arabic: text }), imageUrl });
+  const add = (group: string, id: string | undefined, rawText: string | undefined, rawUrl: string | undefined) => {
+    const text = rawText?.trim() ?? "";
+    const imageUrl = publicUrl(rawUrl);
+    if (!imageUrl || text.length > MAX_WORD_LENGTH) return;
+    if (seen.has(imageUrl) || (text && seen.has(text))) return;
+    seen.add(imageUrl);
+    if (text) seen.add(text);
+    words.push({ id: id ?? `mot-${words.length}`, ...(text && { arabic: text }), imageUrl, group });
+  };
+  (blocks as ({ id?: string; type?: string; slides?: { id?: string; imageDataUrl?: string; text?: string }[] } & RawQuizBlock)[]).forEach((block, at) => {
+    const group = `bloc-${at}`;
+    if (block?.type === "slideshow") {
+      for (const slide of block.slides ?? []) add(group, slide.id, slide.text, slide.imageDataUrl);
     }
-  }
+    const quiz = block?.exercise;
+    if (block?.type === "exercise" && quiz?.type === "quiz" && quiz.answerMode !== "text") {
+      const showsText = quiz.answerMode === "both";
+      for (const option of quiz.options ?? []) add(group, option.id && `${block.id ?? "qcm"}-${option.id}`, showsText ? option.text : undefined, option.imageDataUrl);
+    }
+  });
   return words;
 }
 
@@ -453,14 +473,14 @@ export function qcmAnswerLabel(qcm: Qcm): string {
 /**
  * Leçon de vocabulaire : les images d'une leçon d'enseignant. La première,
  * telle que l'enseignant l'a placée, ouvre toujours la séance (une vue
- * d'ensemble : le panier de fruits) ; viennent ensuite les mots à rang fixe
- * (les animés, dans l'ordre de leur registre), puis les autres tirés au sort.
- * Avec assez d'images viennent les devinettes (flou, disparition). Le quiz
- * final reprend les QCM de la leçon, dans son ordre ; sans QCM, un quiz en
- * images est tiré des mots présentés qui ont une écriture. La séance se
- * termine, dès deux mots animés, par « quelle animation ? » : jusqu'à trois
- * tours où l'élève touche, parmi deux ou trois clips, le geste demandé.
- * Avant le premier mot animé, un clip présente le garçon qui fait les gestes.
+ * d'ensemble : le panier de fruits) ; viennent ensuite les mots à rang fixe,
+ * puis les autres tirés au sort. Les seuls exercices sont des QCM : ceux de la
+ * leçon, tels que l'enseignant les a écrits, et un QCM en images pour chaque
+ * image présentée qui n'est encore la bonne réponse d'aucun d'eux — l'image et
+ * jusqu'à trois autres de son groupe (le même bloc de la leçon), sans jamais
+ * mélanger les groupes. Une image seule dans son groupe n'a pas de QCM : il n'y
+ * aurait rien à choisir. Les QCM suivent l'ordre des images : tout le premier
+ * bloc, puis le suivant.
  */
 export function buildVocabDeck(
   title: string,
@@ -478,44 +498,34 @@ export function buildVocabDeck(
   const words = cover ? [cover, ...ranked, ...others].slice(0, wordCount) : [];
   // Écran d'accueil pendant que les élèves se connectent : le titre de la leçon
   // n'y est écrit que s'il est en arabe (aucun texte français à l'écran).
-  // Le garçon des animations est présenté une fois, juste avant le premier mot animé.
-  const firstAnimated = words.findIndex((w) => w.clips?.length);
   const deck: Slide[] = [
     { kind: "title", title, arabic: arabicTitle(title), color },
-    ...words.flatMap((word, i): Slide[] => [
-      ...(i === firstAnimated ? [{ kind: "video", src: BOY_INTRO.src, caption: BOY_INTRO.caption, color } as Slide] : []),
-      { kind: "flashcard", word, color },
-      ...(word.clips ?? []).map((clip): Slide => ({ kind: "video", src: clip.src, caption: clip.caption, color })),
-    ]),
+    ...words.map((word): Slide => ({ kind: "flashcard", word, color })),
   ];
 
-  if (words.length >= MIN_VOCAB_WORDS) {
-    for (const word of shuffle(words, rng).slice(0, 2)) {
-      deck.push({ kind: "blur", word, color });
-    }
-    const shown = shuffle(words, rng).slice(0, 4);
-    deck.push({ kind: "missing", words: shown, missingId: shown[Math.floor(rng() * shown.length)].id, color });
-  }
+  // Chaque QCM prend la place de son image dans la présentation : tout le
+  // premier bloc, puis le suivant. Un QCM de l'enseignant sans image présentée
+  // vient en dernier, dans l'ordre de la leçon.
+  const position = new Map(words.map((w, i) => [w.imageUrl, i]));
+  const at = (url: string | undefined) => (url !== undefined && position.has(url) ? position.get(url)! : Infinity);
+  const correctImage = (q: Qcm) => q.options.find((o) => o.id === q.correctId)?.imageUrl;
+  const placed: { at: number; qcm: Qcm }[] = qcms.map((qcm) => {
+    const own = at(correctImage(qcm));
+    return { at: own !== Infinity ? own : Math.min(Infinity, ...qcm.options.map((o) => at(o.imageUrl))), qcm };
+  });
 
-  if (qcms.length > 0) {
-    for (const qcm of qcms) deck.push({ kind: "qcm", qcm, color });
-  } else if (words.length >= MIN_VOCAB_WORDS) {
-    // Le mot à retrouver est écrit : seuls les mots qui en ont un peuvent être demandés.
-    for (const target of shuffle(words.filter((w) => w.arabic), rng).slice(0, 3)) {
-      const others = shuffle(words.filter((w) => w.id !== target.id), rng).slice(0, 3);
-      deck.push({ kind: "quiz", target, choices: shuffle([target, ...others], rng), color });
-    }
+  const asked = new Set(qcms.flatMap((q) => correctImage(q) ?? []));
+  const pictured = words.filter((w) => w.imageUrl);
+  const option = (w: VocabWord): QcmOption => ({ id: w.id, imageUrl: w.imageUrl, ...(w.arabic && { word: w.arabic }) });
+  for (const target of pictured) {
+    if (asked.has(target.imageUrl!)) continue;
+    const others = shuffle(pictured.filter((w) => w.id !== target.id && w.group === target.group), rng).slice(0, 3);
+    if (others.length === 0) continue;
+    const qcm: Qcm = { id: `qcm-${target.id}`, options: shuffle([target, ...others], rng).map(option), correctId: target.id };
+    placed.push({ at: at(target.imageUrl), qcm });
   }
-
-  // En dernier, « quelle animation ? » : l'élève retrouve le geste demandé parmi les clips.
-  const animated = words.filter((w) => w.clips?.length);
-  if (animated.length >= 2) {
-    for (const target of shuffle(animated, rng).slice(0, 3)) {
-      const others = shuffle(animated.filter((w) => w.id !== target.id), rng).slice(0, 2);
-      const choice = (w: VocabWord): ClipChoice => ({ id: w.id, clip: w.clips![0] });
-      deck.push({ kind: "clipQuiz", target: choice(target), choices: shuffle([target, ...others], rng).map(choice), color });
-    }
-  }
+  // Tri stable : à place égale (QCM sans image présentée), l'ordre de la leçon est gardé.
+  for (const { qcm } of placed.sort((a, b) => (a.at === b.at ? 0 : a.at - b.at))) deck.push({ kind: "qcm", qcm, color });
 
   deck.push({ kind: "bravo" });
   return deck;

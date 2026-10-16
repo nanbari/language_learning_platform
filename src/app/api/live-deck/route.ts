@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { COOKIE_NAME, verifySession, isStaff } from "@/lib/auth";
-import { requestRecap } from "@/lib/recapVideo";
+import { saveLessonDeck } from "@/lib/lessonDeck";
 
 /**
- * Depuis l'éditeur de leçon : fabrique la vidéo d'introduction de la leçon,
- * puis son diaporama de cours en direct. Répond dès que le rendu est lancé
- * (il prend quelques minutes) ; `started: false` si la leçon est déjà à jour.
+ * Depuis l'éditeur de leçon : construit et enregistre le diaporama du cours
+ * en direct de la leçon. `changed: false` si la leçon avait déjà ce diaporama.
  */
 export async function POST(req: NextRequest) {
   const session = await verifySession(req.cookies.get(COOKIE_NAME)?.value);
@@ -16,8 +15,7 @@ export async function POST(req: NextRequest) {
   if (typeof body?.lessonId !== "string") return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
 
   try {
-    const started = await requestRecap({ lessonId: body.lessonId });
-    return NextResponse.json({ started }, { status: started ? 202 : 200 });
+    return NextResponse.json(await saveLessonDeck(body.lessonId));
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 422 });
   }

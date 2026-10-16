@@ -15,8 +15,8 @@ const EVENTS_LIMIT = 20_000;
 
 /**
  * GET /api/teacher/insights
- * Progression réelle des élèves et exercices les plus ratés, calculés à
- * partir de `exercise_events`. Enseignants : leurs propres leçons ;
+ * Progression réelle des élèves (par leçon et détaillée par exercice),
+ * calculée à partir de `exercise_events`. Enseignants : leurs propres leçons ;
  * admins : toutes. Réponse : TeacherInsights.
  */
 export async function GET(req: NextRequest) {

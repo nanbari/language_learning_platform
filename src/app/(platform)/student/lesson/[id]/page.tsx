@@ -1,8 +1,7 @@
 "use client";
 import { useState, use, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { ArrowLeft, Star, Trophy, ChevronRight, Sparkles } from "lucide-react";
-import { useGameStore } from "@/store/gameStore";
+import { ArrowLeft, Trophy, ChevronRight, Sparkles } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { fetchLessons, type ApiLesson } from "@/lib/lessonsApi";
 import { flushExerciseEvents } from "@/lib/eventsApi";
@@ -12,11 +11,17 @@ import {
   type ContentBlock, type Exercise, type SlideItem, type VideoItem,
   type QuizExercise, type MatchExercise, type WordOrderExercise, type DragExercise,
 } from "@/components/lesson/ExerciseRenderers";
+import { LetterExercise, NEXT_LETTER_EXERCISE_DELAY_MS } from "@/components/lesson/LetterExercise";
+import { buildLetterDeck, type Slide } from "@/lib/presentation";
+import { isLetterGameSlide, letterGameId, type LettersBlock } from "@/lib/letterExercises";
+import { isGame } from "@/lib/liveSession";
 
 /* ── Types ── */
+type LessonBlock = ContentBlock | LettersBlock;
+
 interface StoredLesson {
   id: string; title: string; createdAt: string;
-  blocks?: ContentBlock[];
+  blocks?: LessonBlock[];
   videos?: VideoItem[]; slideshow?: SlideItem[]; exercises?: Exercise[];
 }
 
@@ -35,10 +40,9 @@ function isSafeVideoUrl(url: string): boolean {
 
 function uid() { return Math.random().toString(36).slice(2, 8); }
 
-function getLessonBlocks(lesson: StoredLesson): ContentBlock[] {
-  // Le bloc « Lettres » ne sert qu'à préparer la vidéo d'introduction et le cours en direct : l'élève ne le voit pas.
-  if (lesson.blocks?.length) return lesson.blocks.filter((b) => (b.type as string) !== "letters");
-  const blocks: ContentBlock[] = [];
+function getLessonBlocks(lesson: StoredLesson): LessonBlock[] {
+  if (lesson.blocks?.length) return lesson.blocks;
+  const blocks: LessonBlock[] = [];
   for (const v of lesson.videos ?? []) blocks.push({ id: v.id, type: "video", url: v.url, title: v.title });
   if (lesson.slideshow?.length) blocks.push({ id: uid(), type: "slideshow", slides: lesson.slideshow });
   for (const ex of lesson.exercises ?? []) blocks.push({ id: uid(), type: "exercise", exercise: ex });
@@ -161,6 +165,73 @@ function SlideshowRenderer({ slides, onDone }: { slides: SlideItem[]; onDone: ()
 }
 
 /* ─────────────────────────────────────────────
+   Letters renderer — les écrans de lettres du cours en direct, en autonomie
+───────────────────────────────────────────── */
+/** Rang d'un exercice de lettres : le son d'abord, l'écriture en dernier. */
+function exerciseRank(slide: Slide): number {
+  if (slide.kind === "pickSound") return 0;
+  if (slide.kind === "write") return 2;
+  return 1;
+}
+
+/**
+ * Les exercices des lettres du jour du cours en direct (écrire, retrouver,
+ * choisir le son), mais l'élève avance seul (voir LetterExercise) : un jeu ne
+ * se passe qu'une fois réussi, la bonne réponse mène d'elle-même à
+ * l'exercice suivant. Les erreurs alimentent la révision.
+ */
+function LettersRenderer({ block, color, lessonId, onDone }: { block: LettersBlock; color: string; lessonId: string; onDone: () => void }) {
+  // Sur la plateforme, seulement les exercices : ni écrans de présentation
+  // (titre, tracé, formes), ni « bravo » final — celui de la leçon suffit.
+  // Ordre : choisir le son, retrouver la lettre, puis l'écrire.
+  const [deck] = useState(() => buildLetterDeck(block.letterIds, block.level, block.reviewIds ?? [])
+    .filter(isGame)
+    .sort((a, b) => exerciseRank(a) - exerciseRank(b)));
+  const [index, setIndex] = useState(0);
+  const [solved, setSolved] = useState(false);
+
+  useEffect(() => {
+    if (deck.length === 0) onDone();
+  }, [deck.length, onDone]);
+
+  // Bonne réponse : le temps de voir les confettis, puis exercice suivant.
+  useEffect(() => {
+    if (!solved) return;
+    const timer = setTimeout(() => {
+      if (index < deck.length - 1) {
+        setIndex((i) => i + 1);
+        setSolved(false);
+      } else {
+        onDone();
+      }
+    }, NEXT_LETTER_EXERCISE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [solved, index, deck.length, onDone]);
+
+  if (deck.length === 0) return null;
+
+  return (
+    <div className="flex-1 flex flex-col w-full max-w-4xl mx-auto px-4 py-6">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+          <div className="h-full rounded-full transition-all duration-500" style={{ background: color, width: `${(index / deck.length) * 100}%` }} />
+        </div>
+        <span className="text-sm font-bold text-gray-500">{index + 1}/{deck.length}</span>
+      </div>
+      <LetterExercise
+        key={index}
+        slide={deck[index]}
+        previous={deck[index - 1]}
+        color={color}
+        lessonId={lessonId}
+        eventId={isLetterGameSlide(deck[index]) ? letterGameId(block.id, deck[index]) : null}
+        onSolved={() => setSolved(true)}
+      />
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
    Main lesson page
 ───────────────────────────────────────────── */
 export default function LessonPage({ params }: { params: Promise<{ id: string }> }) {
@@ -172,7 +243,6 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
   // Exercices ratés sur cette leçon (null = pas encore calculé). Sert à ne
   // proposer la révision qu'à un élève qui a effectivement raté quelque chose.
   const [toReview,   setToReview]   = useState<number | null>(null);
-  const { score, resetGame } = useGameStore();
   const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
@@ -237,9 +307,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
         <ArrowLeft size={18} /> Retour
       </Link>
       <p className="font-black text-[#2d2d2d] text-sm truncate max-w-[200px]">{lesson.title}</p>
-      <div className="flex items-center gap-1 font-bold text-[#999B84]">
-        <Star size={14} fill="#999B84" /> {score}
-      </div>
+      <div className="w-[60px]" />
     </div>
   );
 
@@ -248,17 +316,10 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
     return (
       <div className="min-h-screen bg-[#fffef9] flex items-center justify-center px-4">
         <div className="text-center max-w-md animate-bounce-in">
-          <div className="text-7xl mb-6">🏆</div>
           <h1 className="text-4xl font-black text-[#2d2d2d] mb-2" style={{ fontFamily: "'Fredoka One', cursive" }}>
             Félicitations !
           </h1>
-          <p className="text-gray-600 mb-6">Tu as terminé <strong>{lesson.title}</strong> !</p>
-          <div className="rounded-2xl p-6 text-white mb-8" style={{ background: color }}>
-            <div className="flex items-center justify-center gap-3 text-2xl font-black mb-1">
-              <Star fill="white" size={24} /> {score} points !
-            </div>
-            <p className="text-white/80 text-sm">Continue comme ça !</p>
-          </div>
+          <p className="text-gray-600 mb-8">Tu as terminé <strong>{lesson.title}</strong> !</p>
           {exerciseBlocks.length > 0 && toReview !== null && toReview > 0 && (
             <Link href={`/student/practice/${lesson.id}`}
               className="mb-4 w-full px-6 py-3 rounded-full text-white font-bold flex items-center justify-center gap-2 hover:shadow-lg transition-all"
@@ -273,7 +334,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
             </p>
           )}
           <div className="flex gap-4 justify-center">
-            <button onClick={() => { setCompleted(false); setToReview(null); setBlockIndex(0); resetGame(); }}
+            <button onClick={() => { setCompleted(false); setToReview(null); setBlockIndex(0); }}
               className="px-6 py-3 rounded-full border-2 font-bold hover:opacity-80 transition-all"
               style={{ borderColor: color, color }}>
               Rejouer
@@ -322,6 +383,16 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
     );
   }
 
+  /* ── Letters block ── */
+  if (currentBlock.type === "letters") {
+    return (
+      <div className="min-h-screen bg-[#fffef9] flex flex-col">
+        {nav}
+        <LettersRenderer key={blockIndex} block={currentBlock} color={color} lessonId={lesson.id} onDone={advanceBlock} />
+      </div>
+    );
+  }
+
   /* ── Slideshow block ── */
   if (currentBlock.type === "slideshow") {
     return (
@@ -342,7 +413,7 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
           <div className="text-center mb-6">
             <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-bold text-white mb-3"
               style={{ background: color }}>
-              {ex.type === "quiz" ? "❓ Quiz"
+              {ex.type === "quiz" ? "Quiz"
                 : ex.type === "matching" ? "🔗 Appariement"
                 : "🗂️ Tri"}
               {exerciseBlocks.length > 1 && ` · ${exercisesDone + 1}/${exerciseBlocks.length}`}

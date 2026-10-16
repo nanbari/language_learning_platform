@@ -11,14 +11,20 @@
  * puis réussi du premier coup hier n'est donc plus considéré comme faible.
  */
 import type { ContentBlock, Exercise, QuizExercise, WordOrderExercise } from "@/components/lesson/ExerciseRenderers";
+import { describeLetterAnswer, isLettersBlock, letterGames, type LetterGameExercise, type LettersBlock } from "./letterExercises";
 import type { ExerciseEventRow } from "./exerciseEvents";
 
 /** Exercices dont on sait produire une variante textuelle. */
 export type ReviewableExercise = QuizExercise | WordOrderExercise;
+/** Exercices suivis pour la révision : ceux à variante textuelle, et les jeux du bloc « Lettres ». */
+export type SpotExercise = ReviewableExercise | LetterGameExercise;
+/** Blocs d'une leçon tels qu'enregistrés (le bloc « Lettres » s'ajoute aux blocs de contenu). */
+export type LessonBlock = ContentBlock | LettersBlock;
 
 export interface WeakSpot {
+  /** Id du bloc, ou id stable du jeu de lettres (voir letterGameId). */
   blockId: string;
-  exercise: ReviewableExercise;
+  exercise: SpotExercise;
   /** Essais lors de la dernière passe. */
   attempts: number;
   /** Essais faux lors de la dernière passe. */
@@ -42,10 +48,29 @@ function isReviewable(ex: Exercise): ex is ReviewableExercise {
   return ex.type === "quiz" || ex.type === "wordorder";
 }
 
+/** Point faible dont l'agent sait produire une variante (hors jeux de lettres). */
+export type TextWeakSpot = WeakSpot & { exercise: ReviewableExercise };
+export function isTextSpot(spot: WeakSpot): spot is TextWeakSpot {
+  return spot.exercise.type !== "letterGame";
+}
+
+/** Exercices révisables d'une leçon, avec l'id sous lequel leurs événements sont journalisés. */
+function reviewableExercises(blocks: LessonBlock[]): { id: string; exercise: SpotExercise }[] {
+  const out: { id: string; exercise: SpotExercise }[] = [];
+  for (const block of blocks) {
+    if (isLettersBlock(block)) out.push(...letterGames(block));
+    else if (block.type === "exercise" && isReviewable(block.exercise)) out.push({ id: block.id, exercise: block.exercise });
+  }
+  return out;
+}
+
 /** Rend la réponse d'un événement sous forme lisible (texte de l'option, phrase…). */
-export function describeAnswer(exercise: ReviewableExercise, answer: unknown): string | null {
+export function describeAnswer(exercise: SpotExercise, answer: unknown): string | null {
   if (!answer || typeof answer !== "object") return null;
   const a = answer as Record<string, unknown>;
+  if (exercise.type === "letterGame") {
+    return typeof a.choiceId === "string" ? describeLetterAnswer(exercise.slide, a.choiceId) : null;
+  }
   if (exercise.type === "quiz" && typeof a.optionId === "string") {
     const opt = exercise.options.find((o) => o.id === a.optionId);
     return opt?.text?.trim() || null;
@@ -55,6 +80,19 @@ export function describeAnswer(exercise: ReviewableExercise, answer: unknown): s
     return words.length ? words.join(" ") : null;
   }
   return null;
+}
+
+/**
+ * Ordre chronologique des événements. Ceux d'un même envoi (réponse puis
+ * réussite) ont exactement le même `created_at` en base : à égalité, la
+ * réussite passe après les réponses, et les réponses suivent leur numéro.
+ * Sans cela, une réussite du premier coup pouvait être lue « tentée mais
+ * pas terminée ». Partagé avec l'analyse enseignant (teacherInsights).
+ */
+export function compareEvents(a: ExerciseEventRow, b: ExerciseEventRow): number {
+  return a.created_at.localeCompare(b.created_at)
+    || Number(a.event_type === "complete") - Number(b.event_type === "complete")
+    || (a.attempt_number ?? 0) - (b.attempt_number ?? 0);
 }
 
 /**
@@ -76,7 +114,7 @@ export function lastRun(events: ExerciseEventRow[]): ExerciseEventRow[] {
  * Calcule les points faibles. `events` peut être dans n'importe quel ordre
  * et contenir d'autres leçons : seuls les blocs de `blocks` sont examinés.
  */
-export function analyseWeakSpots(blocks: ContentBlock[], events: ExerciseEventRow[]): WeakSpot[] {
+export function analyseWeakSpots(blocks: LessonBlock[], events: ExerciseEventRow[]): WeakSpot[] {
   const byBlock = new Map<string, ExerciseEventRow[]>();
   for (const e of events) {
     const list = byBlock.get(e.block_id);
@@ -84,12 +122,11 @@ export function analyseWeakSpots(blocks: ContentBlock[], events: ExerciseEventRo
   }
 
   const spots: WeakSpot[] = [];
-  for (const block of blocks) {
-    if (block.type !== "exercise" || !isReviewable(block.exercise)) continue;
+  for (const block of reviewableExercises(blocks)) {
     const all = byBlock.get(block.id);
     if (!all || all.length === 0) continue;
 
-    all.sort((a, b) => a.created_at.localeCompare(b.created_at));
+    all.sort(compareEvents);
     const run = lastRun(all);
 
     const attemptsInRun = run.filter((e) => e.event_type === "attempt");
@@ -136,7 +173,7 @@ export interface LessonReviewSummary {
   lessonId: string;
   /** Nombre d'exercices à revoir (ratés ou non terminés lors de la dernière passe). */
   toReview: number;
-  /** Nombre d'exercices révisables de la leçon (quiz et remise en ordre). */
+  /** Nombre d'exercices révisables de la leçon (quiz, remise en ordre, jeux de lettres). */
   reviewable: number;
   /** Date du dernier événement sur un exercice à revoir. */
   lastFailedAt: string | null;
@@ -149,7 +186,7 @@ export interface LessonReviewSummary {
  * reçoit que les siens.
  */
 export function summariseWeakSpots(
-  lessons: { id: string; blocks: ContentBlock[] }[],
+  lessons: { id: string; blocks: LessonBlock[] }[],
   events: ExerciseEventRow[],
 ): LessonReviewSummary[] {
   const byLesson = new Map<string, ExerciseEventRow[]>();
@@ -164,7 +201,7 @@ export function summariseWeakSpots(
     if (!own || own.length === 0) continue;
     const spots = analyseWeakSpots(lesson.blocks, own);
     if (spots.length === 0) continue;
-    const reviewable = lesson.blocks.filter((b) => b.type === "exercise" && isReviewable(b.exercise)).length;
+    const reviewable = reviewableExercises(lesson.blocks).length;
     const lastFailedAt = spots.map((s) => s.lastSeenAt).sort().pop() ?? null;
     out.push({ lessonId: lesson.id, toReview: spots.length, reviewable, lastFailedAt });
   }

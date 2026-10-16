@@ -161,3 +161,31 @@ create unique index signup_requests_pending_email_idx
 
 -- Aucune policy : la table n’est accessible que par le serveur (service role)
 alter table public.signup_requests enable row level security;
+
+-- ─────────────────────────────────────────────────────────────
+-- Classes : élèves regroupés par enseignant ; le cours en direct se lance
+-- pour une classe (live_room = salon de la séance en cours, sinon null).
+-- ─────────────────────────────────────────────────────────────
+create table public.classes (
+  id uuid primary key default gen_random_uuid(),
+  teacher_id uuid not null references public.users(id) on delete cascade,
+  name text not null,
+  live_room text,
+  live_started_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index classes_teacher_idx on public.classes (teacher_id);
+
+create table public.class_members (
+  class_id uuid not null references public.classes(id) on delete cascade,
+  student_id uuid not null references public.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (class_id, student_id)
+);
+
+create index class_members_student_idx on public.class_members (student_id);
+
+-- Lues et écrites uniquement par les routes serveur (client service-role).
+alter table public.classes enable row level security;
+alter table public.class_members enable row level security;

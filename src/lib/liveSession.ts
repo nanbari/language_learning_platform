@@ -4,10 +4,10 @@ import type { Slide } from "@/lib/presentation";
  * Séance en direct : l'enseignant présente, les élèves suivent les mêmes
  * écrans sur leur appareil et répondent eux-mêmes aux jeux. Les messages
  * transitent par un canal Supabase Realtime (Broadcast + Presence) nommé
- * d'après le code de séance ; rien n'est stocké en base.
+ * d'après le salon de la séance, tiré au hasard par le serveur au lancement
+ * et donné aux seuls élèves de la classe (voir lib/classes). Les écrans et
+ * les réponses, eux, ne sont pas stockés en base.
  */
-
-export const CODE_LENGTH = 4;
 
 /** État diffusé par l'enseignant à chaque changement d'écran ou d'étape. */
 export interface LiveState {
@@ -43,16 +43,8 @@ interface StudentResult {
 /** Réponses reçues, par écran puis par élève. */
 export type Tally = Record<number, Record<string, StudentResult>>;
 
-export function generateCode(rng: () => number = Math.random): string {
-  return Array.from({ length: CODE_LENGTH }, () => Math.floor(rng() * 10)).join("");
-}
-
-export function normalizeCode(input: string): string {
-  return input.replace(/\D/g, "").slice(0, CODE_LENGTH);
-}
-
-export function channelName(code: string): string {
-  return `ms-live-${code}`;
+export function channelName(room: string): string {
+  return `ms-live-${room}`;
 }
 
 const GAME_KINDS: Slide["kind"][] = ["quiz", "clipQuiz", "qcm", "findLetter", "pickSound", "findInWord", "completeWord", "write"];

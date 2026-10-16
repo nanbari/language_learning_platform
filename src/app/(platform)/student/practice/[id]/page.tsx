@@ -9,15 +9,16 @@
  */
 import { useState, use, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ArrowLeft, Star, Trophy, Sparkles, RefreshCw } from "lucide-react";
-import { useGameStore } from "@/store/gameStore";
+import { ArrowLeft, Trophy, Sparkles, RefreshCw } from "lucide-react";
 import { fetchLessons, type ApiLesson } from "@/lib/lessonsApi";
 import { fetchLatestPracticeSet, generatePractice, fetchPracticeSummary } from "@/lib/practiceApi";
+import { flushExerciseEvents } from "@/lib/eventsApi";
 import type { PracticeSet } from "@/lib/practice";
 import {
   QuizRenderer, WordOrderRenderer,
   type QuizExercise, type WordOrderExercise,
 } from "@/components/lesson/ExerciseRenderers";
+import { LetterExercise, NEXT_LETTER_EXERCISE_DELAY_MS } from "@/components/lesson/LetterExercise";
 
 // Même rotation que le tableau de bord et la page de leçon.
 const COLORS = ["#8BA3B1", "#999B84", "#6B705C", "#BB908E", "#7B868E", "#CCB9B5"];
@@ -40,7 +41,21 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const [index,  setIndex]  = useState(0);
   // Nombre d'exercices ratés sur la leçon (null = inconnu), pour l'écran d'accueil.
   const [failed, setFailed] = useState<number | null>(null);
-  const { score, resetGame } = useGameStore();
+
+  const generate = useCallback(async () => {
+    setPhase({ kind: "generating" });
+    try {
+      // Les réponses de la série précédente doivent être enregistrées avant
+      // que le serveur ne calcule ce qui reste à revoir.
+      await flushExerciseEvents();
+      const result = await generatePractice(id);
+      if (result.status === "created") { setIndex(0); setPhase({ kind: "playing", set: result.set }); }
+      else if (result.status === "nothing_to_review") setPhase({ kind: "nothing" });
+      else setPhase({ kind: "empty" });
+    } catch (err) {
+      setPhase({ kind: "error", message: err instanceof Error ? err.message : "Erreur inattendue" });
+    }
+  }, [id]);
 
   useEffect(() => {
     (async () => {
@@ -53,22 +68,16 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         fetchLatestPracticeSet(id).catch(() => null),
         fetchPracticeSummary().catch(() => []),
       ]);
-      setFailed(summary.find((s) => s.lessonId === id)?.toReview ?? 0);
-      setPhase(set && set.blocks.length > 0 ? { kind: "playing", set } : { kind: "intro" });
+      const toReview = summary.find((s) => s.lessonId === id)?.toReview ?? 0;
+      setFailed(toReview);
+      // Tout a été réussi du premier coup : rien à rejouer.
+      if (toReview === 0) setPhase({ kind: "nothing" });
+      // Déjà révisé : nouvelle série avec les seuls exercices encore ratés,
+      // plutôt que l'ancienne série entière.
+      else if (set) void generate();
+      else setPhase({ kind: "intro" });
     })();
-  }, [id]);
-
-  const generate = useCallback(async () => {
-    setPhase({ kind: "generating" });
-    try {
-      const result = await generatePractice(id);
-      if (result.status === "created") { setIndex(0); resetGame(); setPhase({ kind: "playing", set: result.set }); }
-      else if (result.status === "nothing_to_review") setPhase({ kind: "nothing" });
-      else setPhase({ kind: "empty" });
-    } catch (err) {
-      setPhase({ kind: "error", message: err instanceof Error ? err.message : "Erreur inattendue" });
-    }
-  }, [id, resetGame]);
+  }, [id, generate]);
 
   const title = lesson && lesson !== "loading" ? lesson.title : "";
 
@@ -81,9 +90,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         <Sparkles size={14} className="inline mr-1 -mt-0.5" style={{ color }} />
         Révision · {title}
       </p>
-      <div className="flex items-center gap-1 font-bold text-[#999B84]">
-        <Star size={14} fill="#999B84" /> {score}
-      </div>
+      <div className="w-[60px]" />
     </div>
   );
 
@@ -176,14 +183,8 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
   if (phase.kind === "done") {
     return card(<>
-      <div className="text-7xl mb-4">🏆</div>
       <h1 className="text-3xl font-black text-[#2d2d2d] mb-2" style={{ fontFamily: "'Fredoka One', cursive" }}>Bien joué !</h1>
       <p className="text-gray-600 mb-6">Tu as terminé ta révision de <strong>{title}</strong>.</p>
-      <div className="rounded-2xl p-5 text-white mb-6" style={{ background: color }}>
-        <div className="flex items-center justify-center gap-3 text-2xl font-black">
-          <Star fill="white" size={22} /> {score} points !
-        </div>
-      </div>
       <div className="flex flex-col gap-3">
         <button onClick={generate}
           className="w-full py-3 rounded-full border-2 font-bold flex items-center justify-center gap-2 hover:opacity-80 transition-all"
@@ -204,7 +205,11 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const block = set.blocks[index];
   const advance = () => {
     if (index < set.blocks.length - 1) setIndex(index + 1);
-    else setPhase({ kind: "done", set });
+    else {
+      setPhase({ kind: "done", set });
+      // Envoie les réussites tout de suite : le tableau de bord les relira.
+      void flushExerciseEvents();
+    }
   };
   const ex = block.exercise;
 
@@ -243,7 +248,18 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           />
         )}
 
-        {ex.type !== "quiz" && ex.type !== "wordorder" && (
+        {ex.type === "letterGame" && (
+          <LetterExercise
+            key={block.id}
+            slide={ex.slide}
+            color={color}
+            lessonId={set.lessonId}
+            eventId={block.id}
+            onSolved={() => setTimeout(advance, NEXT_LETTER_EXERCISE_DELAY_MS)}
+          />
+        )}
+
+        {ex.type !== "quiz" && ex.type !== "wordorder" && ex.type !== "letterGame" && (
           <div className="text-center">
             <button onClick={advance} className="px-6 py-3 rounded-full text-white font-bold" style={{ background: color }}>
               Continuer

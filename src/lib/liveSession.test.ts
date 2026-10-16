@@ -1,20 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { generateCode, normalizeCode, recordAnswer, summarize, isGame, type Tally, type LiveAnswer } from "./liveSession";
+import { recordAnswer, summarize, isGame, type Tally, type LiveAnswer } from "./liveSession";
 
 const answer = (over: Partial<LiveAnswer>): LiveAnswer => ({
   slideIndex: 3, studentId: "s1", name: "Lina", choiceId: "a1", correct: false, ...over,
-});
-
-describe("codes de séance", () => {
-  it("génère quatre chiffres", () => {
-    expect(generateCode()).toMatch(/^\d{4}$/);
-    expect(generateCode(() => 0)).toBe("0000");
-  });
-
-  it("nettoie la saisie de l'élève", () => {
-    expect(normalizeCode(" 48-21 ")).toBe("4821");
-    expect(normalizeCode("123456")).toBe("1234");
-  });
 });
 
 describe("recordAnswer / summarize", () => {

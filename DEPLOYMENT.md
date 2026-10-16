@@ -235,6 +235,14 @@ premier admin se définit dans le Table Editor Supabase en passant `is_admin`
 À l’approbation, le compte Supabase Auth et le profil `users` sont créés avec
 ce hachage ; le hachage est ensuite effacé de la demande.
 
+Les comptes enseignants ne passent pas par l’inscription : un admin les crée
+depuis la section « Enseignants » (bouton « Créer un compte enseignant » : nom,
+e-mail, droit admin optionnel ; `/api/admin/teachers`). Le site rend un lien
+d’invitation (Supabase `generateLink`, type `invite`) que l’admin transmet ;
+l’enseignant y choisit lui-même son mot de passe sur `/reinitialiser-mot-de-passe`.
+Aucun e-mail n’est envoyé par le site. L’URL `/reinitialiser-mot-de-passe` doit
+figurer dans les Redirect URLs de Supabase (Authentication > URL Configuration).
+
 Le schéma de `signup_requests` est dans `supabase-schema.sql` (à appliquer dans
 l’éditeur SQL Supabase). Aucune variable d’environnement supplémentaire.
 Aucun e-mail n’est envoyé : l’admin doit consulter son tableau de bord.

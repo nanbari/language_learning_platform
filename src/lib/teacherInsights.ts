@@ -1,31 +1,26 @@
 /**
- * Tableau de bord enseignant : progression réelle des élèves et exercices
- * les moins réussis, calculés à partir du journal `exercise_events`.
+ * Tableau de bord enseignant : progression réelle des élèves, calculée à
+ * partir du journal `exercise_events`.
  *
  * Module pur (aucun accès réseau), testé à part. Il reçoit les leçons (avec
- * leurs blocs), les élèves et leurs événements, et rend :
- *  - une ligne par couple (élève, leçon) avec réussite du premier coup,
- *    progression et dernière activité ;
- *  - le classement des exercices qui font le plus d'erreurs, avec, pour
- *    chacun, la réponse attendue, les élèves en difficulté et leurs réponses
- *    erronées (texte ou image : beaucoup de quiz n'ont ni question écrite ni
- *    texte d'option, seulement un audio et des images) ;
- *  - quelques totaux pour les vignettes du tableau de bord.
+ * leurs blocs), les élèves et leurs événements, et rend la progression
+ * détaillée de chaque élève : ses leçons (réussite du premier coup,
+ * progression, dernière activité) et, pour chacune, le statut de chaque
+ * exercice avec les réponses erronées (texte ou image : beaucoup de quiz
+ * n'ont ni question écrite ni texte d'option, seulement un audio et des images).
  *
  * Comme pour les révisions (weakSpots), seule la dernière passe d'un élève
- * sur un exercice compte pour son statut « réussi du premier coup » ; le
- * nombre d'erreurs, lui, cumule tout l'historique.
+ * sur un exercice compte pour son statut ; les erreurs de cette dernière
+ * passe sont séparées de celles des passes précédentes.
  */
 import type { ContentBlock, Exercise, QuizExercise } from "@/components/lesson/ExerciseRenderers";
 import type { ExerciseEventRow } from "./exerciseEvents";
-import { lastRun } from "./weakSpots";
+import { compareEvents, lastRun } from "./weakSpots";
 
 export interface InsightLesson { id: string; title: string; blocks: ContentBlock[] }
 export interface InsightUser   { id: string; name: string }
 
-export interface StudentLessonRow {
-  userId: string;
-  userName: string;
+export interface StudentLesson {
   lessonId: string;
   lessonTitle: string;
   /** Exercices de la leçon. */
@@ -38,11 +33,11 @@ export interface StudentLessonRow {
   firstTrySuccesses: number;
   /** firstTrySuccesses / exercisesAttempted, null si aucun essai. */
   firstTryRate: number | null;
-  /** Réponses fausses, tout l'historique. */
-  wrongAttempts: number;
   /** Exercices à revoir (ratés ou non terminés lors de la dernière passe). */
   toReview: number;
   lastActivityAt: string;
+  /** Tous les exercices de la leçon, dans l'ordre, y compris ceux jamais vus. */
+  exercises: StudentExercise[];
 }
 
 /** Une réponse lisible : texte, image, ou les deux. */
@@ -55,20 +50,17 @@ export interface AnswerDescriptor {
 
 export interface WrongAnswerCount extends AnswerDescriptor { count: number }
 
-export interface ExerciseStudent {
-  userId: string;
-  userName: string;
-  /** Réponses fausses de cet élève sur cet exercice, tout l'historique. */
-  wrongAttempts: number;
-  /** L'exercice a-t-il fini par être réussi lors de la dernière passe ? */
-  completed: boolean;
-  /** Réponses fausses de cet élève, les plus fréquentes d'abord. */
-  wrongAnswers: WrongAnswerCount[];
-}
+/**
+ * Statut d'un exercice pour un élève, d'après sa dernière passe :
+ *  - first_try : réussi du premier coup, sans indice ;
+ *  - after_errors : réussi après des erreurs ou un indice ;
+ *  - failed : répondu sans réussir (abandonné ou en cours) ;
+ *  - seen : affiché, sans réponse ;
+ *  - not_started : jamais affiché.
+ */
+export type ExerciseStatus = "first_try" | "after_errors" | "failed" | "seen" | "not_started";
 
-export interface ExerciseDifficulty {
-  lessonId: string;
-  lessonTitle: string;
+export interface StudentExercise {
   blockId: string;
   type: Exercise["type"];
   /** Rang de l'exercice dans la leçon (1 = premier exercice). */
@@ -79,36 +71,38 @@ export interface ExerciseDifficulty {
   correctAnswer: AnswerDescriptor | null;
   /** Consigne donnée en audio (sans question écrite). */
   hasAudio: boolean;
-  /** Élèves ayant répondu au moins une fois. */
-  studentsAttempted: number;
-  /** Élèves dont la dernière passe n'est pas une réussite du premier coup. */
-  studentsFailedFirstTry: number;
-  /** Réponses fausses, tous élèves et tout l'historique. */
+  status: ExerciseStatus;
+  /** Réponses fausses lors de la dernière tentative (celle qui donne le statut). */
   wrongAttempts: number;
-  /** Réponses fausses les plus fréquentes, tous élèves confondus. */
-  topWrongAnswers: WrongAnswerCount[];
-  /** Élèves en difficulté sur cet exercice, du plus en difficulté au moins. */
-  students: ExerciseStudent[];
+  /** Ses réponses fausses de la dernière tentative, les plus fréquentes d'abord. */
+  wrongAnswers: WrongAnswerCount[];
+  /** Réponses fausses des tentatives précédentes. */
+  earlierWrongAttempts: number;
+  earlierWrongAnswers: WrongAnswerCount[];
+  lastActivityAt: string | null;
 }
 
-export interface TeacherStats {
-  /** Élèves ayant eu une activité dans les 30 derniers jours. */
-  activeStudents: number;
-  /** Exercices joués (couples élève × exercice avec au moins un événement). */
-  exercisesPlayed: number;
-  /** Taux global de réussite du premier coup, null sans essai. */
+export interface StudentProgress {
+  userId: string;
+  userName: string;
+  /** Leçons jouées, la plus récente d'abord. */
+  lessons: StudentLesson[];
+  exercisesSeen: number;
+  exercisesAttempted: number;
+  firstTrySuccesses: number;
   firstTryRate: number | null;
+  /** Réponses fausses lors des dernières tentatives, tous exercices confondus. */
+  wrongAttempts: number;
+  /** Réponses fausses des tentatives précédentes. */
+  earlierWrongAttempts: number;
+  toReview: number;
+  lastActivityAt: string;
 }
 
 export interface TeacherInsights {
-  rows: StudentLessonRow[];
-  hardest: ExerciseDifficulty[];
-  stats: TeacherStats;
+  /** Un élément par élève ayant joué au moins une leçon, le plus récent d'abord. */
+  students: StudentProgress[];
 }
-
-const ACTIVE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
-const TOP_WRONG_ANSWERS = 3;
-const MAX_HARDEST = 10;
 
 function quizOption(ex: QuizExercise, optionId: string): AnswerDescriptor | null {
   const idx = ex.options.findIndex((o) => o.id === optionId);
@@ -151,10 +145,6 @@ export function exerciseSummaryLabel(ex: Exercise, position?: number): string {
   }
 }
 
-function keyOf(userId: string, lessonId: string): string {
-  return `${userId} ${lessonId}`;
-}
-
 function countAnswers(descriptors: AnswerDescriptor[]): WrongAnswerCount[] {
   const map = new Map<string, WrongAnswerCount>();
   for (const d of descriptors) {
@@ -164,16 +154,13 @@ function countAnswers(descriptors: AnswerDescriptor[]): WrongAnswerCount[] {
   return [...map.values()].sort((a, b) => b.count - a.count || (a.text ?? "").localeCompare(b.text ?? ""));
 }
 
-interface DifficultyAccumulator extends Omit<ExerciseDifficulty, "topWrongAnswers" | "students"> {
-  allWrong: AnswerDescriptor[];
-  students: ExerciseStudent[];
-}
+const byRecent = (a: { lastActivityAt: string }, b: { lastActivityAt: string }) =>
+  b.lastActivityAt.localeCompare(a.lastActivityAt);
 
 export function buildTeacherInsights(
   lessons: InsightLesson[],
   users: InsightUser[],
   events: ExerciseEventRow[],
-  now: Date = new Date(),
 ): TeacherInsights {
   const userName = new Map(users.map((u) => [u.id, u.name]));
   const nameOf = (id: string) => userName.get(id) ?? "Élève";
@@ -189,13 +176,7 @@ export function buildTeacherInsights(
     if (list) list.push(e); else byBlock.set(e.block_id, [e]);
   }
 
-  const rows = new Map<string, StudentLessonRow>();
-  const difficulties = new Map<string, DifficultyAccumulator>();
-  const activeUsers = new Set<string>();
-  let exercisesPlayed = 0;
-  let totalAttempted = 0;
-  let totalFirstTry = 0;
-  const activeSince = now.getTime() - ACTIVE_WINDOW_MS;
+  const perStudent = new Map<string, StudentProgress>();
 
   for (const lesson of lessons) {
     const exerciseBlocks = lesson.blocks.filter(
@@ -206,12 +187,29 @@ export function buildTeacherInsights(
       const byBlock = byLesson.get(lesson.id);
       if (!byBlock) continue;
 
-      let row = rows.get(keyOf(userId, lesson.id));
+      const row: StudentLesson = {
+        lessonId: lesson.id, lessonTitle: lesson.title,
+        exercisesTotal: exerciseBlocks.length, exercisesSeen: 0, exercisesAttempted: 0,
+        firstTrySuccesses: 0, firstTryRate: null, toReview: 0, lastActivityAt: "",
+        exercises: [],
+      };
+
       exerciseBlocks.forEach((block, blockIndex) => {
+        const ex = block.exercise;
+        const exercise: StudentExercise = {
+          blockId: block.id, type: ex.type, position: blockIndex + 1,
+          label: exerciseSummaryLabel(ex, blockIndex + 1),
+          correctAnswer: correctAnswerOf(ex),
+          hasAudio: (ex.type === "quiz" || ex.type === "wordorder") && Boolean(ex.audioDataUrl),
+          status: "not_started", wrongAttempts: 0, wrongAnswers: [],
+          earlierWrongAttempts: 0, earlierWrongAnswers: [], lastActivityAt: null,
+        };
+        row.exercises.push(exercise);
+
         const all = byBlock.get(block.id);
         if (!all || all.length === 0) return;
 
-        all.sort((a, b) => a.created_at.localeCompare(b.created_at));
+        all.sort(compareEvents);
         const run = lastRun(all);
         const attemptsInRun = run.filter((e) => e.event_type === "attempt");
         const firstTryOk =
@@ -222,91 +220,65 @@ export function buildTeacherInsights(
         const wrongAll = all.filter((e) => e.event_type === "attempt" && e.correct === false);
         const lastAt = all[all.length - 1].created_at;
 
-        if (!row) {
-          row = {
-            userId, userName: nameOf(userId), lessonId: lesson.id, lessonTitle: lesson.title,
-            exercisesTotal: exerciseBlocks.length, exercisesSeen: 0, exercisesAttempted: 0,
-            firstTrySuccesses: 0, firstTryRate: null, wrongAttempts: 0, toReview: 0, lastActivityAt: lastAt,
-          };
-          rows.set(keyOf(userId, lesson.id), row);
-        }
+        // Erreurs séparées : dernière tentative (cohérentes avec le statut) / tentatives précédentes.
+        const inRun = new Set(run);
+        const wrongRun = wrongAll.filter((e) => inRun.has(e));
+        const wrongBefore = wrongAll.filter((e) => !inRun.has(e));
+        const describe = (list: ExerciseEventRow[]) => countAnswers(
+          list.map((e) => describeAnswerRich(ex, e.answer)).filter((d): d is AnswerDescriptor => d !== null),
+        );
+        exercise.lastActivityAt = lastAt;
+        exercise.wrongAttempts = wrongRun.length;
+        exercise.wrongAnswers = describe(wrongRun);
+        exercise.earlierWrongAttempts = wrongBefore.length;
+        exercise.earlierWrongAnswers = describe(wrongBefore);
+        exercise.status = attemptsInRun.length === 0 ? "seen"
+          : firstTryOk ? "first_try"
+          : completed ? "after_errors"
+          : "failed";
+
         row.exercisesSeen += 1;
-        row.wrongAttempts += wrongAll.length;
         if (lastAt > row.lastActivityAt) row.lastActivityAt = lastAt;
-        exercisesPlayed += 1;
-        if (new Date(lastAt).getTime() >= activeSince) activeUsers.add(userId);
 
         if (attemptsInRun.length === 0) return;
-
         row.exercisesAttempted += 1;
-        totalAttempted += 1;
-        if (firstTryOk) { row.firstTrySuccesses += 1; totalFirstTry += 1; }
+        if (firstTryOk) row.firstTrySuccesses += 1;
         else row.toReview += 1;
-
-        const dKey = `${lesson.id} ${block.id}`;
-        let d = difficulties.get(dKey);
-        if (!d) {
-          const ex = block.exercise;
-          d = {
-            lessonId: lesson.id, lessonTitle: lesson.title, blockId: block.id,
-            type: ex.type, position: blockIndex + 1,
-            label: exerciseSummaryLabel(ex, blockIndex + 1),
-            correctAnswer: correctAnswerOf(ex),
-            hasAudio: (ex.type === "quiz" || ex.type === "wordorder") && Boolean(ex.audioDataUrl),
-            studentsAttempted: 0, studentsFailedFirstTry: 0, wrongAttempts: 0,
-            allWrong: [], students: [],
-          };
-          difficulties.set(dKey, d);
-        }
-        d.studentsAttempted += 1;
-        d.wrongAttempts += wrongAll.length;
-
-        const wrongDescriptors: AnswerDescriptor[] = [];
-        for (const e of wrongAll) {
-          const desc = describeAnswerRich(block.exercise, e.answer);
-          if (desc) wrongDescriptors.push(desc);
-        }
-        d.allWrong.push(...wrongDescriptors);
-
-        if (!firstTryOk) {
-          d.studentsFailedFirstTry += 1;
-          d.students.push({
-            userId, userName: nameOf(userId),
-            wrongAttempts: wrongAll.length, completed,
-            wrongAnswers: countAnswers(wrongDescriptors),
-          });
-        }
       });
-      if (row) row.firstTryRate = row.exercisesAttempted > 0 ? row.firstTrySuccesses / row.exercisesAttempted : null;
+
+      // Événements sur des blocs supprimés depuis : pas de ligne vide.
+      if (row.exercisesSeen === 0) continue;
+      row.firstTryRate = row.exercisesAttempted > 0 ? row.firstTrySuccesses / row.exercisesAttempted : null;
+
+      let st = perStudent.get(userId);
+      if (!st) {
+        st = {
+          userId, userName: nameOf(userId), lessons: [],
+          exercisesSeen: 0, exercisesAttempted: 0, firstTrySuccesses: 0, firstTryRate: null,
+          wrongAttempts: 0, earlierWrongAttempts: 0, toReview: 0, lastActivityAt: row.lastActivityAt,
+        };
+        perStudent.set(userId, st);
+      }
+      st.lessons.push(row);
+      st.exercisesSeen += row.exercisesSeen;
+      st.exercisesAttempted += row.exercisesAttempted;
+      st.firstTrySuccesses += row.firstTrySuccesses;
+      st.toReview += row.toReview;
+      for (const ex of row.exercises) {
+        st.wrongAttempts += ex.wrongAttempts;
+        st.earlierWrongAttempts += ex.earlierWrongAttempts;
+      }
+      if (row.lastActivityAt > st.lastActivityAt) st.lastActivityAt = row.lastActivityAt;
     }
   }
 
-  const rowList = [...rows.values()].sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt));
-
-  const hardest: ExerciseDifficulty[] = [...difficulties.values()]
-    .filter((d) => d.wrongAttempts > 0 || d.studentsFailedFirstTry > 0)
-    .map(({ allWrong, students, ...d }) => ({
-      ...d,
-      topWrongAnswers: countAnswers(allWrong).slice(0, TOP_WRONG_ANSWERS),
-      students: [...students].sort((a, b) =>
-        Number(a.completed) - Number(b.completed) ||
-        b.wrongAttempts - a.wrongAttempts ||
-        a.userName.localeCompare(b.userName)),
+  const students = [...perStudent.values()]
+    .map((st) => ({
+      ...st,
+      lessons: st.lessons.sort(byRecent),
+      firstTryRate: st.exercisesAttempted > 0 ? st.firstTrySuccesses / st.exercisesAttempted : null,
     }))
-    .sort((a, b) =>
-      b.studentsFailedFirstTry - a.studentsFailedFirstTry ||
-      b.wrongAttempts - a.wrongAttempts ||
-      a.lessonTitle.localeCompare(b.lessonTitle) ||
-      a.position - b.position)
-    .slice(0, MAX_HARDEST);
+    .sort((a, b) => byRecent(a, b) || a.userName.localeCompare(b.userName));
 
-  return {
-    rows: rowList,
-    hardest,
-    stats: {
-      activeStudents: activeUsers.size,
-      exercisesPlayed,
-      firstTryRate: totalAttempted > 0 ? totalFirstTry / totalAttempted : null,
-    },
-  };
+  return { students };
 }
