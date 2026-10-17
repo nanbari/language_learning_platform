@@ -26,7 +26,7 @@ describe("lessonParts", () => {
   });
 
   it("ignore un bloc « Lettres » incomplet et un vocabulaire trop court", () => {
-    const incomplete = { ...letters, letterIds: [2] };
+    const incomplete = { ...letters, letterIds: [] };
     expect(lessonParts("t", [incomplete, slideshow([image(1), image(2)])], "#000")).toEqual([]);
   });
 

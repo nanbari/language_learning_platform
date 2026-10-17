@@ -144,7 +144,7 @@ export default function StudentPage() {
               <div className="bg-[#FFFDF8] rounded-2xl border-2 border-dashed border-[#EDE5D8] p-8 text-center text-[#2D2D2D]/40">
                 <div className="text-4xl mb-2">📭</div>
                 <p className="font-semibold text-sm">Aucune leçon disponible pour l&apos;instant.</p>
-                <p className="text-xs mt-1">Ton enseignant n&apos;a pas encore publié de leçon.</p>
+                <p className="text-xs mt-1">Ton enseignant n&apos;a pas encore proposé de leçon à ta classe.</p>
               </div>
             )}
             {lessons.map((lesson, idx) => {

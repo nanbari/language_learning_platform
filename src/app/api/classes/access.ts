@@ -24,3 +24,18 @@ export async function ownedClass(session: SessionUser | null, id: string) {
   }
   return { id: data.id as string };
 }
+
+/** Les classes dont l'élève fait partie (ses leçons sont celles de ces classes). */
+export async function studentClassIds(studentId: string): Promise<string[]> {
+  const { data, error } = await supabase().from("class_members").select("class_id").eq("student_id", studentId);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((m) => m.class_id as string);
+}
+
+/** L'élève peut-il ouvrir cette leçon ? (elle est proposée à l'une de ses classes) */
+export async function studentCanSeeLesson(studentId: string, lessonId: string): Promise<boolean> {
+  const { data, error } = await supabase().from("lessons").select("class_id").eq("id", lessonId).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data?.class_id) return false;
+  return (await studentClassIds(studentId)).includes(data.class_id as string);
+}

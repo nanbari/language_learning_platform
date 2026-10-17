@@ -9,7 +9,9 @@ import {
 } from "lucide-react";
 import { uploadMedia, externalizeMediaToR2 } from "@/lib/mediaUpload";
 import { fetchLesson, createLesson, updateLesson } from "@/lib/lessonsApi";
-import { lettersPerLesson } from "@/lib/presentation";
+import { fetchTeacherClasses } from "@/lib/classesApi";
+import type { ClassRow } from "@/lib/classes";
+import { hasLessonLetters, lettersPerLesson } from "@/lib/presentation";
 import type { LettersBlock, SavedDeck } from "@/lib/liveDeck";
 import { LettersPicker } from "@/components/present/LettersPicker";
 
@@ -101,12 +103,26 @@ function CreateLessonPageInner() {
   const editId      = searchParams.get("edit");
 
   const [title,  setTitle]  = useState("");
+  /** Classe à qui la leçon est proposée : seuls ses élèves la voient. */
+  const [classId, setClassId] = useState("");
+  const [classes, setClasses] = useState<ClassRow[] | null>(null);
   const [blocks, setBlocks] = useState<ContentBlock[]>([]);
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState("");
   /** Diaporama du cours en direct déjà enregistré, et état de sa création. */
   const [live,      setLive]      = useState<SavedDeck | null>(null);
   const [deckState, setDeckState] = useState<"idle" | "sending" | "saved" | "uptodate">("idle");
+
+  /* ── Classes de l'enseignant ── */
+  useEffect(() => {
+    fetchTeacherClasses()
+      .then(({ classes }) => {
+        setClasses(classes);
+        // Nouvelle leçon et une seule classe : elle est choisie d'office.
+        if (!editId && classes.length === 1) setClassId(classes[0].id);
+      })
+      .catch(() => setClasses([]));
+  }, [editId]);
 
   /* ── Load for edit ── */
   useEffect(() => {
@@ -115,6 +131,7 @@ function CreateLessonPageInner() {
       const lesson = await fetchLesson(editId);
       if (!lesson) return;
       setTitle(lesson.title);
+      setClassId(lesson.classId ?? "");
       // Les vidéos d'introduction (abandonnées) sont retirées de la leçon à la prochaine sauvegarde.
       setBlocks((lesson.blocks as (ContentBlock & { recap?: boolean })[]).filter((b) => !b.recap));
       setLive(lesson.live);
@@ -302,16 +319,17 @@ function CreateLessonPageInner() {
   const persist = async (): Promise<string | null> => {
     setError("");
     if (!title.trim()) { setError("Veuillez donner un titre à la leçon."); return null; }
+    if (!classId) { setError("Choisissez la classe à qui proposer la leçon."); return null; }
     const quizMissingAnswer = blocks.some(
       (b) => b.type === "exercise" && b.exercise.type === "quiz" && !(b.exercise as QuizExercise).correctId
     );
     if (quizMissingAnswer) { setError("Marquez la bonne réponse pour chaque exercice quiz."); return null; }
     const lettersIncomplete = blocks.find(
-      (b): b is LettersBlock => b.type === "letters" && b.letterIds.length !== lettersPerLesson(b.level)
+      (b): b is LettersBlock => b.type === "letters" && !hasLessonLetters(b.level, b.letterIds.length)
     );
     if (lettersIncomplete) {
-      const n = lettersPerLesson(lettersIncomplete.level);
-      setError(`Choisissez ${n > 1 ? `${n} lettres` : "une lettre"} dans le bloc « Lettres ».`);
+      const max = lettersPerLesson(lettersIncomplete.level);
+      setError(`Choisissez ${max > 1 ? `une à ${max} lettres` : "une lettre"} dans le bloc « Lettres ».`);
       return null;
     }
 
@@ -320,8 +338,8 @@ function CreateLessonPageInner() {
       // Les images/audios encore inline partent vers R2 ; la base ne reçoit
       // que du JSON avec des URLs.
       const cleanBlocks = (await externalizeMediaToR2(blocks)) as unknown[];
-      if (editId) return (await updateLesson(editId, title.trim(), cleanBlocks)).id;
-      return (await createLesson(title.trim(), cleanBlocks)).id;
+      if (editId) return (await updateLesson(editId, title.trim(), classId, cleanBlocks)).id;
+      return (await createLesson(title.trim(), classId, cleanBlocks)).id;
     } catch (err) {
       setError(`Erreur lors de la sauvegarde : ${(err as Error).message || "inconnue"}.`);
       return null;
@@ -355,6 +373,9 @@ function CreateLessonPageInner() {
       setDeckState("idle");
     }
   };
+
+  // Un admin voit les classes de tous les enseignants : on précise à qui chacune appartient.
+  const multiTeacher = new Set((classes ?? []).map((c) => c.teacherId)).size > 1;
 
   const fmtDuration = (s: number) =>
     `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
@@ -390,6 +411,28 @@ function CreateLessonPageInner() {
             placeholder="Ex : Les animaux de la forêt"
             className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#f9a875] focus:ring-2 focus:ring-[#f9a875]/20 outline-none"
           />
+          <label className="block text-sm font-semibold text-gray-700 mt-4 mb-1">Classe *</label>
+          {classes && classes.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              Aucune classe pour l&apos;instant.{" "}
+              <Link href="/teacher/classes" className="font-semibold text-[#BB908E] underline">Créez une classe</Link>{" "}
+              pour lui proposer cette leçon.
+            </p>
+          ) : (
+            <select
+              value={classId}
+              onChange={(e) => setClassId(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:border-[#f9a875] focus:ring-2 focus:ring-[#f9a875]/20 outline-none"
+            >
+              <option value="">— Choisir une classe —</option>
+              {(classes ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}{multiTeacher ? ` (${c.teacherName})` : ""}
+                </option>
+              ))}
+            </select>
+          )}
+          <p className="text-xs text-gray-400 mt-1">Seuls les élèves de cette classe verront la leçon et ses exercices.</p>
         </div>
 
         {/* Empty state */}

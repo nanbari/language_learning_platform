@@ -7,7 +7,7 @@
  */
 import { imageWord } from "@/data/imageWords";
 import {
-  buildLetterDeck, buildVocabDeck, combineDecks, lessonQcms, lessonVocabWords, lettersPerLesson,
+  buildLetterDeck, buildVocabDeck, combineDecks, lessonQcms, lessonVocabWords, hasLessonLetters,
   MIN_VOCAB_WORDS, type LetterLevel, type Qcm, type Rng, type Slide, type VocabWord,
 } from "@/lib/presentation";
 
@@ -48,7 +48,7 @@ export function lessonParts(title: string, blocks: readonly unknown[], color: st
   const lettersAt = blocks.findIndex(isLettersBlock);
   if (lettersAt >= 0) {
     const block = blocks[lettersAt] as LettersBlock;
-    if (block.letterIds.length === lettersPerLesson(block.level)) {
+    if (hasLessonLetters(block.level, block.letterIds.length)) {
       parts.push({ at: lettersAt, part: { kind: "letters", level: block.level, letterIds: block.letterIds, reviewIds: block.reviewIds ?? [] } });
     }
   }

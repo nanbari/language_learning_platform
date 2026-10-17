@@ -45,6 +45,8 @@ export const Root: React.FC = () => (
         height={HEIGHT}
       />
     ))}
+    {/* Image fixe : le garçon mange une petite fraise prise dans un saladier de fraises (image/garcon-mange-fraise.png du site). */}
+    <Composition id="fraise-manger-bol" component={Manger} defaultProps={{ fruit: "fraise" as const, size: 90, bowl: true }} durationInFrames={DURATION} fps={FPS} width={WIDTH} height={HEIGHT} />
     {/* Présentation du garçon qui fait tous les gestes : public/animations/fruits/garcon.mp4. */}
     <Composition id="garcon" component={Garcon} durationInFrames={DURATION} fps={FPS} width={WIDTH} height={HEIGHT} />
     {/* Vidéos récapitulatives des cours en direct : données passées au rendu (src/lib/recapVideo.ts du site). */}

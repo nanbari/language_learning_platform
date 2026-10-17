@@ -3,6 +3,7 @@ import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { theme } from "../theme";
 import { FRUITS, FruitDefs, type FruitId } from "../fruits";
 import { Stage } from "../components/Layers";
+import { BOWL_H, BowlBack, BowlFront } from "../components/Props";
 import { FRUIT_SHADOW, GroundShadow, SceneFrame, useEnter } from "../components/Motion";
 import { BoyScene, REST, TABLE_TOP, path, useBoyBreath, type BoyPose, type Pt } from "../components/Boy";
 
@@ -11,9 +12,11 @@ import { BoyScene, REST, TABLE_TOP, path, useBoyBreath, type BoyPose, type Pt } 
  * le porte à sa bouche (le visage reste sans traits : c'est le fruit qui se
  * fait croquer), et le mange en quatre bouchées, en mâchant ; il ne reste que
  * les feuilles, qu'il repose sur la table.
+ *
+ * Variante `bowl` : le fruit est pris dans un saladier rempli d'autres fruits
+ * pareils, posé sur la table ; `size` règle la taille du fruit.
  */
 const FRUIT_SIZE = 140;
-const K = FRUIT_SIZE / 400;
 const CONTACT = TABLE_TOP + 36;
 /** Point de prise, dans la boîte du fruit : sous les feuilles. */
 const GRIP = { x: 200, y: 96 };
@@ -25,10 +28,11 @@ const HAND_BACK = 16;
 /** Direction de la main vers la bouche, et rotation du fruit pour y pointer. */
 const DIR = { x: -0.95, y: -0.3 };
 const EAT_ROT = 105;
-const AT_MOUTH: Pt = { x: MOUTH.x - DIR.x * (TIP.y - GRIP.y) * K, y: MOUTH.y - DIR.y * (TIP.y - GRIP.y) * K };
-const ON_TABLE: Pt = { x: 820, y: CONTACT - (TIP.y - GRIP.y) * K };
-// Les feuilles reposent à plat : leur bas (y = 130 dans la boîte) touche la table.
-const LEAVES_DOWN: Pt = { x: 840, y: CONTACT - (130 - GRIP.y) * K };
+/** Saladier de la variante `bowl`, et les fruits qu'il contient (centre, rotation), autour du bord. */
+const BOWL = { x: 930, y: CONTACT, w: 250 };
+const PILE: [number, number, number][] = [[-82, 2, -30], [-40, -8, 12], [4, 0, -8], [46, -10, 24], [86, 0, 34], [-60, -24, 20], [-14, -28, -18], [30, -30, 8], [70, -22, -26]];
+/** Centre du fruit, dans sa boîte. */
+const CENTER = { x: 200, y: 220 };
 const REACH_AT = 8, TAKEN_AT = 20, RAISED_AT = 34;
 const FIRST_BITE = 36, BITE_EVERY = 11;
 /**
@@ -41,7 +45,16 @@ const LEFTOVER = { cx: 200, cy: 102, rx: 88, ry: 32 };
 const DONE_AT = FIRST_BITE + BITES.length * BITE_EVERY;
 const PUT_AT = DONE_AT + 12;
 
-export const Manger: React.FC<{ fruit: FruitId }> = ({ fruit }) => {
+export const Manger: React.FC<{ fruit: FruitId; size?: number; bowl?: boolean }> = ({ fruit, size = FRUIT_SIZE, bowl = false }) => {
+  const K = size / 400;
+  const AT_MOUTH: Pt = { x: MOUTH.x - DIR.x * (TIP.y - GRIP.y) * K, y: MOUTH.y - DIR.y * (TIP.y - GRIP.y) * K };
+  // Sans saladier, le fruit attend debout sur la table ; avec, il est pris au sommet du tas.
+  const ON_TABLE: Pt = bowl
+    ? { x: BOWL.x - 20, y: BOWL.y - BOWL_H - 18 - (TIP.y - GRIP.y) * K }
+    : { x: 820, y: CONTACT - (TIP.y - GRIP.y) * K };
+  // Les feuilles reposent à plat : leur bas (y = 130 dans la boîte) touche la table, à gauche du saladier s'il y en a un.
+  const LEAVES_DOWN: Pt = { x: bowl ? 770 : 840, y: CONTACT - (130 - GRIP.y) * K };
+
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const { Shape, palette } = FRUITS[fruit];
@@ -105,7 +118,20 @@ export const Manger: React.FC<{ fruit: FruitId }> = ({ fruit }) => {
             </>
           }
         >
-          <GroundShadow x={ON_TABLE.x} y={CONTACT} width={FRUIT_SIZE * 0.5} opacity={enter * (1 - lifted)} lift={lifted} />
+          {!bowl && <GroundShadow x={ON_TABLE.x} y={CONTACT} width={size * 0.5} opacity={enter * (1 - lifted)} lift={lifted} />}
+          {bowl && (
+            <>
+              <BowlBack x={BOWL.x} y={BOWL.y} w={BOWL.w} />
+              <svg width="1280" height="720" viewBox="0 0 1280 720" style={{ position: "absolute", left: 0, top: 0, overflow: "visible", filter: FRUIT_SHADOW }}>
+                <FruitDefs />
+                {PILE.map(([dx, dy, deg], i) => (
+                  <g key={i} transform={`translate(${BOWL.x + dx} ${BOWL.y - BOWL_H + 4 + dy}) rotate(${deg}) scale(${K}) translate(${-CENTER.x} ${-CENTER.y})`}>
+                    <Shape />
+                  </g>
+                ))}
+              </svg>
+            </>
+          )}
           <svg width="1280" height="720" viewBox="0 0 1280 720" style={{ position: "absolute", left: 0, top: 0, overflow: "visible", opacity: Math.min(1, enter * 2), filter: FRUIT_SHADOW }}>
             <FruitDefs />
             {/* La morsure enlève la peau sur tout son rayon, et la chair un peu moins : la chair apparaît en bordure. */}
@@ -127,6 +153,7 @@ export const Manger: React.FC<{ fruit: FruitId }> = ({ fruit }) => {
               <g mask="url(#bitesSkin)"><Shape mode="skin" /></g>
             </g>
           </svg>
+          {bowl && <BowlFront x={BOWL.x} y={BOWL.y} w={BOWL.w} />}
         </BoyScene>
       </SceneFrame>
     </Stage>

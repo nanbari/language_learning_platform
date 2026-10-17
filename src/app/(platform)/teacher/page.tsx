@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { fetchLessons, deleteLesson as apiDeleteLesson, type ApiLesson } from "@/lib/lessonsApi";
 import { fetchTeacherInsights } from "@/lib/teacherApi";
+import { fetchTeacherClasses } from "@/lib/classesApi";
 import type { TeacherInsights, AnswerDescriptor, ExerciseStatus, StudentProgress } from "@/lib/teacherInsights";
 import { fetchSignupRequests, reviewSignupRequest } from "@/lib/signupApi";
 import type { SignupRequestRow } from "@/lib/signup";
@@ -312,6 +313,8 @@ function TeacherPageInner() {
       .catch(() => {});
   }, [login]);
   const [savedLessons, setSavedLessons] = useState<ApiLesson[]>([]);
+  /** Nom de chaque classe, pour afficher à qui chaque leçon est proposée. */
+  const [classNames, setClassNames] = useState<Map<string, string>>(new Map());
   const [showToast, setShowToast] = useState(false);
   // Progression réelle des élèves, calculée côté serveur depuis exercise_events.
   const [insights, setInsights] = useState<TeacherInsights | null>(null);
@@ -331,6 +334,9 @@ function TeacherPageInner() {
   useEffect(() => {
     if (!user) return;
     fetchLessons(user.id).then(setSavedLessons).catch(() => setSavedLessons([]));
+    fetchTeacherClasses()
+      .then(({ classes }) => setClassNames(new Map(classes.map((c) => [c.id, c.name]))))
+      .catch(() => setClassNames(new Map()));
     fetchTeacherInsights()
       .then((i) => { setInsights(i); setInsightsError(null); })
       .catch((err) => setInsightsError(err instanceof Error ? err.message : "Erreur inattendue"));
@@ -604,12 +610,22 @@ function TeacherPageInner() {
             const color = LESSON_COLORS[idx % LESSON_COLORS.length];
             const exCount = countExercises(lesson);
             const date = new Date(lesson.createdAt).toLocaleDateString("fr-BE", { day: "numeric", month: "short" });
+            const className = lesson.classId ? classNames.get(lesson.classId) : undefined;
             return (
               <div key={lesson.id} className="ms-card bg-[#FFFDF8] border border-[#EDE5D8] overflow-hidden">
                 <div className="h-2" style={{ background: color }} />
                 <div className="p-5">
                   <h3 className="font-bold text-[#2D2D2D] mb-1">{lesson.title}</h3>
-                  <p className="text-xs text-[#2D2D2D]/40 mb-3">{exCount} exercice{exCount > 1 ? "s" : ""} · {date}</p>
+                  <p className="text-xs text-[#2D2D2D]/40 mb-1">{exCount} exercice{exCount > 1 ? "s" : ""} · {date}</p>
+                  {lesson.classId ? (
+                    <p className="text-xs font-semibold text-[#6B705C] mb-3 flex items-center gap-1 min-h-4">
+                      {className && <><Users size={12} /> {className}</>}
+                    </p>
+                  ) : (
+                    <p className="text-xs font-semibold text-[#BB908E] mb-3">
+                      Aucune classe : invisible pour les élèves
+                    </p>
+                  )}
                   <div className="flex gap-2 mt-3">
                     <button
                       onClick={() => deleteLesson(lesson.id)}

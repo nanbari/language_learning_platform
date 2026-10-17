@@ -54,7 +54,8 @@ export function LettersPicker({ value, onChange }: { value: LettersChoice; onCha
       <p className="font-bold text-[#2d2d2d] mt-5 mb-3">
         {perLesson > 1 ? "Lettres étudiées" : "Lettre étudiée"}{" "}
         <span className="font-semibold text-gray-400">
-          — {letterIds.length}/{perLesson} sélectionnée{perLesson > 1 ? "s" : ""}
+          — {letterIds.length} sélectionnée{letterIds.length > 1 ? "s" : ""}
+          {perLesson > 1 ? ` (une à ${perLesson})` : ` sur ${perLesson}`}
         </span>
       </p>
       <div className="grid grid-cols-7 gap-2" dir="rtl">
@@ -112,7 +113,7 @@ export function LettersPicker({ value, onChange }: { value: LettersChoice; onCha
 
       <p className="text-xs text-gray-500 mt-4">
         {level === "beginner"
-          ? "Déroulé : tracé animé de chaque lettre isolée. Les exercices sont regroupés en fin de séance : l'élève écrit chaque lettre au doigt, sur son pointillé ; chacune des trois lettres est à retrouver parmi les trois lettres de la leçon ; puis, la lettre étant montrée, l'élève écoute trois sons et choisit le sien. Les lettres à réviser suivent, avec les mêmes exercices. Aucune forme liée ni mot écrit en arabe, hormis le « أَحْسَنْتُمْ » de l'écran final ; le nom des lettres n'est jamais écrit."
+          ? "Déroulé : tracé animé de chaque lettre isolée. Les exercices sont regroupés en fin de séance : l'élève écrit chaque lettre au doigt, sur son pointillé ; chaque lettre est à retrouver parmi trois lettres ; puis, la lettre étant montrée, l'élève écoute trois sons et choisit le sien. Les lettres à réviser suivent, avec les mêmes exercices. Aucune forme liée ni mot écrit en arabe, hormis le « أَحْسَنْتُمْ » de l'écran final ; le nom des lettres n'est jamais écrit."
           : "Une lettre par séance. Déroulé : tracé animé, puis les trois formes (début, milieu, fin), chacune avec un mot illustré où la lettre est mise en couleur. Les exercices viennent en fin de séance : trois mots à compléter en choisissant la bonne forme, un par position ; les lettres à réviser, à reconnaître en couleur dans un mot ; enfin l'écriture au doigt de chaque forme liée, sur son pointillé. Le nom des lettres n'est jamais écrit."}
       </p>
     </div>

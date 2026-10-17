@@ -4,6 +4,7 @@ import { COOKIE_NAME, verifySession } from "@/lib/auth";
 import { summariseWeakSpots } from "@/lib/weakSpots";
 import type { ContentBlock } from "@/components/lesson/ExerciseRenderers";
 import type { ExerciseEventRow } from "@/lib/exerciseEvents";
+import { studentClassIds } from "@/app/api/classes/access";
 
 // Client service-role : la RLS est contournée, l'autorisation est faite ici
 // même (session + rôle) — ne jamais exposer ce client au navigateur.
@@ -42,12 +43,16 @@ export async function GET(req: NextRequest) {
   if (eventsError) return NextResponse.json({ error: eventsError.message }, { status: 500 });
   if (!events || events.length === 0) return NextResponse.json([]);
 
-  // Seules les leçons où l'élève a joué sont chargées.
+  // Seules les leçons où l'élève a joué, et toujours proposées à l'une de ses
+  // classes, sont chargées.
   const lessonIds = [...new Set(events.map((e) => e.lesson_id))];
+  const classIds = await studentClassIds(effectiveUserId);
+  if (classIds.length === 0) return NextResponse.json([]);
   const { data: lessons, error: lessonsError } = await db
     .from("lessons")
     .select("id, exercises")
-    .in("id", lessonIds);
+    .in("id", lessonIds)
+    .in("class_id", classIds);
   if (lessonsError) return NextResponse.json({ error: lessonsError.message }, { status: 500 });
 
   const withBlocks = (lessons ?? []).map((l) => ({

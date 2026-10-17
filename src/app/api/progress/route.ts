@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { COOKIE_NAME, verifySession } from "@/lib/auth";
+import { studentCanSeeLesson } from "@/app/api/classes/access";
 
 // Client service-role : la RLS est contournée, l'autorisation est faite ici
 // même (session + rôle) — ne jamais exposer ce client au navigateur.
@@ -48,6 +49,9 @@ export async function POST(req: NextRequest) {
   const rawScore = Number(body.score);
   if (!lessonId || !Number.isFinite(rawScore)) {
     return NextResponse.json({ error: "lesson_id et score requis" }, { status: 400 });
+  }
+  if (typeof lessonId !== "string" || !(await studentCanSeeLesson(session.id, lessonId))) {
+    return NextResponse.json({ error: "Leçon introuvable" }, { status: 404 });
   }
   // Clamp the score to a reasonable range to prevent obvious cheating.
   const score = Math.max(0, Math.min(100, Math.round(rawScore)));

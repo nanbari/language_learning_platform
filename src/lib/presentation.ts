@@ -148,11 +148,16 @@ export const MAX_WORD_LENGTH = 24;
 export const CHOICES_PER_ROUND = 3;
 
 /**
- * Lettres par leçon : trois pour un débutant (lettre isolée seulement), une
- * seule au niveau avancé, où chaque lettre demande déjà tracé, formes et mot.
+ * Lettres par leçon, au plus : trois pour un débutant (lettre isolée
+ * seulement), une seule au niveau avancé, où chaque lettre demande déjà
+ * tracé, formes et mot.
  */
 export function lettersPerLesson(level: LetterLevel): number {
   return level === "advanced" ? 1 : 3;
+}
+/** Le nombre de lettres choisies convient-il au niveau ? (au moins une, au plus `lettersPerLesson`) */
+export function hasLessonLetters(level: LetterLevel, count: number): boolean {
+  return count >= 1 && count <= lettersPerLesson(level);
 }
 /** Nombre maximal de lettres à réviser en fin de séance. */
 export const MAX_REVIEW_LETTERS = 6;
@@ -283,7 +288,7 @@ export function isRightForm(slide: Extract<Slide, { kind: "completeWord" }>, cho
 }
 
 /**
- * Leçon de lettres (nombre fixé par `lettersPerLesson`). Toutes les lettres
+ * Leçon de lettres (nombre borné par `hasLessonLetters`). Toutes les lettres
  * sont d'abord présentées ; les exercices viennent ensuite, en fin de
  * séance : chaque lettre du jour est à retrouver parmi celles de la leçon,
  * puis viennent les lettres que l'enseignant a choisi de faire réviser.

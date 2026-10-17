@@ -12,6 +12,8 @@ export interface ApiLesson {
   title: string;
   createdAt: string;
   authorId: string | null;
+  /** Classe à qui la leçon est proposée ; null = visible d'aucun élève. */
+  classId: string | null;
   blocks: { type: string }[];
   /** Diaporama du cours en direct, enregistré depuis l'éditeur (voir lib/lessonDeck). */
   live: SavedDeck | null;
@@ -21,6 +23,7 @@ interface LessonRow {
   id: string;
   title: string;
   author_id: string | null;
+  class_id: string | null;
   exercises: { blocks?: { type: string }[]; live?: SavedDeck } | null;
   created_at: string;
 }
@@ -31,6 +34,7 @@ function rowToLesson(row: LessonRow): ApiLesson {
     title: row.title,
     createdAt: row.created_at,
     authorId: row.author_id,
+    classId: row.class_id,
     blocks: row.exercises?.blocks ?? [],
     live: row.exercises?.live ?? null,
   };
@@ -62,21 +66,21 @@ const DEFAULT_SUBJECT = "général";
 const DEFAULT_AGE_GROUP = "tous";
 
 /** Crée une leçon ; retourne la ligne créée (avec l'id généré par la base). */
-export async function createLesson(title: string, blocks: unknown[]): Promise<ApiLesson> {
+export async function createLesson(title: string, classId: string, blocks: unknown[]): Promise<ApiLesson> {
   const row = await jsonOrThrow<LessonRow>(await fetch("/api/lessons", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title, subject: DEFAULT_SUBJECT, age_group: DEFAULT_AGE_GROUP, exercises: { blocks } }),
+    body: JSON.stringify({ title, subject: DEFAULT_SUBJECT, age_group: DEFAULT_AGE_GROUP, class_id: classId, exercises: { blocks } }),
   }));
   return rowToLesson(row);
 }
 
-/** Met à jour titre et contenu d'une leçon existante. */
-export async function updateLesson(id: string, title: string, blocks: unknown[]): Promise<ApiLesson> {
+/** Met à jour titre, classe et contenu d'une leçon existante. */
+export async function updateLesson(id: string, title: string, classId: string, blocks: unknown[]): Promise<ApiLesson> {
   const row = await jsonOrThrow<LessonRow>(await fetch("/api/lessons", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id, title, exercises: { blocks } }),
+    body: JSON.stringify({ id, title, class_id: classId, exercises: { blocks } }),
   }));
   return rowToLesson(row);
 }

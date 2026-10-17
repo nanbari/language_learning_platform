@@ -3,7 +3,7 @@ import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";
 import { LETTER_STROKES } from "@/data/letterStrokes";
 import { LETTER_FORM_STROKES } from "@/data/letterFormStrokes";
 import { LETTER_POSITIONS, exerciseWords } from "@/data/letterWords";
-import { buildLetterDeck, buildVocabDeck, combineDecks, isRightForm, lessonQcms, lessonVocabWords, letterColor, qcmAnswerLabel, shuffle, stepsFor, lettersPerLesson, teacherInstruction, teacherQuestion, writingGlyph, CHARTER_COLORS, type Qcm, type VocabWord } from "./presentation";
+import { buildLetterDeck, buildVocabDeck, combineDecks, isRightForm, lessonQcms, lessonVocabWords, letterColor, qcmAnswerLabel, shuffle, stepsFor, lettersPerLesson, hasLessonLetters, teacherInstruction, teacherQuestion, writingGlyph, CHARTER_COLORS, type Qcm, type VocabWord } from "./presentation";
 
 /** Générateur déterministe pour des decks reproductibles. */
 function seeded(seed = 1) {
@@ -92,6 +92,11 @@ describe("buildLetterDeck", () => {
   it("étudie trois lettres au niveau débutant, une seule au niveau avancé", () => {
     expect(lettersPerLesson("beginner")).toBe(3);
     expect(lettersPerLesson("advanced")).toBe(1);
+  });
+
+  it("accepte une à trois lettres au niveau débutant, une seule au niveau avancé", () => {
+    expect([0, 1, 2, 3, 4].map((n) => hasLessonLetters("beginner", n))).toEqual([false, true, true, true, false]);
+    expect([0, 1, 2].map((n) => hasLessonLetters("advanced", n))).toEqual([false, true, false]);
   });
 
   it("propose toujours trois cartes pour une leçon d'une seule lettre", () => {

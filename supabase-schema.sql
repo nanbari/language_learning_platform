@@ -189,3 +189,10 @@ create index class_members_student_idx on public.class_members (student_id);
 -- Lues et écrites uniquement par les routes serveur (client service-role).
 alter table public.classes enable row level security;
 alter table public.class_members enable row level security;
+
+-- Leçons par classe : une leçon n'est visible que des élèves de sa classe
+-- (null = visible d'aucun élève).
+alter table public.lessons
+  add column class_id uuid references public.classes(id) on delete set null;
+
+create index lessons_class_idx on public.lessons (class_id);

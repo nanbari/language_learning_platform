@@ -7,6 +7,7 @@ import { generatePracticeSet, PracticeConfigError, PracticeGenerationError } fro
 import { toReplayBlocks, toPracticeSources, type PracticeBlock, type PracticeSet, type PracticeSource } from "@/lib/practice";
 import type { ContentBlock } from "@/components/lesson/ExerciseRenderers";
 import type { ExerciseEventRow } from "@/lib/exerciseEvents";
+import { studentClassIds } from "@/app/api/classes/access";
 
 // Client service-role : la RLS est contournée, l'autorisation est faite ici
 // même (session + rôle) — ne jamais exposer ce client au navigateur.
@@ -125,11 +126,13 @@ export async function POST(req: NextRequest) {
 
   const { data: lesson, error: lessonError } = await db
     .from("lessons")
-    .select("id, title, exercises")
+    .select("id, title, exercises, class_id")
     .eq("id", lessonId)
     .maybeSingle();
   if (lessonError) return NextResponse.json({ error: lessonError.message }, { status: 500 });
-  if (!lesson) return NextResponse.json({ error: "Leçon introuvable" }, { status: 404 });
+  // Une leçon qui n'est pas proposée à l'une des classes de l'élève lui est invisible.
+  const visible = lesson?.class_id && (await studentClassIds(session.id)).includes(lesson.class_id);
+  if (!lesson || !visible) return NextResponse.json({ error: "Leçon introuvable" }, { status: 404 });
 
   const blocks = ((lesson.exercises as { blocks?: ContentBlock[] } | null)?.blocks ?? []);
 
