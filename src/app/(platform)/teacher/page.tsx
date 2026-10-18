@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, LogOut, CheckCircle, UserPlus, Users, Check, X, ShieldCheck, Presentation, Mic, ChevronDown } from "lucide-react";
+import { Plus, LogOut, CheckCircle, UserPlus, Users, Check, X, ShieldCheck, Presentation, Mic, ChevronDown, ClipboardList, Mail, Phone } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -14,6 +14,8 @@ import type { SignupRequestRow } from "@/lib/signup";
 import { createTeacher, fetchStaff, setStaffAdmin, type CreatedTeacher } from "@/lib/staffApi";
 import { MIN_NAME } from "@/lib/signup";
 import type { StaffRow } from "@/lib/staff";
+import { fetchEnrollments, markEnrollmentHandled } from "@/lib/enrollmentApi";
+import { LEVEL_LABELS, type EnrollmentRow } from "@/lib/enrollment";
 
 const LESSON_COLORS = ["#BB908E", "#8BA3B1", "#999B84", "#CCB9B5", "#7B868E", "#6B705C"];
 
@@ -324,6 +326,10 @@ function TeacherPageInner() {
   const [signupBusy, setSignupBusy] = useState<string | null>(null);
   const [signupMessage, setSignupMessage] = useState<string | null>(null);
   const isAdmin = user?.isAdmin === true;
+  // Demandes d'inscription des familles, venues du formulaire public (admins uniquement).
+  const [enrollments, setEnrollments] = useState<EnrollmentRow[] | null>(null);
+  const [enrollmentBusy, setEnrollmentBusy] = useState<string | null>(null);
+  const [enrollmentMessage, setEnrollmentMessage] = useState<string | null>(null);
   // Enseignants et leur droit admin (admins uniquement).
   const [staff, setStaff] = useState<StaffRow[] | null>(null);
   const [staffBusy, setStaffBusy] = useState<string | null>(null);
@@ -345,6 +351,7 @@ function TeacherPageInner() {
   useEffect(() => {
     if (!isAdmin) return;
     fetchSignupRequests().then((r) => setSignups(r.pending)).catch(() => setSignups([]));
+    fetchEnrollments().then(setEnrollments).catch(() => setEnrollments([]));
     fetchStaff().then(setStaff).catch(() => setStaff([]));
   }, [isAdmin]);
 
@@ -377,6 +384,20 @@ function TeacherPageInner() {
       setSignupMessage(err instanceof Error ? err.message : "Erreur inattendue");
     } finally {
       setSignupBusy(null);
+    }
+  };
+
+  const handleEnrollment = async (id: string) => {
+    setEnrollmentBusy(id);
+    setEnrollmentMessage(null);
+    try {
+      const done = await markEnrollmentHandled(id);
+      setEnrollments((prev) => (prev ?? []).filter((r) => r.id !== id));
+      setEnrollmentMessage(`Demande de ${done.parent_name} pour ${done.child_name} marquée comme traitée.`);
+    } catch (err) {
+      setEnrollmentMessage(err instanceof Error ? err.message : "Erreur inattendue");
+    } finally {
+      setEnrollmentBusy(null);
     }
   };
 
@@ -458,6 +479,61 @@ function TeacherPageInner() {
           </h1>
           <p className="text-[#2D2D2D]/50">Gérez vos leçons et suivez la progression de vos élèves</p>
         </div>
+
+        {/* Inscriptions des familles, venues du formulaire public (admin) */}
+        {isAdmin && (
+          <div className="mb-10 bg-[#FFFDF8] rounded-2xl shadow-sm border border-[#EDE5D8] overflow-hidden">
+            <div className="p-5 border-b border-[#EDE5D8] flex items-center justify-between gap-3">
+              <div>
+                <h2 className="font-black text-[#2D2D2D] flex items-center gap-2">
+                  <ClipboardList size={18} style={{ color: "#6B705C" }} /> Demandes d&apos;inscription des familles
+                </h2>
+                <p className="text-xs text-[#2D2D2D]/50 mt-1">
+                  Envoyées depuis le formulaire <Link href="/demande-inscription" className="font-semibold text-[#6B705C] hover:underline">/demande-inscription</Link>.
+                  Recontactez la famille, puis marquez la demande comme traitée.
+                </p>
+              </div>
+              {enrollments && enrollments.length > 0 && (
+                <span className="px-3 py-1 rounded-full text-xs font-black text-white flex-shrink-0" style={{ background: "#BB908E" }}>
+                  {enrollments.length} à traiter
+                </span>
+              )}
+            </div>
+            {enrollmentMessage && (
+              <p className="px-5 py-3 text-sm border-b border-[#EDE5D8] text-[#2D2D2D]/70 bg-[#F5EEE8]/60">{enrollmentMessage}</p>
+            )}
+            {enrollments === null && <p className="p-5 text-sm text-[#2D2D2D]/40">Chargement…</p>}
+            {enrollments && enrollments.length === 0 && (
+              <p className="p-5 text-sm text-[#2D2D2D]/40">Aucune demande à traiter.</p>
+            )}
+            {enrollments && enrollments.length > 0 && (
+              <ul className="divide-y divide-[#EDE5D8]">
+                {enrollments.map((r) => (
+                  <li key={r.id} className="px-5 py-4 flex flex-wrap items-start gap-3">
+                    <div className="flex-1 min-w-[14rem]">
+                      <p className="font-semibold text-[#2D2D2D]">
+                        {r.child_name}, {r.child_age} ans
+                        <span className="ml-2 px-2 py-0.5 rounded-full text-[11px] font-bold text-white align-middle" style={{ background: r.level === "beginner" ? "#BB908E" : "#8BA3B1" }}>
+                          {LEVEL_LABELS[r.level].title}
+                        </span>
+                      </p>
+                      <p className="text-sm text-[#2D2D2D]/70 mt-0.5">{r.parent_name} · {relativeDay(r.created_at)}</p>
+                      <p className="text-xs text-[#2D2D2D]/60 mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                        <a href={`mailto:${r.email}`} className="inline-flex items-center gap-1 hover:text-[#6B705C]"><Mail size={12} /> {r.email}</a>
+                        <a href={`tel:${r.phone.replace(/[^\d+]/g, "")}`} className="inline-flex items-center gap-1 hover:text-[#6B705C]"><Phone size={12} /> {r.phone}</a>
+                      </p>
+                    </div>
+                    <button onClick={() => handleEnrollment(r.id)} disabled={enrollmentBusy === r.id}
+                      className="flex items-center gap-1 px-4 py-1.5 rounded-lg text-xs font-bold text-white hover:opacity-90 transition-all disabled:opacity-50"
+                      style={{ background: "#6B705C" }}>
+                      <Check size={14} /> {enrollmentBusy === r.id ? "…" : "Traitée"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
         {/* Demandes d'inscription (admin) */}
         {isAdmin && (
