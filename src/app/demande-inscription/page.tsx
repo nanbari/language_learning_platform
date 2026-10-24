@@ -95,7 +95,7 @@ export default function EnrollmentPage() {
             </div>
           </Link>
           <h1 className="text-2xl sm:text-3xl text-[#2D2D2D]" style={{ fontFamily: "'Fredoka One', cursive" }}>
-            Inscription aux cours d&apos;arabe
+            Demande d&apos;inscription aux cours d&apos;arabe
           </h1>
           <p className="text-[#2D2D2D]/60 text-sm mt-2 leading-relaxed">
             Cours en ligne pour les enfants non arabophones de {MIN_CHILD_AGE} à {MAX_CHILD_AGE} ans,
@@ -119,7 +119,7 @@ export default function EnrollmentPage() {
               </div>
               <h2 className="text-xl font-black text-[#2D2D2D] mb-2">Merci, demande envoyée !</h2>
               <p className="text-[#2D2D2D]/60 text-sm mb-6 leading-relaxed">
-                Nous avons bien reçu l&apos;inscription de <strong>{namesText}</strong>.
+                Nous avons bien reçu la demande d&apos;inscription de <strong>{namesText}</strong>.
                 Nous vous recontacterons pour vous proposer {children.length > 1 ? "un groupe adapté au niveau de chacun" : "un groupe de son niveau"}.
               </p>
             </div>
