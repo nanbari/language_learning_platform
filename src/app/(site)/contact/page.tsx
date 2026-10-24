@@ -32,7 +32,7 @@ export default function ContactPage() {
             <h2 className="text-2xl font-black text-[#2D2D2D] mb-6" style={{ fontFamily: "'Fredoka One', cursive" }}>Mes coordonnées</h2>
             <div className="space-y-4 mb-8">
               {[
-                { icon: MapPin, color: "#BB908E", label: "Zone",           val: "Bruxelles et périphérie (présentiel)" },
+                { icon: MapPin, color: "#BB908E", label: "Cours",          val: "En ligne, en visio" },
                 { icon: Phone, color: "#6B705C", label: "Téléphone",       val: "Sur demande par email" },
                 { icon: Mail,  color: "#8BA3B1", label: "Email",           val: "nassim.chouirfa@gmail.com" },
                 { icon: Clock, color: "#999B84", label: "Délai de réponse",val: "Sous 48h" },
@@ -50,7 +50,7 @@ export default function ContactPage() {
             </div>
 
             <div className="rounded-2xl p-5 bg-[#F5EEE8] border border-[#EDE5D8] text-sm text-[#2D2D2D]/65 leading-relaxed">
-              Les cours en présentiel ont lieu à domicile dans Bruxelles et sa périphérie. Pour savoir si votre zone est couverte, écrivez-moi en précisant votre commune.
+              Les cours ont lieu en ligne, en visio : votre enfant peut les suivre depuis la maison, où que vous soyez.
             </div>
           </div>
 

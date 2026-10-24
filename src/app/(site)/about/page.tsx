@@ -3,23 +3,23 @@ import { Award, BookOpen, Heart, Users } from "lucide-react";
 const steps = [
   {
     color: "#BB908E",
-    title: "1. Prise de contact",
-    desc: "Un premier échange (téléphone ou visio) pour comprendre les besoins de l'élève, ses difficultés et les objectifs des parents.",
+    title: "1. Demande d'inscription",
+    desc: "Vous remplissez le formulaire en ligne. Je vous recontacte pour faire le point sur le niveau de votre enfant et vos attentes.",
   },
   {
     color: "#8BA3B1",
-    title: "2. Séance découverte",
-    desc: "Une première séance d'observation pour cerner les acquis et construire ensemble un parcours adapté — pas de plan rigide, un cap clair.",
+    title: "2. Un groupe à son niveau",
+    desc: "Votre enfant rejoint un petit groupe de 6 élèves maximum, formé selon le niveau de chacun.",
   },
   {
     color: "#6B705C",
-    title: "3. Séances régulières",
-    desc: "Chaque séance combine manipulation, exercices progressifs et retours concrets. L'élève repart avec des repères et, très vite, plus de confiance.",
+    title: "3. Un cours chaque semaine",
+    desc: "Une séance de 50 minutes en direct, en visio : on voit, on entend, on trace et on participe. L'élève repart avec des repères et, très vite, plus de confiance.",
   },
   {
     color: "#999B84",
-    title: "4. Suivi et bilan",
-    desc: "Point régulier avec les parents pour suivre la progression, ajuster les objectifs et célébrer les victoires — petites ou grandes.",
+    title: "4. Révisions et suivi",
+    desc: "Entre deux cours, votre enfant révise seul sur la plateforme. Je fais régulièrement le point avec vous pour suivre sa progression et célébrer ses victoires, petites ou grandes.",
   },
 ];
 
@@ -34,7 +34,7 @@ export default function AboutPage() {
             Notre approche
           </h1>
           <p className="text-[#2D2D2D]/55 text-lg max-w-2xl mx-auto leading-relaxed">
-            Monte & Souris, c'est un accompagnement en mathématiques pour les enfants et les adolescents, inspiré de la pédagogie Montessori. L'objectif : leur rendre les maths claires, concrètes, et — pourquoi pas — leur apprendre à les aimer.
+            Monte & Souris, ce sont des cours de langue pour les enfants, inspirés de la pédagogie Montessori. L'objectif : rendre l'apprentissage clair, concret et joyeux, même quand la langue n'est pas parlée à la maison.
           </p>
         </div>
       </section>
@@ -45,13 +45,13 @@ export default function AboutPage() {
           <div>
             <div className="inline-block rounded-full px-4 py-1 text-sm font-semibold mb-4 text-white" style={{ background: "#CCB9B5" }}>Ma mission</div>
             <h2 className="text-3xl font-black text-[#2D2D2D] mb-4" style={{ fontFamily: "'Fredoka One', cursive" }}>
-              Réconcilier les élèves avec les mathématiques
+              Rendre la langue accessible à chaque enfant
             </h2>
             <p className="text-[#2D2D2D]/55 leading-relaxed mb-4">
-              Trop d'élèves développent très tôt un rapport douloureux aux maths : blocages, perte de confiance, peur de se tromper. Pourtant, les mathématiques se découvrent d'abord avec les mains, les yeux et la curiosité — bien avant les symboles et les règles.
+              Beaucoup de cours de langue ne sont pas pensés pour les enfants dont la famille ne parle pas la langue : beaucoup décrochent, sans réelle évolution. Pourtant, une langue se découvre d'abord avec les yeux, les oreilles, les mains et la curiosité.
             </p>
             <p className="text-[#2D2D2D]/55 leading-relaxed">
-              Ma mission, c'est de proposer un cadre bienveillant où chaque élève peut construire son propre rapport aux maths : par la manipulation, la compréhension profonde, et la fierté de comprendre par soi-même.
+              Ma mission, c'est de proposer un cadre bienveillant où chaque enfant progresse à son rythme, y compris les enfants avec un TDAH, une dyslexie ou un autisme, et découvre la fierté de comprendre par soi-même.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-4">

@@ -3,39 +3,21 @@ import { Clock, Users, Star, ArrowRight } from "lucide-react";
 
 const programs = [
   {
-    emoji: "🌸", name: "Maths en présentiel", age: "3–12 ans · Individuel", color: "#BB908E", bg: "#F5EEEE",
-    schedule: "Horaire à convenir",
-    teachers: "Cours particulier",
-    capacity: "1 élève",
-    desc: "Un accompagnement individuel en mathématiques pour les enfants de 3 à 12 ans. Chaque séance est construite sur mesure, avec du matériel concret et une progression qui respecte le rythme de l'enfant.",
-    subjects: ["Manipulation concrète", "Numération & calcul", "Géométrie", "Résolution de problèmes", "Confiance retrouvée"],
-    price: "25 €/h ou 40 €/2h",
-  },
-  {
-    emoji: "🌿", name: "Maths ados — Individuel", age: "12–15 ans · En ligne", color: "#8BA3B1", bg: "#EAF0F4",
-    schedule: "Horaire à convenir",
-    teachers: "Cours particulier",
-    capacity: "1 élève",
-    desc: "Un suivi individuel en visio pour collégiens de 12 à 15 ans. Rythme intensif, objectifs sur mesure, pour combler les lacunes ou préparer un examen important.",
-    subjects: ["Soutien scolaire", "Algèbre & géométrie", "Préparation aux examens", "Méthodologie", "Remise à niveau"],
-    price: "30 €/h ou 50 €/2h",
-  },
-  {
-    emoji: "🌊", name: "Préparation au CE1D", age: "12–15 ans · En ligne", color: "#6B705C", bg: "#ECEEE9",
-    schedule: "Samedi, 11h–12h30",
+    emoji: "🌸", name: "Cours de langue en petit groupe", age: "À partir de 4 ans · En ligne", color: "#BB908E", bg: "#F5EEEE",
+    schedule: "50 min par semaine",
     teachers: "Cours collectif",
     capacity: "6 élèves max",
-    desc: "Un cours collectif hebdomadaire dédié à la préparation du CE1D en mathématiques, de septembre à juin. Chaque samedi matin, on revoit les notions clés, on s'entraîne sur des épreuves types et on travaille la méthodologie, ensemble.",
-    subjects: ["Épreuves types", "Méthodologie", "Révision ciblée", "Septembre à juin", "1h30 chaque samedi"],
-    price: "40 €/mois",
+    desc: "Des cours en direct, en visio, avec des leçons adaptées au niveau de chaque enfant. L'enseignante est certifiée Montessori et formée à la neurodiversité (TDAH, dyslexie, autisme). Entre deux cours, une plateforme adaptative permet de réviser seul.",
+    subjects: ["Pédagogie Montessori", "Cours en direct", "Plateforme de révision", "Sans engagement", "Début le 15 novembre 2026"],
+    price: "35 €/mois",
   },
 ];
 
 const faqs = [
-  { q: "Comment se déroule une première séance ?", a: "Un premier échange permet de faire le point sur les besoins, les difficultés et les objectifs de l'élève. La première séance sert ensuite à observer et à construire ensemble un parcours adapté." },
-  { q: "Où ont lieu les cours en présentiel ?", a: "Les cours en présentiel pour les 3-12 ans se déroulent à domicile dans un rayon raisonnable. Contactez-moi pour vérifier si votre zone est couverte." },
-  { q: "Quel outil est utilisé pour les cours en ligne ?", a: "Les cours en ligne pour les ados se font en visio avec un tableau blanc partagé, pour manipuler les objets mathématiques à distance comme en présentiel." },
-  { q: "En quoi consiste la préparation au CE1D ?", a: "Chaque samedi de 11h à 12h30, de septembre à juin, en visio et par groupe de 6 maximum, on revoit les notions clés du programme, on s'entraîne sur des épreuves types et on travaille la méthodologie pour aborder l'examen sereinement." },
+  { q: "Comment s'inscrire ?", a: "Remplissez le formulaire de demande d'inscription. Je vous recontacte ensuite pour proposer à votre enfant un groupe de son niveau." },
+  { q: "Faut-il un niveau particulier ?", a: "Non. Les groupes sont formés selon le niveau des enfants : débutants complets ou enfants qui savent déjà lire un peu." },
+  { q: "De quoi mon enfant a-t-il besoin ?", a: "Un ordinateur ou une tablette avec une connexion internet, une caméra et un micro. Le cours se rejoint d'un clic depuis l'espace élève." },
+  { q: "Est-ce que je m'engage pour l'année ?", a: "Non. Le cours coûte 35 € par mois, sans engagement : vous pouvez arrêter à la fin de n'importe quel mois." },
 ];
 
 export default function CoursesPage() {
@@ -45,7 +27,7 @@ export default function CoursesPage() {
         <div className="max-w-4xl mx-auto text-center">
           <div className="text-6xl mb-4">📚</div>
           <h1 className="text-4xl font-black text-[#2D2D2D] mb-4" style={{ fontFamily: "'Fredoka One', cursive" }}>Nos cours</h1>
-          <p className="text-[#2D2D2D]/50 text-lg">Trois formules pour apprendre les maths autrement, de 3 à 15 ans</p>
+          <p className="text-[#2D2D2D]/50 text-lg">Apprendre une langue autrement, en ligne, à partir de 4 ans</p>
         </div>
       </section>
 
@@ -76,10 +58,10 @@ export default function CoursesPage() {
                     <div className="flex items-center gap-2 text-sm font-black" style={{ color: p.color }}><Clock size={16} style={{ color: p.color }} />{p.price}</div>
                   </div>
                 </div>
-                <Link href="/contact"
+                <Link href="/demande-inscription"
                   className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl text-white font-bold transition-all hover:scale-105 hover:shadow-md"
                   style={{ background: p.color }}>
-                  S'inscrire <ArrowRight size={16} />
+                  Demande d&apos;inscription <ArrowRight size={16} />
                 </Link>
               </div>
             </div>

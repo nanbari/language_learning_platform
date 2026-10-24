@@ -16,10 +16,10 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "Monte & Souris | Maths Montessori à Bruxelles",
+  title: "Monte & Souris | Cours de langue Montessori pour enfants",
   description:
-    "Cours particuliers de mathématiques inspirés de la pédagogie Montessori : à domicile à Bruxelles pour les 3-12 ans, en visio pour les 12-15 ans, préparation au CE1D.",
-  keywords: ["Montessori", "mathématiques", "cours particuliers", "Bruxelles", "CE1D", "soutien scolaire", "ASBL"],
+    "Cours de langue en ligne pour les enfants à partir de 4 ans : pédagogie Montessori, petits groupes de 6 élèves maximum, plateforme de révision incluse.",
+  keywords: ["cours de langue", "enfants", "Montessori", "en ligne", "Bruxelles", "ASBL"],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

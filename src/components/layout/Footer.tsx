@@ -26,7 +26,7 @@ export default function Footer() {
             <Wordmark className="text-lg" />
           </div>
           <p className="mt-4 max-w-[42ch] text-sm leading-relaxed text-ms-ink/65">
-            Cours particuliers de mathématiques inspirés de la pédagogie Montessori. À domicile à Bruxelles pour les 3-12 ans, en visio pour les 12-15 ans.
+            Cours de langue en ligne pour les enfants à partir de 4 ans, inspirés de la pédagogie Montessori.
           </p>
           <address className="mt-4 space-y-1 text-sm not-italic text-ms-ink/65">
             <p>Rue Edmond Tollenaere, 1020 Bruxelles</p>
@@ -67,7 +67,7 @@ export default function Footer() {
 
       <div className="border-t border-ms-sand">
         <p className="mx-auto max-w-6xl px-4 py-5 text-xs text-ms-ink/50 sm:px-6">
-          © {new Date().getFullYear()} Monte & Souris ASBL, Bruxelles. Cours de mathématiques.
+          © {new Date().getFullYear()} Monte & Souris ASBL, Bruxelles. Cours de langue pour enfants.
         </p>
       </div>
     </footer>

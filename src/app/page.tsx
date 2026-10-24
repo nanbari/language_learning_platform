@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
-  ArrowRight, Clock, Compass, HeartHandshake, House, Laptop, Leaf, MapPin, Phone, Users,
+  ArrowRight, CalendarDays, Compass, HeartHandshake, Laptop, Leaf, Phone, Users,
 } from "lucide-react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -25,62 +25,42 @@ const btnOnMossGhost =
 /* ─── Données ────────────────────────────────────────────────────────── */
 
 const facts = [
-  { icon: Users,  text: "Élèves de 3 à 15 ans" },
-  { icon: MapPin, text: "À domicile à Bruxelles ou en visio" },
-  { icon: Laptop, text: "Plateforme de révision incluse" },
+  { icon: Users,  text: "Enfants à partir de 4 ans" },
+  { icon: Laptop, text: "Cours en direct, en visio" },
+  { icon: Leaf,   text: "Plateforme de révision incluse" },
 ];
 
 type Course = {
   name: string;
   age: string;
   desc: string;
-  where: { icon: typeof House; text: string };
+  where: { icon: typeof Laptop; text: string };
   group: string;
   price: string;
   image?: { src: string; alt: string };
   tone: "white" | "sand" | "moss";
 };
 
-const courses: Course[] = [
-  {
-    name: "Maths en présentiel",
-    age: "3-12 ans, individuel",
-    desc: "Un accompagnement individuel avec du matériel concret, construit sur mesure et au rythme de l'enfant.",
-    where: { icon: House, text: "À domicile, horaire à convenir" },
-    group: "1 élève",
-    price: "25 €/h ou 40 €/2h",
-    image: {
-      // TODO photo réelle : enfant qui manipule du matériel Montessori (perles, barres), 1200x800
-      src: "https://picsum.photos/seed/monte-souris-materiel/1200/800",
-      alt: "Matériel Montessori de numération posé sur une table",
-    },
-    tone: "white",
+const course: Course = {
+  name: "Cours de langue en petit groupe",
+  age: "À partir de 4 ans, en ligne",
+  desc: "Des leçons adaptées au niveau de chaque enfant, avec une enseignante certifiée Montessori et formée à la neurodiversité (TDAH, dyslexie, autisme).",
+  where: { icon: Laptop, text: "En visio, une séance de 50 minutes par semaine" },
+  group: "6 élèves maximum",
+  price: "35 €/mois, sans engagement",
+  image: {
+    // TODO photo réelle : enfant en cours en visio, 1200x800
+    src: "https://picsum.photos/seed/monte-souris-materiel/1200/800",
+    alt: "Un enfant suit son cours en visio",
   },
-  {
-    name: "Maths ados, individuel",
-    age: "12-15 ans, en ligne",
-    desc: "Un suivi individuel en visio pour combler les lacunes, préparer un examen ou retrouver une méthode de travail.",
-    where: { icon: Laptop, text: "En visio, horaire à convenir" },
-    group: "1 élève",
-    price: "30 €/h ou 50 €/2h",
-    tone: "sand",
-  },
-  {
-    name: "Préparation au CE1D",
-    age: "12-15 ans, en ligne",
-    desc: "Un cours collectif hebdomadaire de septembre à juin : notions clés, épreuves types et méthodologie, ensemble.",
-    where: { icon: Laptop, text: "En visio, le samedi de 11h à 12h30" },
-    group: "6 élèves max",
-    price: "40 €/mois",
-    tone: "moss",
-  },
-];
+  tone: "white",
+};
 
 const pillars = [
   {
     icon: Leaf,
     title: "Pédagogie Montessori",
-    desc: "Manipuler avant d'abstraire : matériel sensoriel, mises en situation et construction progressive du sens.",
+    desc: "Voir, toucher, entendre et tracer avant d'abstraire : chaque notion se construit pas à pas.",
   },
   {
     icon: Compass,
@@ -90,12 +70,12 @@ const pillars = [
   {
     icon: Users,
     title: "Suivi personnalisé",
-    desc: "Tête-à-tête pour les 3-12 ans, petits groupes en ligne pour les ados : chaque question trouve sa réponse.",
+    desc: "Des groupes de 6 élèves maximum : chaque enfant participe, et chaque question trouve sa réponse.",
   },
   {
     icon: HeartHandshake,
     title: "Cadre bienveillant",
-    desc: "Beaucoup d'encouragement, du temps pour chaque question, et la fierté de comprendre par soi-même.",
+    desc: "Une enseignante formée à la neurodiversité, beaucoup d'encouragement et la fierté de progresser par soi-même.",
   },
 ];
 
@@ -143,8 +123,8 @@ function CourseCell({ course, className = "" }: { course: Course; className?: st
 
         <div className="mt-8 flex flex-1 flex-wrap items-end justify-between gap-4">
           <p className="font-display text-2xl font-semibold tracking-tight">{course.price}</p>
-          <Link href="/contact" className={onMoss ? btnOnMoss : btnPrimary}>
-            S’inscrire
+          <Link href="/demande-inscription" className={onMoss ? btnOnMoss : btnPrimary}>
+            Demande d’inscription
             <ArrowRight size={16} strokeWidth={2} className="transition-transform duration-300 group-hover:translate-x-0.5" />
           </Link>
         </div>
@@ -166,14 +146,14 @@ export default function HomePage() {
           <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-10 px-4 pt-12 pb-16 sm:px-6 lg:grid-cols-12 lg:gap-12 lg:pt-16 lg:pb-24">
             <Reveal className="lg:col-span-6">
               <h1 className="font-display text-4xl font-semibold leading-[1.05] tracking-tight text-ms-ink sm:text-5xl lg:text-[3.5rem]">
-                Des maths qu’on comprend avec les mains.
+                Apprendre une langue, à son rythme.
               </h1>
               <p className="mt-6 max-w-[46ch] text-lg leading-relaxed text-ms-ink/70">
-                Cours particuliers inspirés de Montessori : à domicile à Bruxelles dès 3 ans, en visio pour les 12-15 ans.
+                Cours de langue en ligne inspirés de Montessori, pour les enfants à partir de 4 ans, en petit groupe de 6 élèves maximum.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <a href="#courses" className={btnPrimary}>
-                  Découvrir les cours
+                  Découvrir le cours
                   <ArrowRight size={16} strokeWidth={2} />
                 </a>
                 <Link href="/login" className={btnGhost}>
@@ -184,10 +164,10 @@ export default function HomePage() {
 
             <Reveal delay={0.15} className="lg:col-span-6">
               <div className="relative aspect-[5/4] max-h-[520px] overflow-hidden rounded-[1.75rem] bg-ms-sand lg:aspect-[4/5] lg:max-h-[calc(100dvh-12rem)]">
-                {/* TODO photo réelle : séance de maths, enfant et enseignant autour du matériel, 1200x1500 */}
+                {/* TODO photo réelle : enfant pendant une séance, 1200x1500 */}
                 <Image
                   src="https://picsum.photos/seed/monte-souris-seance/1200/1500"
-                  alt="Un enfant manipule des perles de numération pendant une séance de mathématiques"
+                  alt="Un enfant pendant une séance Monte & Souris"
                   fill
                   priority
                   sizes="(min-width: 1024px) 50vw, 100vw"
@@ -215,24 +195,16 @@ export default function HomePage() {
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <Reveal className="max-w-[60ch]">
               <h2 className="font-display text-3xl font-semibold tracking-tight text-ms-ink sm:text-4xl">
-                Trois formules, un même cadre.
+                Un cours, pensé pour chaque enfant.
               </h2>
               <p className="mt-4 text-lg leading-relaxed text-ms-ink/70">
-                Suivi sur mesure, matériel concret et plateforme de révision incluse, quel que soit l’âge.
+                Début des cours le dimanche 15 novembre 2026. Sans engagement : vous pouvez arrêter à la fin de n’importe quel mois.
               </p>
             </Reveal>
 
-            <div className="mt-12 grid grid-cols-1 gap-5 lg:grid-cols-12">
-              <Reveal className="lg:col-span-7 lg:row-span-2 flex">
-                <CourseCell course={courses[0]} className="w-full" />
-              </Reveal>
-              <Reveal delay={0.08} className="lg:col-span-5 flex">
-                <CourseCell course={courses[1]} className="w-full" />
-              </Reveal>
-              <Reveal delay={0.16} className="lg:col-span-5 flex">
-                <CourseCell course={courses[2]} className="w-full" />
-              </Reveal>
-            </div>
+            <Reveal className="mt-12 flex max-w-3xl">
+              <CourseCell course={course} className="w-full" />
+            </Reveal>
           </div>
         </section>
 
@@ -253,7 +225,7 @@ export default function HomePage() {
                 {/* TODO photo réelle : mains d'enfant sur du matériel Montessori, plan large, 1800x800 */}
                 <Image
                   src="https://picsum.photos/seed/monte-souris-mains/1800/800"
-                  alt="Des mains d'enfant alignent des barres de calcul Montessori"
+                  alt="Des mains d'enfant sur du matériel Montessori"
                   fill
                   sizes="(min-width: 1152px) 1152px, 100vw"
                   className="object-cover"
@@ -318,7 +290,7 @@ export default function HomePage() {
                 Une question ? Écrivez-moi.
               </h2>
               <p className="mt-4 max-w-[52ch] text-lg leading-relaxed text-ms-ink/70">
-                Inscription, disponibilités ou simple curiosité : je réponds sous 48h.
+                Inscription, niveau de votre enfant ou simple curiosité : je réponds sous 48h.
               </p>
               <a
                 href="mailto:nabilaanbari@zohomail.eu"
@@ -331,12 +303,12 @@ export default function HomePage() {
             <Reveal delay={0.1} className="lg:col-span-5 lg:pt-2">
               <ul className="divide-y divide-ms-sand text-ms-ink/80">
                 <li className="flex items-start gap-3 py-4">
-                  <MapPin size={20} strokeWidth={ICON} className="mt-0.5 shrink-0 text-ms-moss" />
-                  <span>Séances à domicile à Bruxelles et en périphérie, ou en visio.</span>
+                  <Laptop size={20} strokeWidth={ICON} className="mt-0.5 shrink-0 text-ms-moss" />
+                  <span>Cours en ligne, en visio, à suivre depuis la maison.</span>
                 </li>
                 <li className="flex items-start gap-3 py-4">
-                  <Clock size={20} strokeWidth={ICON} className="mt-0.5 shrink-0 text-ms-moss" />
-                  <span>Première séance découverte pour construire le parcours de l’élève.</span>
+                  <CalendarDays size={20} strokeWidth={ICON} className="mt-0.5 shrink-0 text-ms-moss" />
+                  <span>Début des cours le dimanche 15 novembre 2026.</span>
                 </li>
                 <li className="flex items-start gap-3 py-4">
                   <Phone size={20} strokeWidth={ICON} className="mt-0.5 shrink-0 text-ms-moss" />
