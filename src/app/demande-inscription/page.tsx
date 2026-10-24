@@ -98,7 +98,7 @@ export default function EnrollmentPage() {
             Demande d&apos;inscription aux cours d&apos;arabe
           </h1>
           <p className="text-[#2D2D2D]/60 text-sm mt-2 leading-relaxed">
-            Cours en ligne pour les enfants non arabophones de {MIN_CHILD_AGE} à {MAX_CHILD_AGE} ans,
+            Cours en ligne pour les enfants non arabophones à partir de {MIN_CHILD_AGE} ans,
             en petit groupe de 6 élèves maximum, inspirés de la pédagogie Montessori.
           </p>
           <p className="inline-block mt-4 px-4 py-2 rounded-xl bg-[#FFFDF8] border border-[#EDE5D8] text-sm text-[#2D2D2D]">
