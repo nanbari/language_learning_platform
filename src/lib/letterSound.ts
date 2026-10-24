@@ -1,4 +1,5 @@
 import type { ArabicLetter } from "@/data/arabicAlphabet";
+import { playSound, stopSound } from "@/lib/soundPlayer";
 
 /**
  * Sons enregistrés par un admin sur la plateforme (page « Sons des lettres ») :
@@ -85,7 +86,8 @@ export function spokenSound(letter: ArabicLetter): string {
   return `${letter.id === 1 ? "أ" : letter.isolated}َ`;
 }
 
-let current: HTMLAudioElement | null = null;
+/** Numéro du dernier son demandé : un son plus ancien, encore en chargement, n'est pas joué. */
+let current = 0;
 
 function speak(letter: ArabicLetter) {
   const synth = window.speechSynthesis;
@@ -100,13 +102,11 @@ function speak(letter: ArabicLetter) {
 }
 
 /** Joue la première source lisible, sinon `fallback`. */
-function playFirst(urls: string[], fallback: () => void) {
+function playFirst(turn: number, urls: string[], fallback: () => void) {
   const [url, ...rest] = urls;
   if (!url) { fallback(); return; }
-  const audio = new Audio(url);
-  current = audio;
   // Fichier absent ou illisible : la source suivante prend le relais.
-  audio.play().catch(() => { if (current === audio) playFirst(rest, fallback); });
+  void playSound(url).then((ok) => { if (!ok && current === turn) playFirst(turn, rest, fallback); });
 }
 
 /**
@@ -114,12 +114,11 @@ function playFirst(urls: string[], fallback: () => void) {
  * qui attend encore le chargement des sons enregistrés.
  */
 function play(pick: (sounds: Sounds) => string[], fallback: () => void) {
-  current?.pause();
+  stopSound();
   window.speechSynthesis?.cancel();
-  const marker = new Audio();
-  current = marker;
+  const turn = ++current;
   loadSounds().then((sounds) => {
-    if (current === marker) playFirst(pick(sounds), fallback);
+    if (current === turn) playFirst(turn, pick(sounds), fallback);
   });
 }
 
@@ -134,7 +133,7 @@ export function playQuestionSound(kind: QuestionKind) {
 
 /** Coupe le son en cours (changement d'exercice). */
 export function stopSounds() {
-  current?.pause();
-  current = null;
+  current++;
+  stopSound();
   window.speechSynthesis?.cancel();
 }

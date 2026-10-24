@@ -6,10 +6,11 @@
  * chaque rendu journalise ses événements via useExerciseTracker avec le
  * lessonId / blockId reçus, quelle que soit la page qui l’affiche.
  */
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Volume2, ChevronRight, CheckCircle, XCircle } from "lucide-react";
 import { Confetti } from "@/components/Confetti";
 import { useExerciseTracker } from "@/lib/useExerciseTracker";
+import { playSound, stopSound } from "@/lib/soundPlayer";
 
 /* ── Types ── */
 export interface QuizOption { id: string; text: string; imageDataUrl?: string; }
@@ -47,26 +48,15 @@ export function QuizRenderer({ ex, color, onNext, idx, total, lessonId, blockId 
   const [correct, setCorrect]   = useState(false);
   const [shake, setShake]       = useState(false);
   const track = useExerciseTracker({ lessonId, blockId, exerciseType: "quiz" });
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const playAudio = () => {
-    if (!ex.audioDataUrl) return;
-    audioRef.current?.pause();
-    const a = new Audio(ex.audioDataUrl);
-    audioRef.current = a;
-    // Un média illisible ne doit pas remonter en erreur non gérée
-    a.play().catch(() => {});
+    if (ex.audioDataUrl) void playSound(ex.audioDataUrl);
   };
 
   useEffect(() => {
     if (!ex.audioDataUrl) return;
-    const a = new Audio(ex.audioDataUrl);
-    audioRef.current = a;
-    const promise = a.play();
-    if (promise !== undefined) {
-      promise.catch(() => {});
-    }
-    return () => { a.pause(); };
+    void playSound(ex.audioDataUrl);
+    return () => stopSound();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -74,9 +64,8 @@ export function QuizRenderer({ ex, color, onNext, idx, total, lessonId, blockId 
   const POST_DELAY = 2500;
 
   const playSuccessSound = () => {
-    const a = new Audio("/sounds/bravo.mp3");
-    a.play().catch(() => {});
-    setTimeout(() => { a.pause(); }, SOUND_DURATION);
+    void playSound("/sounds/bravo.mp3");
+    setTimeout(() => stopSound("/sounds/bravo.mp3"), SOUND_DURATION);
   };
 
   const handleSelect = (id: string) => {
@@ -208,15 +197,10 @@ export function WordOrderRenderer({ ex, color, onNext, lessonId, blockId }: {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ex.sentence]);
 
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
   const speakInstruction = useCallback(() => {
     // Prefer teacher's recorded audio when available
     if (ex.audioDataUrl) {
-      audioRef.current?.pause();
-      const a = new Audio(ex.audioDataUrl);
-      audioRef.current = a;
-      a.play().catch(() => {});
+      void playSound(ex.audioDataUrl);
       return;
     }
     // Fallback: browser speech synthesis in Arabic
@@ -234,10 +218,8 @@ export function WordOrderRenderer({ ex, color, onNext, lessonId, blockId }: {
   useEffect(() => {
     // Autoplay teacher's audio directly when present
     if (ex.audioDataUrl) {
-      const a = new Audio(ex.audioDataUrl);
-      audioRef.current = a;
-      a.play().catch(() => {});
-      return () => { a.pause(); };
+      void playSound(ex.audioDataUrl);
+      return () => stopSound();
     }
     // Otherwise fall back to TTS; voices may load async
     if (typeof window === "undefined" || !window.speechSynthesis) return;
@@ -280,18 +262,15 @@ export function WordOrderRenderer({ ex, color, onNext, lessonId, blockId }: {
       setFeedback("correct");
       const BRAVO_MS  = 2300;
       const POST_DELAY = 2500;
-      const bravo = new Audio("/sounds/bravo.mp3");
-      bravo.play().catch(() => {});
+      void playSound("/sounds/bravo.mp3");
       const advance = () => setTimeout(onNext, POST_DELAY);
       const playAnswerThenAdvance = () => {
-        bravo.pause();
+        stopSound("/sounds/bravo.mp3");
         if (!ex.answerAudioDataUrl) {
           advance();
           return;
         }
-        const ans = new Audio(ex.answerAudioDataUrl);
-        ans.onended = advance;
-        ans.play().catch(advance);
+        void playSound(ex.answerAudioDataUrl, advance).then((ok) => { if (!ok) advance(); });
       };
       setTimeout(playAnswerThenAdvance, BRAVO_MS);
     } else {

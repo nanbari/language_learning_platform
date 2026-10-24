@@ -15,6 +15,7 @@ import { LetterExercise, NEXT_LETTER_EXERCISE_DELAY_MS } from "@/components/less
 import { buildLetterDeck, type Slide } from "@/lib/presentation";
 import { isLetterGameSlide, letterGameId, type LettersBlock } from "@/lib/letterExercises";
 import { isGame } from "@/lib/liveSession";
+import { playSound, stopSound } from "@/lib/soundPlayer";
 
 /* ── Types ── */
 type LessonBlock = ContentBlock | LettersBlock;
@@ -57,32 +58,17 @@ const COLORS = ["#8BA3B1", "#999B84", "#6B705C", "#BB908E", "#7B868E", "#CCB9B5"
 function SlideshowRenderer({ slides, onDone }: { slides: SlideItem[]; onDone: () => void }) {
   const [idx, setIdx] = useState(0);
   const [done, setDone] = useState(false);
-  const audioCtxRef    = useRef<AudioContext | null>(null);
-  const audioBufsRef   = useRef<(AudioBuffer | null)[]>([]);
-  const decodingRef    = useRef<Promise<void>[]>([]);
-  const sourceRef      = useRef<AudioBufferSourceNode | null>(null);
   const timerRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Decode all audio into memory once — keeps a promise per slide so the
-  // playback effect can await decode completion before starting.
+  // Précharge les sons des diapos pour que le début ne soit pas coupé.
   useEffect(() => {
-    const ctx = new AudioContext();
-    audioCtxRef.current = ctx;
-    audioBufsRef.current = new Array(slides.length).fill(null);
-
-    decodingRef.current = slides.map((slide, i) => {
-      if (!slide.audioDataUrl) return Promise.resolve();
-      return fetch(slide.audioDataUrl)
-        .then((r) => r.arrayBuffer())
-        .then((ab) => ctx.decodeAudioData(ab))
-        .then((buf) => { audioBufsRef.current[i] = buf; })
-        .catch(() => {});
+    const preloads = slides.filter((sl) => sl.audioDataUrl).map((sl) => {
+      const a = new Audio();
+      a.preload = "auto";
+      a.src = sl.audioDataUrl!;
+      return a;
     });
-
-    return () => {
-      sourceRef.current?.stop();
-      ctx.close();
-    };
+    return () => { preloads.forEach((a) => { a.src = ""; }); };
   }, [slides]);
 
   useEffect(() => {
@@ -101,35 +87,15 @@ function SlideshowRenderer({ slides, onDone }: { slides: SlideItem[]; onDone: ()
     const slide    = slides[idx];
     const SLIDE_POST_DELAY = 2500;
     const duration = (slide.audioDuration ?? 3000) + SLIDE_POST_DELAY;
-    let cancelled  = false;
 
     if (timerRef.current) clearTimeout(timerRef.current);
-    sourceRef.current?.stop();
-    sourceRef.current = null;
-
-    const playAndSchedule = () => {
-      if (cancelled) return;
-      const ctx = audioCtxRef.current;
-      const buf = audioBufsRef.current[idx];
-      if (ctx && buf) {
-        if (ctx.state === "suspended") ctx.resume();
-        const src = ctx.createBufferSource();
-        src.buffer = buf;
-        src.connect(ctx.destination);
-        src.start(0);
-        sourceRef.current = src;
-      }
-      timerRef.current = setTimeout(advance, duration);
-    };
-
-    // Wait for decode to finish before playing — fixes cut beginning on first slides
-    (decodingRef.current[idx] ?? Promise.resolve()).then(playAndSchedule);
+    // Lecteur partagé : sur téléphone, il continue de jouer d'une diapo à l'autre sans nouveau toucher.
+    if (slide.audioDataUrl) void playSound(slide.audioDataUrl);
+    timerRef.current = setTimeout(advance, duration);
 
     return () => {
-      cancelled = true;
       if (timerRef.current) clearTimeout(timerRef.current);
-      sourceRef.current?.stop();
-      sourceRef.current = null;
+      stopSound();
     };
   }, [idx, advance, slides]);
 
