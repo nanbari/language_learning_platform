@@ -1,6 +1,19 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { Mic, MicOff, Video, VideoOff, VolumeX } from "lucide-react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Mic, MicOff, Video, VideoOff, Volume2, VolumeX } from "lucide-react";
+
+// Nombre de vignettes dont le son attend un clic, pour afficher un seul
+// bandeau « Activer le son » sur toute la page.
+let blockedTiles = 0;
+const blockedListeners = new Set<() => void>();
+function changeBlocked(delta: number) {
+  blockedTiles += delta;
+  blockedListeners.forEach((l) => l());
+}
+function subscribeBlocked(listener: () => void) {
+  blockedListeners.add(listener);
+  return () => { blockedListeners.delete(listener); };
+}
 
 /**
  * Vignette d'un participant de l'appel vidéo. La sienne est muette et en
@@ -35,6 +48,7 @@ export function VideoTile({
 
   useEffect(() => {
     if (!blocked) return;
+    changeBlocked(1);
     const unblock = () => {
       const video = ref.current;
       if (!video) return;
@@ -42,7 +56,10 @@ export function VideoTile({
       video.play().then(() => setBlocked(false)).catch(() => {});
     };
     document.addEventListener("pointerdown", unblock, { once: true });
-    return () => document.removeEventListener("pointerdown", unblock);
+    return () => {
+      document.removeEventListener("pointerdown", unblock);
+      changeBlocked(-1);
+    };
   }, [blocked]);
 
   const showVideo = !!stream && cam && stream.getVideoTracks().length > 0;
@@ -71,6 +88,22 @@ export function VideoTile({
         {blocked && <span className="p-1 rounded-full bg-black/45 text-white" title="Touchez l'écran pour le son"><VolumeX size={11} /></span>}
       </div>
     </div>
+  );
+}
+
+/**
+ * Bandeau bien visible tant que le navigateur bloque le son d'au moins un
+ * participant : n'importe quel clic le rétablit, ce bouton le dit clairement.
+ */
+export function SoundUnlock() {
+  const blocked = useSyncExternalStore(subscribeBlocked, () => blockedTiles, () => 0);
+  if (blocked <= 0) return null;
+  return (
+    <button
+      className="fixed top-3 left-1/2 -translate-x-1/2 z-[80] flex items-center gap-2 px-5 py-3 rounded-full bg-[#6B705C] text-white font-bold shadow-lg animate-pulse"
+    >
+      <Volume2 size={20} /> Activer le son
+    </button>
   );
 }
 

@@ -13,7 +13,7 @@ import { useLiveHost } from "@/lib/useLiveSession";
 import { useVideoCall } from "@/lib/useLiveVideo";
 import { useAuthStore } from "@/store/authStore";
 import { SlideView } from "@/components/present/Slides";
-import { CallButtons, VideoTile } from "@/components/present/VideoCall";
+import { CallButtons, SoundUnlock, VideoTile } from "@/components/present/VideoCall";
 import { LETTER_POSITIONS } from "@/data/letterWords";
 
 type RuleKind = "beginner" | "advanced" | "vocab";
@@ -396,6 +396,7 @@ function Player({ deck, code, className, onQuit }: { deck: Slide[]; code: string
       </div>
 
       {/* Appel vidéo : l'enseignant et ses élèves */}
+      <SoundUnlock />
       <div className="w-[19vw] min-w-36 max-w-64 shrink-0 overflow-y-auto flex flex-col gap-2 pr-4 pb-2">
         <VideoTile stream={call.local} name={user?.name ?? "Enseignant"} cam={call.cam} mic={call.mic} self />
         {call.peers.map((peer) => (

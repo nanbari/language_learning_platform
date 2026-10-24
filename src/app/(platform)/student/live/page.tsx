@@ -10,7 +10,7 @@ import { fetchLiveClasses } from "@/lib/classesApi";
 import { useLiveGuest } from "@/lib/useLiveSession";
 import { useVideoCall } from "@/lib/useLiveVideo";
 import { SlideView } from "@/components/present/Slides";
-import { CallButtons, VideoTile } from "@/components/present/VideoCall";
+import { CallButtons, SoundUnlock, VideoTile } from "@/components/present/VideoCall";
 
 /** Fréquence de vérification des cours lancés dans les classes de l'élève. */
 const POLL_MS = 5000;
@@ -116,6 +116,7 @@ function LiveRoom({ code, me, onLeave }: { code: string; me: Participant; onLeav
       </div>
 
       {call.error && <p className="text-center text-sm font-bold text-[#BB908E] px-4">{call.error}</p>}
+      <SoundUnlock />
 
       {/* Marge à droite pour la colonne des vignettes */}
       <div className="flex-1 flex items-center justify-center pl-4 pr-[max(7rem,calc(17vmin+2rem))]">

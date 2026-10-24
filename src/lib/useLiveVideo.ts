@@ -58,6 +58,35 @@ const VIDEO: Record<CallRole, { width: number; height: number; frameRate: number
   student: { width: 320, height: 240, frameRate: 15, kbps: 250 },
 };
 
+/**
+ * Le réglage automatique du micro vise un niveau bas : la voix est amplifiée
+ * avant l'envoi, puis un limiteur évite que les éclats de voix saturent.
+ */
+const MIC_GAIN = 2.5;
+
+interface Boost {
+  ctx: AudioContext;
+  track: MediaStreamTrack;
+}
+
+function boostMic(media: MediaStream): Boost | null {
+  const input = media.getAudioTracks()[0];
+  if (!input || typeof AudioContext === "undefined") return null;
+  const ctx = new AudioContext();
+  const source = ctx.createMediaStreamSource(new MediaStream([input]));
+  const gain = ctx.createGain();
+  gain.gain.value = MIC_GAIN;
+  const limiter = ctx.createDynamicsCompressor();
+  limiter.threshold.value = -3;
+  limiter.knee.value = 0;
+  limiter.ratio.value = 20;
+  limiter.attack.value = 0.003;
+  limiter.release.value = 0.2;
+  const out = ctx.createMediaStreamDestination();
+  source.connect(gain).connect(limiter).connect(out);
+  return { ctx, track: out.stream.getAudioTracks()[0] };
+}
+
 /** Ce que chacun publie dans la présence du canal. */
 interface Member extends CallMember {
   session: string;
@@ -121,16 +150,24 @@ export function useVideoCall(code: string, me: CallMember) {
   const channelRef = useRef<RealtimeChannel | null>(null);
   const sessionRef = useRef("");
   const localRef = useRef<MediaStream | null>(null);
+  const boostRef = useRef<Boost | null>(null);
   const links = useRef(new Map<string, Link>());
   const callCount = useRef(0);
   const mediaState = useRef({ cam: true, mic: true });
 
-  /** Branche nos pistes locales (s'il y en a) sur les émetteurs d'une connexion. */
+  /**
+   * Branche nos pistes locales (s'il y en a) sur les émetteurs d'une connexion.
+   * Le micro amplifié remplace le micro brut dès que son traitement tourne
+   * (le navigateur le met en pause jusqu'au premier clic).
+   */
   const attachLocal = useCallback((pc: RTCPeerConnection) => {
     const media = localRef.current;
+    const boost = boostRef.current;
     for (const t of pc.getTransceivers()) {
       const kind = t.receiver.track.kind;
-      const track = media?.getTracks().find((m) => m.kind === kind) ?? null;
+      const track = kind === "audio" && boost?.ctx.state === "running"
+        ? boost.track
+        : media?.getTracks().find((m) => m.kind === kind) ?? null;
       t.direction = "sendrecv";
       t.sender.replaceTrack(track).catch(() => {});
     }
@@ -281,14 +318,37 @@ export function useVideoCall(code: string, me: CallMember) {
       media.getAudioTracks().forEach((t) => { t.enabled = mediaState.current.mic; });
       localRef.current = media;
       setLocal(media);
-      for (const { pc } of links.current.values()) {
-        if (pc.signalingState !== "closed") attachLocal(pc);
+      const attachAll = () => {
+        for (const { pc } of links.current.values()) {
+          if (pc.signalingState !== "closed") attachLocal(pc);
+        }
+      };
+      const boost = boostMic(media);
+      if (boost) {
+        boostRef.current = boost;
+        boost.ctx.onstatechange = attachAll;
+        void boost.ctx.resume().catch(() => {});
+        document.addEventListener("pointerdown", resume);
+        document.addEventListener("keydown", resume);
       }
+      attachAll();
     }).catch(() => {
       if (!cancelled) setError("Caméra ou micro inaccessible : autorise-les dans le navigateur pour être vu et entendu.");
     });
+    function resume() {
+      const ctx = boostRef.current?.ctx;
+      if (ctx?.state === "suspended") void ctx.resume().catch(() => {});
+    }
     return () => {
       cancelled = true;
+      document.removeEventListener("pointerdown", resume);
+      document.removeEventListener("keydown", resume);
+      if (boostRef.current) {
+        boostRef.current.ctx.onstatechange = null;
+        boostRef.current.track.stop();
+        void boostRef.current.ctx.close().catch(() => {});
+        boostRef.current = null;
+      }
       localRef.current?.getTracks().forEach((t) => t.stop());
       localRef.current = null;
       setLocal(null);
