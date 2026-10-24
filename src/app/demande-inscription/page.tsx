@@ -102,9 +102,12 @@ export default function EnrollmentPage() {
             en petit groupe de 6 élèves maximum, inspirés de la pédagogie Montessori.
           </p>
           <p className="inline-block mt-4 px-4 py-2 rounded-xl bg-[#FFFDF8] border border-[#EDE5D8] text-sm text-[#2D2D2D]">
-            Début des cours : <strong className="text-[#6B705C]">dimanche 15 novembre</strong>
+            Début des cours : <strong className="text-[#6B705C]">dimanche 15 novembre 2026</strong>
             <span className="block mt-1"><strong className="text-[#6B705C]">35 € par mois</strong>, sans engagement</span>
-            <span className="block text-xs text-[#2D2D2D]/50">par enfant, une séance de 50 minutes par semaine</span>
+            <span className="block text-xs text-[#2D2D2D]/50">
+              par enfant : une séance de 50 minutes par semaine
+              <br />et l&apos;accès à la plateforme de révision entre les cours
+            </span>
           </p>
         </div>
 
