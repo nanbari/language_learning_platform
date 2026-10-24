@@ -101,6 +101,11 @@ export default function EnrollmentPage() {
             Cours en ligne pour les enfants non arabophones de {MIN_CHILD_AGE} à {MAX_CHILD_AGE} ans,
             en petit groupe de 6 élèves maximum, inspirés de la pédagogie Montessori.
           </p>
+          <p className="inline-block mt-4 px-4 py-2 rounded-xl bg-[#FFFDF8] border border-[#EDE5D8] text-sm text-[#2D2D2D]">
+            Début des cours : <strong className="text-[#6B705C]">dimanche 15 novembre</strong>
+            <span className="block mt-1"><strong className="text-[#6B705C]">35 € par mois</strong>, sans engagement</span>
+            <span className="block text-xs text-[#2D2D2D]/50">par enfant, une séance de 50 minutes par semaine</span>
+          </p>
         </div>
 
         <div className="bg-[#FFFDF8] rounded-3xl shadow-lg p-6 sm:p-8 border border-[#EDE5D8]">
