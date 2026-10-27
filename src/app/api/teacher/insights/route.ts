@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
-import { COOKIE_NAME, verifySession, isStaff } from "@/lib/auth";
+import { supabaseAdmin } from "@/server/supabase";
+import { isStaff } from "@/server/auth";
 import { buildTeacherInsights, type InsightLesson } from "@/lib/teacherInsights";
 import type { ContentBlock } from "@/components/lesson/ExerciseRenderers";
 import type { ExerciseEventRow } from "@/lib/exerciseEvents";
-
-// Client service-role : la RLS est contournée, l'autorisation est faite ici
-// même (session + rôle) — ne jamais exposer ce client au navigateur.
-let adminClient: ReturnType<typeof supabaseAdmin> | null = null;
-const supabase = () => (adminClient ??= supabaseAdmin());
+import { currentUser } from "@/server/session";
+import { serverError } from "@/server/errors";
 
 /** Événements lus pour l'analyse (les plus récents, toutes leçons confondues). */
 const EVENTS_LIMIT = 20_000;
@@ -20,18 +17,19 @@ const EVENTS_LIMIT = 20_000;
  * admins : toutes. Réponse : TeacherInsights.
  */
 export async function GET(req: NextRequest) {
-  const session = await verifySession(req.cookies.get(COOKIE_NAME)?.value);
-  if (!session) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const auth = await currentUser(req);
+  if ("error" in auth) return auth.error;
+  const session = auth.user;
   if (!isStaff(session)) {
     return NextResponse.json({ error: "Interdit" }, { status: 403 });
   }
 
-  const db = supabase();
+  const db = supabaseAdmin();
 
   let lessonsQuery = db.from("lessons").select("id, title, exercises");
   if (!session.isAdmin) lessonsQuery = lessonsQuery.eq("author_id", session.id);
   const { data: lessonRows, error: lessonsError } = await lessonsQuery;
-  if (lessonsError) return NextResponse.json({ error: lessonsError.message }, { status: 500 });
+  if (lessonsError) return serverError("/api/teacher/insights lessonsError", lessonsError);
 
   const lessons: InsightLesson[] = (lessonRows ?? []).map((l) => ({
     id: l.id as string,
@@ -50,8 +48,8 @@ export async function GET(req: NextRequest) {
       .limit(EVENTS_LIMIT),
     db.from("users").select("id, name").eq("role", "student"),
   ]);
-  if (eventsError) return NextResponse.json({ error: eventsError.message }, { status: 500 });
-  if (usersError)  return NextResponse.json({ error: usersError.message }, { status: 500 });
+  if (eventsError) return serverError("/api/teacher/insights eventsError", eventsError);
+  if (usersError)  return serverError("/api/teacher/insights usersError", usersError);
 
   return NextResponse.json(
     buildTeacherInsights(lessons, (students ?? []) as { id: string; name: string }[], (events ?? []) as ExerciseEventRow[]),

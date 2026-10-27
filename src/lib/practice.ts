@@ -19,8 +19,8 @@
  */
 import { z } from "zod";
 import type { ContentBlock, QuizExercise, WordOrderExercise } from "@/components/lesson/ExerciseRenderers";
-import type { ReviewableExercise, SpotExercise, WeakSpot } from "./weakSpots";
-import { letterGameLabel, type LetterGameExercise } from "./letterExercises";
+import type { ReviewableExercise, SpotExercise, WeakSpot } from "@/lib/weakSpots";
+import { letterGameLabel, type LetterGameExercise } from "@/lib/letterExercises";
 
 /** Préfixe des blocs générés (block_id dans exercise_events). */
 export const GENERATED_PREFIX = "gen-";
@@ -38,7 +38,7 @@ export const QUIZ_OPTIONS = 3;
  * maxItems / minLength : la sortie structurée garantit la forme, la
  * validation fine est faite dans toPracticeBlocks.
  */
-export const GeneratedQuizSchema = z.object({
+const GeneratedQuizSchema = z.object({
   type: z.literal("quiz"),
   sourceBlockId: z.string().describe("blockId du point faible dont cet exercice est la variante"),
   question: z.string(),
@@ -46,7 +46,7 @@ export const GeneratedQuizSchema = z.object({
   correctIndex: z.number().int().describe("Index (0-based) de la bonne réponse dans options"),
 });
 
-export const GeneratedWordOrderSchema = z.object({
+const GeneratedWordOrderSchema = z.object({
   type: z.literal("wordorder"),
   sourceBlockId: z.string().describe("blockId du point faible dont cet exercice est la variante"),
   sentence: z.string().describe("Phrase correcte, mots séparés par des espaces (3 à 7 mots)"),
@@ -57,7 +57,6 @@ export const GeneratedSetSchema = z.object({
 });
 
 export type GeneratedSet = z.infer<typeof GeneratedSetSchema>;
-export type GeneratedExercise = GeneratedSet["exercises"][number];
 
 /** Bloc d'exercice tel que stocké dans une série : un exercice de leçon ou un jeu de lettres. */
 export type PracticeBlock =

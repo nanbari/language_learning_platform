@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
-import { COOKIE_NAME, verifySession } from "@/lib/auth";
+import { supabaseAdmin } from "@/server/supabase";
 import { parseNewTeacher, type StaffRow } from "@/lib/staff";
 import { RESET_PAGE_PATH } from "@/lib/passwordReset";
-
-// Client service-role : la RLS est contournée, l'autorisation (droit admin)
-// est faite ici même — ne jamais exposer ce client au navigateur.
-let adminClient: ReturnType<typeof supabaseAdmin> | null = null;
-const supabase = () => (adminClient ??= supabaseAdmin());
+import { currentUser } from "@/server/session";
+import { serverError } from "@/server/errors";
 
 const EXISTS_RE = /already been registered|already exists|already registered/i;
 
@@ -26,20 +22,21 @@ const EXISTS_RE = /already been registered|already exists|already registered/i;
  *  409  un compte existe déjà avec cette adresse e-mail
  */
 export async function POST(req: NextRequest) {
-  const session = await verifySession(req.cookies.get(COOKIE_NAME)?.value);
-  if (!session) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const auth = await currentUser(req);
+  if ("error" in auth) return auth.error;
+  const session = auth.user;
   if (!session.isAdmin) return NextResponse.json({ error: "Réservé aux administrateurs" }, { status: 403 });
 
   const parsed = parseNewTeacher(await req.json().catch(() => null));
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
   const { name, email, isAdmin } = parsed.value;
 
-  const db = supabase();
+  const db = supabaseAdmin();
   const exists = () => NextResponse.json({ error: "Un compte existe déjà avec cette adresse e-mail" }, { status: 409 });
 
   // Un profil existe déjà : on ne touche à rien (ni compte Auth, ni profil).
   const { data: existing, error: lookupError } = await db.from("users").select("id").eq("email", email).maybeSingle();
-  if (lookupError) return NextResponse.json({ error: lookupError.message }, { status: 500 });
+  if (lookupError) return serverError("/api/admin/teachers lookupError", lookupError);
   if (existing) return exists();
 
   // Adresse publique du site si configurée (derrière un proxy, l'origine de

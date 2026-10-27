@@ -12,13 +12,16 @@
  * et n'est donc pas suivie ici.
  */
 import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";
+
+/** Temps laissé à la réussite (coche) avant l'exercice de lettres suivant. */
+export const NEXT_LETTER_EXERCISE_DELAY_MS = 1500;
 import { LETTER_POSITIONS } from "@/data/letterWords";
-import { buildLetterDeck, type LetterLevel, type Slide } from "./presentation";
+import { buildLetterDeck, type LetterLevel, type Slide } from "@/lib/presentation";
 
 /** Bloc « Lettres » d'une leçon : les lettres du jour, présentées puis travaillées comme en cours en direct. */
 export interface LettersBlock { id: string; type: "letters"; level: LetterLevel; letterIds: number[]; reviewIds?: number[] }
 
-export const LETTER_GAME_KINDS = ["pickSound", "findLetter", "findInWord", "completeWord"] as const;
+const LETTER_GAME_KINDS = ["pickSound", "findLetter", "findInWord", "completeWord"] as const;
 export type LetterGameSlide = Extract<Slide, { kind: (typeof LETTER_GAME_KINDS)[number] }>;
 
 /** Jeu de lettres rejoué en révision. */

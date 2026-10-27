@@ -7,21 +7,26 @@
  * mode claude) ; ils sont joués ici avec les mêmes rendus que la leçon, et
  * leurs événements se journalisent sous la leçon d'origine.
  */
-import { useState, use, useEffect, useCallback } from "react";
+import { useState, use, useEffect, useCallback, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, Trophy, Sparkles, RefreshCw } from "lucide-react";
-import { fetchLessons, type ApiLesson } from "@/lib/lessonsApi";
-import { fetchLatestPracticeSet, generatePractice, fetchPracticeSummary } from "@/lib/practiceApi";
-import { flushExerciseEvents } from "@/lib/eventsApi";
+import type { LucideIcon } from "lucide-react";
+import { AlertCircle, ArrowLeft, Check, CircleSlash, Hourglass, RefreshCw, RotateCcw } from "lucide-react";
+import { fetchLessons, type ApiLesson } from "@/lib/api/lessons";
+import { fetchLatestPracticeSet, generatePractice, fetchPracticeSummary } from "@/lib/api/practice";
+import { flushExerciseEvents } from "@/lib/api/events";
 import type { PracticeSet } from "@/lib/practice";
 import {
   QuizRenderer, WordOrderRenderer,
   type QuizExercise, type WordOrderExercise,
 } from "@/components/lesson/ExerciseRenderers";
-import { LetterExercise, NEXT_LETTER_EXERCISE_DELAY_MS } from "@/components/lesson/LetterExercise";
+import dynamic from "next/dynamic";
+import { NEXT_LETTER_EXERCISE_DELAY_MS } from "@/lib/letterExercises";
 
-// Même rotation que le tableau de bord et la page de leçon.
-const COLORS = ["#8BA3B1", "#999B84", "#6B705C", "#BB908E", "#7B868E", "#CCB9B5"];
+const LetterExercise = dynamic(() => import("@/components/lesson/LetterExercise").then((m) => m.LetterExercise), {
+  loading: () => <div className="ms-skeleton h-72 w-full rounded-3xl" aria-busy="true" aria-label="Chargement de l'exercice" />,
+});
+import { STUDENT_ICON } from "@/components/student/StudentShell";
+import { ACCENT_DEEP_HEX, accentAt, type Accent } from "@/components/student/accents";
 
 type Phase =
   | { kind: "loading" }
@@ -33,10 +38,35 @@ type Phase =
   | { kind: "playing"; set: PracticeSet }
   | { kind: "done"; set: PracticeSet };
 
+/** « Exercice N sur M » : même repère que la page de leçon. */
+function ExerciseProgress({ index, total, accent }: { index: number; total: number; accent: Accent }) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="h-2 flex-1 overflow-hidden rounded-full" style={{ background: accent.soft }} aria-hidden="true">
+        <div className="h-full rounded-full transition-[width] duration-[240ms]" style={{ background: accent.pastel, width: `${(index / total) * 100}%` }} />
+      </div>
+      <span className="shrink-0 text-base font-bold tabular-nums text-ms-muted">Exercice {index + 1} sur {total}</span>
+    </div>
+  );
+}
+
+/** Tuile d'icône calme, à la place des anciens émojis d'état. */
+function StateTile({ icon: Icon, accent, tone = "accent" }: { icon: LucideIcon; accent: Accent; tone?: "accent" | "error" }) {
+  return (
+    <span
+      className={`flex h-24 w-24 items-center justify-center rounded-[1.75rem] ${tone === "error" ? "bg-ms-danger-soft text-ms-danger" : ""}`}
+      style={tone === "error" ? undefined : { background: accent.soft, color: accent.deep }}
+    >
+      <Icon size={48} strokeWidth={tone === "error" ? 1.75 : 2} aria-hidden="true" />
+    </span>
+  );
+}
+
 export default function PracticePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [lesson, setLesson] = useState<ApiLesson | null | "loading">("loading");
-  const [color,  setColor]  = useState(COLORS[0]);
+  // Même rotation que l'accueil élève et la page de leçon : la leçon garde sa couleur.
+  const [accent, setAccent] = useState<Accent>(accentAt(0));
   const [phase,  setPhase]  = useState<Phase>({ kind: "loading" });
   const [index,  setIndex]  = useState(0);
   // Nombre d'exercices ratés sur la leçon (null = inconnu), pour l'écran d'accueil.
@@ -62,7 +92,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
       const all = await fetchLessons().catch(() => [] as ApiLesson[]);
       const idx = all.findIndex((l) => l.id === id);
       setLesson(idx >= 0 ? all[idx] : null);
-      if (idx >= 0) setColor(COLORS[idx % COLORS.length]);
+      if (idx >= 0) setAccent(accentAt(idx));
       if (idx < 0) { setPhase({ kind: "error", message: "Leçon introuvable" }); return; }
       const [set, summary] = await Promise.all([
         fetchLatestPracticeSet(id).catch(() => null),
@@ -80,46 +110,62 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   }, [id, generate]);
 
   const title = lesson && lesson !== "loading" ? lesson.title : "";
+  // Les exercices attendent une couleur littérale qui porte du texte blanc : la teinte profonde.
+  const color = ACCENT_DEEP_HEX[accent.name];
 
   const nav = (
-    <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
-      <Link href="/student" className="flex items-center gap-2 text-gray-600 hover:text-[#6B705C] transition-colors">
-        <ArrowLeft size={18} /> Retour
-      </Link>
-      <p className="font-black text-[#2d2d2d] text-sm truncate max-w-[200px]">
-        <Sparkles size={14} className="inline mr-1 -mt-0.5" style={{ color }} />
-        Révision · {title}
-      </p>
-      <div className="w-[60px]" />
+    <div className="sticky top-0 z-40 border-b border-ms-line bg-ms-surface">
+      <div className="mx-auto flex min-h-20 max-w-[66rem] items-center gap-3 px-4 sm:px-6">
+        <Link href="/student" data-variant="quiet" className="ms-button -ms-3 shrink-0" style={{ color: accent.deep }}>
+          <ArrowLeft size={STUDENT_ICON} strokeWidth={1.75} aria-hidden="true" /> Mes leçons
+        </Link>
+        <p className="min-w-0 flex-1 truncate text-end text-lg font-extrabold">
+          <span className="text-ms-muted">Révision</span>{title && <> · {title}</>}
+        </p>
+      </div>
+      <div className="h-1" style={{ background: accent.pastel }} aria-hidden="true" />
     </div>
   );
 
-  const card = (children: React.ReactNode) => (
-    <div className="min-h-screen bg-[#fffef9] flex flex-col">
+  // `wash` : le lavis pastel, seulement sur les écrans de fin (un accomplissement calme).
+  const card = (children: ReactNode, opts: { busy?: boolean; wash?: boolean } = {}) => (
+    <div data-ms-app="" data-ms-area="student" className="flex min-h-dvh flex-col bg-ms-canvas">
       {nav}
-      <div className="flex-1 flex items-center justify-center px-4 py-10">
-        <div className="max-w-md w-full text-center bg-white rounded-3xl p-8 shadow-sm border border-gray-100 animate-bounce-in">
+      <main className={`flex flex-1 items-center justify-center px-4 py-10 ${opts.wash ? "ms-welcome-wash" : ""}`}>
+        <div className="flex w-full max-w-md flex-col items-center gap-6 text-center" aria-busy={opts.busy || undefined}>
           {children}
         </div>
-      </div>
+      </main>
     </div>
   );
 
   if (phase.kind === "loading" || lesson === "loading") {
-    return <div className="min-h-screen flex items-center justify-center"><div className="text-4xl animate-float">⏳</div></div>;
+    return (
+      <div data-ms-app="" data-ms-area="student" className="min-h-dvh bg-ms-canvas" aria-busy="true" aria-label="Chargement de la révision">
+        <div className="h-[5.25rem] border-b border-ms-line bg-ms-surface" />
+        <div className="mx-auto flex max-w-md flex-col items-center gap-6 px-4 py-16">
+          <div className="ms-skeleton h-24 w-24 rounded-[1.75rem]" />
+          <div className="ms-skeleton h-8 w-64" />
+          <div className="ms-skeleton h-5 w-full" />
+          <div className="ms-skeleton h-16 w-full rounded-2xl" />
+        </div>
+      </div>
+    );
   }
 
   if (phase.kind === "error") {
     return card(<>
-      <div className="text-5xl mb-4">😅</div>
-      <p className="text-xl font-black text-[#2d2d2d] mb-2">Oups</p>
-      <p className="text-gray-600 mb-6">{phase.message}</p>
-      <div className="flex gap-3 justify-center">
-        <button onClick={generate} className="px-5 py-3 rounded-full border-2 font-bold hover:opacity-80 transition-all" style={{ borderColor: color, color }}>
-          Réessayer
+      <StateTile icon={AlertCircle} accent={accent} tone="error" />
+      <div role="alert">
+        <h1 className="text-[2rem] font-extrabold leading-10">La révision n&apos;a pas pu démarrer</h1>
+        <p className="mt-2 text-ms-muted">{phase.message}</p>
+      </div>
+      <div className="flex w-full flex-col gap-3 sm:flex-row">
+        <button type="button" onClick={generate} data-variant="secondary" className="ms-button flex-1">
+          <RefreshCw size={STUDENT_ICON} strokeWidth={1.75} aria-hidden="true" /> Réessayer
         </button>
-        <Link href="/student" className="px-5 py-3 rounded-full text-white font-bold hover:opacity-90 transition-all" style={{ background: color }}>
-          Tableau de bord
+        <Link href="/student" data-variant="primary" className="ms-button flex-1" style={{ background: accent.deep }}>
+          Retour à mes leçons
         </Link>
       </div>
     </>);
@@ -127,77 +173,91 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
   if (phase.kind === "intro") {
     return card(<>
-      <div className="text-6xl mb-4">✨</div>
-      <h1 className="text-2xl font-black text-[#2d2d2d] mb-2" style={{ fontFamily: "'Fredoka One', cursive" }}>
-        Ta révision sur mesure
-      </h1>
-      <p className="text-gray-600 mb-6">
-        {failed !== null && failed > 0 ? (
-          <>Tu n&apos;as pas réussi <strong>{failed} exercice{failed > 1 ? "s" : ""}</strong> du premier coup dans <strong>{title}</strong>. On les rejoue ensemble pour t&apos;entraîner !</>
-        ) : (
-          <>Je rassemble les exercices que tu as ratés dans <strong>{title}</strong> pour que tu les rejoues.</>
-        )}
-      </p>
-      <button onClick={generate}
-        className="w-full py-4 rounded-2xl text-white font-black text-lg flex items-center justify-center gap-2 hover:shadow-xl hover:scale-[1.02] transition-all"
-        style={{ background: color }}>
-        <Sparkles size={20} /> Préparer ma révision
+      <StateTile icon={RotateCcw} accent={accent} />
+      <div>
+        <h1 className="text-[2rem] font-extrabold leading-10">Ta révision</h1>
+        <p className="mt-2 text-ms-muted">
+          {failed !== null && failed > 0 ? (
+            <>Dans <strong className="text-ms-ink">{title}</strong>, {failed} exercice{failed > 1 ? "s sont" : " est"} à revoir. Tu peux {failed > 1 ? "les" : "le"} rejouer maintenant.</>
+          ) : (
+            <>Les exercices à revoir dans <strong className="text-ms-ink">{title}</strong> sont rassemblés pour que tu les rejoues.</>
+          )}
+        </p>
+      </div>
+      <button type="button" onClick={generate} data-variant="primary" className="ms-button w-full" style={{ background: accent.deep }}>
+        Commencer la révision
       </button>
     </>);
   }
 
   if (phase.kind === "generating") {
     return card(<>
-      <div className="text-6xl mb-4 animate-float">🧠</div>
-      <p className="text-xl font-black text-[#2d2d2d] mb-2">Je prépare tes exercices…</p>
-      <p className="text-gray-500 text-sm">Un instant.</p>
-    </>);
+      <StateTile icon={Hourglass} accent={accent} />
+      <div aria-live="polite">
+        <h1 className="text-[2rem] font-extrabold leading-10">Préparation des exercices…</h1>
+        <p className="mt-2 text-ms-muted">Un instant.</p>
+      </div>
+    </>, { busy: true });
   }
 
   if (phase.kind === "nothing") {
     return card(<>
-      <div className="text-6xl mb-4">🌟</div>
-      <p className="text-xl font-black text-[#2d2d2d] mb-2">Rien à revoir !</p>
-      <p className="text-gray-600 mb-6">Tu as réussi tous les exercices de cette leçon du premier coup. Bravo !</p>
-      <Link href="/student" className="inline-block px-6 py-3 rounded-full text-white font-bold hover:opacity-90 transition-all" style={{ background: color }}>
-        Tableau de bord
-      </Link>
-    </>);
+      <StateTile icon={Check} accent={accent} />
+      <div>
+        <h1 className="text-[2rem] font-extrabold leading-10">Rien à revoir</h1>
+        <p className="mt-2 text-ms-muted">Tu as réussi tous les exercices de cette leçon du premier coup.</p>
+      </div>
+      <div className="flex w-full flex-col gap-3 sm:flex-row">
+        <Link href={`/student/lesson/${id}`} data-variant="secondary" className="ms-button flex-1">
+          Rejouer la leçon
+        </Link>
+        <Link href="/student" data-variant="primary" className="ms-button flex-1" style={{ background: accent.deep }}>
+          Choisir une autre leçon
+        </Link>
+      </div>
+    </>, { wash: true });
   }
 
   if (phase.kind === "empty") {
     return card(<>
-      <div className="text-6xl mb-4">🤔</div>
-      <p className="text-xl font-black text-[#2d2d2d] mb-2">Pas d&apos;exercice cette fois</p>
-      <p className="text-gray-600 mb-6">Je n&apos;ai pas réussi à préparer d&apos;exercices. Tu peux rejouer la leçon ou réessayer plus tard.</p>
-      <div className="flex gap-3 justify-center">
-        <Link href={`/student/lesson/${id}`} className="px-5 py-3 rounded-full border-2 font-bold hover:opacity-80 transition-all" style={{ borderColor: color, color }}>
+      <StateTile icon={CircleSlash} accent={accent} />
+      <div>
+        <h1 className="text-[2rem] font-extrabold leading-10">Pas d&apos;exercice cette fois</h1>
+        <p className="mt-2 text-ms-muted">Aucun exercice n&apos;a pu être préparé. Tu peux rejouer la leçon ou réessayer plus tard.</p>
+      </div>
+      <div className="flex w-full flex-col gap-3 sm:flex-row">
+        <Link href={`/student/lesson/${id}`} data-variant="secondary" className="ms-button flex-1">
           Rejouer la leçon
         </Link>
-        <Link href="/student" className="px-5 py-3 rounded-full text-white font-bold hover:opacity-90 transition-all" style={{ background: color }}>
-          Tableau de bord
+        <Link href="/student" data-variant="primary" className="ms-button flex-1" style={{ background: accent.deep }}>
+          Retour à mes leçons
         </Link>
       </div>
     </>);
   }
 
   if (phase.kind === "done") {
+    const count = phase.set.blocks.length;
     return card(<>
-      <h1 className="text-3xl font-black text-[#2d2d2d] mb-2" style={{ fontFamily: "'Fredoka One', cursive" }}>Bien joué !</h1>
-      <p className="text-gray-600 mb-6">Tu as terminé ta révision de <strong>{title}</strong>.</p>
-      <div className="flex flex-col gap-3">
-        <button onClick={generate}
-          className="w-full py-3 rounded-full border-2 font-bold flex items-center justify-center gap-2 hover:opacity-80 transition-all"
-          style={{ borderColor: color, color }}>
-          <RefreshCw size={16} /> Nouvelle série
+      <StateTile icon={Check} accent={accent} />
+      <div>
+        <h1 className="text-[2rem] font-extrabold leading-10">Tu as terminé</h1>
+        <p className="mt-1 text-xl font-semibold text-ms-muted [overflow-wrap:anywhere]">{title}</p>
+      </div>
+      {/* Ce que l'élève vient de faire, en vrai : le nombre d'exercices rejoués. */}
+      <p className="rounded-2xl px-5 py-3 text-lg font-bold tabular-nums" style={{ background: accent.soft, color: accent.deep }}>
+        {count} exercice{count > 1 ? "s" : ""} rejoué{count > 1 ? "s" : ""}
+      </p>
+      <p className="text-ms-muted">Tu peux revenir quand tu veux.</p>
+      <div className="flex w-full flex-col gap-3 sm:flex-row">
+        <button type="button" onClick={generate} data-variant="secondary" className="ms-button flex-1">
+          <RefreshCw size={STUDENT_ICON} strokeWidth={1.75} aria-hidden="true" /> Encore une fois
         </button>
-        <Link href="/student"
-          className="w-full py-3 rounded-full text-white font-bold flex items-center justify-center gap-2 hover:shadow-lg transition-all"
-          style={{ background: color }}>
-          <Trophy size={16} /> Tableau de bord
+        <Link href="/student" data-variant="primary" className="ms-button flex-1" style={{ background: accent.deep }}>
+          Choisir une autre leçon
         </Link>
       </div>
-    </>);
+    </>, { wash: true });
   }
 
   // phase.kind === "playing"
@@ -214,59 +274,57 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
   const ex = block.exercise;
 
   return (
-    <div className="min-h-screen bg-[#fffef9] flex flex-col">
+    <div data-ms-app="" data-ms-area="student" className="flex min-h-dvh flex-col bg-ms-canvas">
       {nav}
-      <div className="flex-1 flex flex-col justify-center w-full max-w-2xl mx-auto px-4 py-10">
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-bold text-white"
-            style={{ background: color }}>
-            <Sparkles size={14} /> Révision · {index + 1}/{set.blocks.length}
-          </div>
+      <main className="mx-auto flex w-full max-w-[52rem] flex-1 flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
+        <ExerciseProgress index={index} total={set.blocks.length} accent={accent} />
+
+        <div className="flex flex-1 flex-col justify-center">
+          {ex.type === "quiz" && (
+            <QuizRenderer
+              key={block.id}
+              ex={ex as QuizExercise}
+              color={color}
+              onNext={advance}
+              idx={index}
+              total={set.blocks.length}
+              lessonId={set.lessonId}
+              blockId={block.id}
+            />
+          )}
+
+          {ex.type === "wordorder" && (
+            <WordOrderRenderer
+              key={block.id}
+              ex={ex as WordOrderExercise}
+              color={color}
+              onNext={advance}
+              lessonId={set.lessonId}
+              blockId={block.id}
+            />
+          )}
+
+          {ex.type === "letterGame" && (
+            <LetterExercise
+              key={block.id}
+              slide={ex.slide}
+              color={color}
+              accent={accent}
+              lessonId={set.lessonId}
+              eventId={block.id}
+              onSolved={() => setTimeout(advance, NEXT_LETTER_EXERCISE_DELAY_MS)}
+            />
+          )}
+
+          {ex.type !== "quiz" && ex.type !== "wordorder" && ex.type !== "letterGame" && (
+            <div className="flex justify-center">
+              <button type="button" onClick={advance} data-variant="primary" className="ms-button min-w-48" style={{ background: accent.deep }}>
+                Continuer
+              </button>
+            </div>
+          )}
         </div>
-
-        {ex.type === "quiz" && (
-          <QuizRenderer
-            key={block.id}
-            ex={ex as QuizExercise}
-            color={color}
-            onNext={advance}
-            idx={index}
-            total={set.blocks.length}
-            lessonId={set.lessonId}
-            blockId={block.id}
-          />
-        )}
-
-        {ex.type === "wordorder" && (
-          <WordOrderRenderer
-            key={block.id}
-            ex={ex as WordOrderExercise}
-            color={color}
-            onNext={advance}
-            lessonId={set.lessonId}
-            blockId={block.id}
-          />
-        )}
-
-        {ex.type === "letterGame" && (
-          <LetterExercise
-            key={block.id}
-            slide={ex.slide}
-            color={color}
-            lessonId={set.lessonId}
-            eventId={block.id}
-            onSolved={() => setTimeout(advance, NEXT_LETTER_EXERCISE_DELAY_MS)}
-          />
-        )}
-
-        {ex.type !== "quiz" && ex.type !== "wordorder" && ex.type !== "letterGame" && (
-          <div className="text-center">
-            <button onClick={advance} className="px-6 py-3 rounded-full text-white font-bold" style={{ background: color }}>
-              Continuer
-            </button>
-          </div>
-        )}
-      </div>
+      </main>
     </div>
   );
 }

@@ -3,129 +3,94 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ARABIC_ALPHABET, ArabicLetter } from "@/data/arabicAlphabet";
+import StudentShell, { STUDENT_ICON } from "@/components/student/StudentShell";
+
+const FORMS: { label: string; key: "isolated" | "initial" | "medial" | "final" }[] = [
+  { label: "Isolée", key: "isolated" },
+  { label: "Initiale", key: "initial" },
+  { label: "Médiane", key: "medial" },
+  { label: "Finale", key: "final" },
+];
+
+/** Fiche d'une lettre : grande forme, nom, quatre formes et un mot d'exemple. */
+function LetterDetail({ letter }: { letter: ArabicLetter }) {
+  return (
+    <div className="ms-panel flex flex-col gap-6 p-5 shadow-[var(--ms-shadow-student)] sm:p-8 md:flex-row md:items-start">
+      <span className="flex min-h-48 w-full shrink-0 items-center justify-center rounded-3xl bg-ms-sage-soft text-ms-ink md:w-56">
+        <span lang="ar" dir="rtl" className="ms-arabic text-[clamp(6rem,12vw,8rem)] !leading-[1.4]">{letter.isolated}</span>
+      </span>
+
+      <div className="flex min-w-0 flex-1 flex-col gap-5">
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <h2 lang="ar" dir="rtl" className="ms-arabic text-[1.75rem]">{letter.name}</h2>
+          <span className="text-xl font-bold">{letter.nameTranslit}</span>
+          <span className="ms-status">/{letter.translit}/</span>
+        </div>
+
+        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {FORMS.map(({ label, key }) => (
+            <div key={key} className="flex flex-col-reverse items-center gap-1 rounded-2xl bg-ms-canvas p-3 text-center">
+              <dt className="text-sm font-semibold text-ms-muted">{label}</dt>
+              <dd lang="ar" dir="rtl" className="ms-arabic text-[2rem]">{letter[key]}</dd>
+            </div>
+          ))}
+        </dl>
+
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-2xl bg-ms-slate-soft px-5 py-3">
+          <span lang="ar" dir="rtl" className="ms-arabic text-[2rem] text-ms-ink">{letter.example}</span>
+          <span className="min-w-0">
+            <span className="block font-bold text-ms-slate-ink">{letter.exampleMeaning}</span>
+            <span className="block text-sm text-ms-muted">{letter.exampleTranslit}</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AlphabetPage() {
   const [selected, setSelected] = useState<ArabicLetter | null>(null);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f0f8ff] via-[#fffef9] to-[#f0faf5]">
-      <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm">
-        <Link href="/arabic" className="flex items-center gap-2 text-gray-500 hover:text-[#74c2e8] transition-colors">
-          <ArrowLeft size={18} /> Retour
+    <StudentShell>
+      <div className="flex flex-col gap-8">
+        <Link href="/arabic" data-variant="quiet" className="ms-button -ms-3 self-start text-ms-primary">
+          <ArrowLeft size={STUDENT_ICON} strokeWidth={1.75} aria-hidden="true" /> Apprends l&apos;arabe
         </Link>
-        <span className="font-black text-[#2d2d2d]" style={{ fontFamily: "'Fredoka One', cursive" }}>
-          الأَلِفْبَاء — Alphabet
-        </span>
-        <div className="w-20" />
-      </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-10">
-        <div className="text-center mb-10">
-          <div className="text-5xl mb-3">🔤</div>
-          <h1 className="text-3xl font-black text-[#2d2d2d] mb-2" style={{ fontFamily: "'Fredoka One', cursive" }}>
-            Les 28 lettres arabes
-          </h1>
-          <p className="text-[#8b6f47] font-semibold">Niveau 1 — Clique sur une lettre pour la découvrir</p>
-        </div>
+        <header className="flex flex-col gap-2">
+          <p lang="ar" dir="rtl" className="ms-arabic self-start text-xl text-ms-muted">الأَلِفْبَاء</p>
+          <h1 className="text-[2rem] font-extrabold leading-10 tracking-[-0.02em]">Les {ARABIC_ALPHABET.length} lettres arabes</h1>
+          <p className="text-xl font-semibold leading-7 text-ms-muted">Touche une lettre pour la découvrir.</p>
+        </header>
 
         {/* Letter grid */}
-        <div className="grid grid-cols-4 sm:grid-cols-7 gap-3 mb-8">
-          {ARABIC_ALPHABET.map((letter) => (
-            <button
-              key={letter.id}
-              onClick={() => setSelected(selected?.id === letter.id ? null : letter)}
-              className="montessori-card p-3 text-center flex flex-col items-center gap-1 transition-all hover:scale-105"
-              style={{
-                background: selected?.id === letter.id ? `${letter.color}25` : "white",
-                border: `2px solid ${selected?.id === letter.id ? letter.color : `${letter.color}40`}`,
-              }}
-            >
-              <span
-                className="text-3xl font-black"
-                style={{ fontFamily: "'Cairo', sans-serif", color: letter.color }}
+        <div role="group" aria-label="Lettres de l'alphabet" className="grid grid-cols-4 gap-3 sm:grid-cols-7">
+          {ARABIC_ALPHABET.map((letter) => {
+            const isSelected = selected?.id === letter.id;
+            return (
+              <button
+                key={letter.id}
+                type="button"
+                onClick={() => setSelected(isSelected ? null : letter)}
+                aria-pressed={isSelected}
+                aria-label={letter.nameTranslit}
+                className={`flex min-h-28 min-w-0 flex-col items-center justify-center gap-0 rounded-[1.25rem] border-2 px-1 pb-2 pt-1 transition-colors duration-[140ms] ${
+                  isSelected ? "border-ms-primary bg-ms-primary-soft" : "border-ms-line bg-ms-surface hover:border-ms-control"
+                }`}
               >
-                {letter.isolated}
-              </span>
-              <span className="text-[10px] font-bold text-gray-500">{letter.nameTranslit}</span>
-            </button>
-          ))}
+                <span lang="ar" dir="rtl" className="ms-arabic text-[3.25rem] !leading-[1.35] text-ms-ink" aria-hidden="true">{letter.isolated}</span>
+                <span className="text-xs font-semibold text-ms-muted" aria-hidden="true">{letter.nameTranslit}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Letter detail */}
-        {selected && (
-          <div
-            className="bg-white rounded-3xl shadow-lg p-8 animate-bounce-in"
-            style={{ border: `2px solid ${selected.color}40` }}
-          >
-            <div className="flex flex-col md:flex-row items-center gap-8">
-              {/* Big letter */}
-              <div
-                className="w-32 h-32 rounded-3xl flex items-center justify-center shrink-0"
-                style={{ background: `${selected.color}20` }}
-              >
-                <span
-                  className="text-7xl font-black"
-                  style={{ fontFamily: "'Cairo', sans-serif", color: selected.color }}
-                >
-                  {selected.isolated}
-                </span>
-              </div>
-
-              <div className="flex-1 text-center md:text-left">
-                <div className="flex items-center gap-3 justify-center md:justify-start mb-2">
-                  <h2
-                    className="text-3xl font-black text-[#2d2d2d]"
-                    style={{ fontFamily: "'Cairo', sans-serif" }}
-                  >
-                    {selected.name}
-                  </h2>
-                  <span className="text-lg font-bold text-gray-400">{selected.nameTranslit}</span>
-                  <span
-                    className="text-xs font-bold px-2 py-0.5 rounded-full text-white"
-                    style={{ background: selected.color }}
-                  >
-                    /{selected.translit}/
-                  </span>
-                </div>
-
-                {/* 4 forms */}
-                <div className="grid grid-cols-4 gap-3 mb-4">
-                  {[
-                    { label: "Isolée", form: selected.isolated },
-                    { label: "Initiale", form: selected.initial },
-                    { label: "Médiane", form: selected.medial },
-                    { label: "Finale", form: selected.final },
-                  ].map(({ label, form }) => (
-                    <div key={label} className="bg-gray-50 rounded-2xl p-3 text-center">
-                      <p className="text-xs text-gray-400 mb-1">{label}</p>
-                      <p
-                        className="text-2xl font-black"
-                        style={{ fontFamily: "'Cairo', sans-serif", color: selected.color }}
-                      >
-                        {form}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Example word */}
-                <div
-                  className="inline-flex items-center gap-3 rounded-2xl px-5 py-3"
-                  style={{ background: `${selected.color}15` }}
-                >
-                  <span className="text-2xl font-black text-[#2d2d2d]" style={{ fontFamily: "'Cairo', sans-serif" }}>
-                    {selected.example}
-                  </span>
-                  <div className="text-sm">
-                    <p className="font-bold text-[#2d2d2d]">{selected.exampleMeaning}</p>
-                    <p className="text-gray-400 text-xs">{selected.exampleTranslit}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        <section aria-live="polite" aria-label="Lettre choisie">
+          {selected && <LetterDetail letter={selected} />}
+        </section>
       </div>
-    </div>
+    </StudentShell>
   );
 }

@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { rateLimit } from "@/server/rateLimit";
+import { supabaseAdmin } from "@/server/supabase";
 import { parseEnrollmentInput } from "@/lib/enrollment";
-
-// Client service-role : la RLS est contournée — ne jamais exposer ce client
-// au navigateur. Cette route est publique : elle n'écrit que dans
-// enrollment_requests.
-let adminClient: ReturnType<typeof supabaseAdmin> | null = null;
-const supabase = () => (adminClient ??= supabaseAdmin());
+import { serverError } from "@/server/errors";
 
 /**
  * POST /api/enrollment  { parentName, email, phone, children: [{ name, age, level }], consent, website }
@@ -28,10 +24,12 @@ export async function POST(req: NextRequest) {
 
   const parsed = parseEnrollmentInput(body);
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+  const limited = await rateLimit(req, "enrollment");
+  if (limited) return limited;
   const v = parsed.value;
 
   const consentAt = new Date().toISOString();
-  const { error } = await supabase()
+  const { error } = await supabaseAdmin()
     .from("enrollment_requests")
     .insert(v.children.map((child) => ({
       parent_name: v.parentName,
@@ -42,7 +40,7 @@ export async function POST(req: NextRequest) {
       level: child.level,
       consent_at: consentAt,
     })));
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError("/api/enrollment error", error);
 
   return NextResponse.json({ ok: true }, { status: 201 });
 }

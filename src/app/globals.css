@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./platform-tokens.css";
 
 :root {
   --background: #F5EEE8;
@@ -30,7 +31,35 @@
   --color-ms-sand:        var(--ms-sand);
   --color-ms-white:       var(--ms-white);
 
-  --font-display: var(--font-fredoka), "Fredoka One", system-ui, sans-serif;
+  /* Jetons sémantiques de la plateforme (platform-tokens.css) */
+  --color-ms-canvas:          var(--ms-canvas);
+  --color-ms-surface:         var(--ms-surface);
+  --color-ms-surface-muted:   var(--ms-surface-muted);
+  --color-ms-muted:           var(--ms-text-muted);
+  --color-ms-line:            var(--ms-line);
+  --color-ms-control:         var(--ms-control-border);
+  --color-ms-primary:         var(--ms-primary);
+  --color-ms-primary-hover:   var(--ms-primary-hover);
+  --color-ms-primary-pressed: var(--ms-primary-pressed);
+  --color-ms-primary-soft:    var(--ms-primary-soft);
+  --color-ms-on-primary:      var(--ms-on-primary);
+  --color-ms-info:            var(--ms-info);
+  --color-ms-info-soft:       var(--ms-info-soft);
+  --color-ms-review:          var(--ms-review);
+  --color-ms-review-soft:     var(--ms-review-soft);
+  --color-ms-danger:          var(--ms-danger);
+  --color-ms-danger-soft:     var(--ms-danger-soft);
+  --color-ms-blush-soft:      var(--ms-blush-soft);
+  --color-ms-slate-soft:      var(--ms-slate-soft);
+  --color-ms-sage-soft:       var(--ms-sage-soft);
+  --color-ms-blush-ink:       var(--ms-blush-ink);
+  --color-ms-slate-ink:       var(--ms-slate-ink);
+  --color-ms-sage-ink:        var(--ms-sage-ink);
+
+  --font-teacher: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
+  --font-arabic:  var(--font-noto-naskh-arabic), "Noto Naskh Arabic", serif;
+
+  --font-display: var(--font-fredoka), system-ui, sans-serif;
   --font-body:    var(--font-nunito), "Nunito", "Segoe UI", Arial, sans-serif;
 
   --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);

@@ -1,3 +1,7 @@
+// Validation des identifiants : lib/uuid, partagée par tous les modèles.
+import { isUuid } from "@/lib/uuid";
+export { isUuid };
+
 /**
  * Classes d'élèves — modèle partagé client / serveur.
  *
@@ -48,11 +52,6 @@ export interface ClassUpdate {
 
 type Parsed<T> = { ok: true; value: T } | { ok: false; error: string };
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-export function isUuid(value: unknown): value is string {
-  return typeof value === "string" && UUID_RE.test(value);
-}
 
 function parseName(name: unknown): Parsed<string> {
   if (typeof name !== "string") return { ok: false, error: "Le nom de la classe est requis" };

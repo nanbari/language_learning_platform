@@ -7,7 +7,8 @@
  * Il peut aussi créer un compte enseignant : il obtient un lien d'invitation
  * à transmettre, et l'enseignant y choisit lui-même son mot de passe.
  */
-import { MAX_EMAIL, MAX_NAME, MIN_NAME, normaliseEmail } from "./signup";
+import { MAX_EMAIL, MAX_NAME, MIN_NAME, normaliseEmail } from "@/lib/signup";
+import { isUuid } from "@/lib/uuid";
 
 export interface StaffRow {
   id: string;
@@ -22,13 +23,11 @@ export interface StaffUpdate {
   isAdmin: boolean;
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /** Valide le corps d'une modification de droit admin. */
 export function parseStaffUpdate(input: unknown): { ok: true; value: StaffUpdate } | { ok: false; error: string } {
   if (typeof input !== "object" || input === null) return { ok: false, error: "corps invalide" };
   const { id, isAdmin } = input as Record<string, unknown>;
-  if (typeof id !== "string" || !UUID_RE.test(id)) return { ok: false, error: "id invalide" };
+  if (!isUuid(id)) return { ok: false, error: "id invalide" };
   if (typeof isAdmin !== "boolean") return { ok: false, error: "isAdmin doit être un booléen" };
   return { ok: true, value: { id, isAdmin } };
 }

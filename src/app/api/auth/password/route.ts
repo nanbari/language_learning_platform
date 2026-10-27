@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase, supabaseAdmin } from "@/lib/supabase";
+import { rateLimit } from "@/server/rateLimit";
+import { supabase, supabaseAdmin } from "@/server/supabase";
 import { parseNewPassword, parseResetRequest, RESET_PAGE_PATH } from "@/lib/passwordReset";
 
 /**
@@ -21,6 +22,8 @@ export async function POST(req: NextRequest) {
   if (body.action === "request") {
     const parsed = parseResetRequest(body);
     if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+    const limited = await rateLimit(req, "passwordReset", parsed.value.email);
+    if (limited) return limited;
 
     // Adresse publique du site si configurée (derrière un proxy, l'origine
     // de la requête peut être interne), sinon celle de la requête.

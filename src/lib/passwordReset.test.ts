@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseResetRequest, parseNewPassword, readRecoveryHash } from "./passwordReset";
+import { parseResetRequest, parseNewPassword, readRecoveryHash } from "@/lib/passwordReset";
 
 const TOKEN = "eyJhbGciOiJIUzI1NiJ9.payload.signature";
 

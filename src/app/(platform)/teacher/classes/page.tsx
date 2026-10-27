@@ -1,131 +1,223 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, Check, Pencil, Plus, Radio, Search, Trash2, Users, X } from "lucide-react";
-import { useAuthStore } from "@/store/authStore";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { BookOpen, ChartNoAxesColumn, Ellipsis, Pencil, Plus, Presentation, Radio, Search, Trash2, Users } from "lucide-react";
+import TeacherShell from "@/components/teacher/TeacherShell";
+import { useTeacherSession } from "@/components/teacher/useTeacherSession";
+import { DeckStatusPill } from "@/components/teacher/DeckStatusPill";
+import { Button, ButtonLink, EmptyState, ICON_STROKE, InlineNotice, SectionHeader, SkeletonRows, StatusPill } from "@/components/platform/ui";
 import { MAX_CLASS_NAME, type ClassRow, type StudentRef } from "@/lib/classes";
-import { createClass, deleteClass, fetchTeacherClasses, updateClass } from "@/lib/classesApi";
+import { createClass, deleteClass, fetchTeacherClasses, updateClass } from "@/lib/api/classes";
+import { fetchLessons, type ApiLesson } from "@/lib/api/lessons";
 
-/**
- * Mes classes : l'enseignant regroupe ses élèves. Le cours en direct se lance
- * pour une classe, et seuls ses élèves le voient dans leur espace.
- */
-export default function TeacherClassesPage() {
-  const { user } = useAuthStore();
-  const [classes, setClasses] = useState<ClassRow[] | null>(null);
-  const [students, setStudents] = useState<StudentRef[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [newName, setNewName] = useState("");
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n > 1 ? many : one}`;
+
+/** Tuiles des classes : les trois pastels de la charte, en alternance. */
+const TILES = ["bg-ms-slate-soft text-ms-slate-ink", "bg-ms-sage-soft text-ms-sage-ink", "bg-ms-blush-soft text-ms-blush-ink"];
+
+const MENU_ITEM = "flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-3 text-[0.9375rem] font-semibold outline-none data-[highlighted]:bg-ms-surface-muted";
+
+/** Formulaire de création, replié derrière « Créer une classe ». */
+function NewClassForm({ open, onOpenChange, onCreated }: {
+  open: boolean; onOpenChange: (open: boolean) => void; onCreated: () => void;
+}) {
+  const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const ids = useId();
 
-  const load = useCallback(() => {
-    fetchTeacherClasses()
-      .then((data) => { setClasses(data.classes); setStudents(data.students); })
-      .catch((e: Error) => { setError(e.message); setClasses((c) => c ?? []); });
-  }, []);
-
-  useEffect(load, [load]);
-
-  const add = async () => {
-    if (!newName.trim()) return;
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
     setBusy(true);
     setError(null);
     try {
-      await createClass(newName);
-      setNewName("");
-      load();
-    } catch (e) {
-      setError((e as Error).message);
+      await createClass(name);
+      setName("");
+      onOpenChange(false);
+      onCreated();
+    } catch (err) {
+      setError((err as Error).message);
     } finally {
       setBusy(false);
     }
   };
 
+  if (!open) {
+    return (
+      <Button variant="primary" onClick={() => onOpenChange(true)}>
+        <Plus size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Créer une classe
+      </Button>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#fffef9]">
-      <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
-        <Link href="/teacher" className="flex items-center gap-2 text-gray-500 hover:text-[#BB908E] transition-colors">
-          <ArrowLeft size={18} /> Tableau de bord
-        </Link>
-        <span className="font-black text-[#2d2d2d]" style={{ fontFamily: "'Fredoka One', cursive" }}>
-          👥 Mes classes
-        </span>
-        <div className="w-32" />
+    <form onSubmit={submit} aria-labelledby={`${ids}-t`} className="ms-panel w-full space-y-4 p-4 sm:p-5">
+      <h3 id={`${ids}-t`} className="font-semibold">Nouvelle classe</h3>
+      <div className="flex max-w-xl flex-col gap-2">
+        <label htmlFor={`${ids}-n`} className="text-sm font-semibold">Nom de la classe</label>
+        <input
+          id={`${ids}-n`} className="ms-field" value={name} onChange={(e) => setName(e.target.value)}
+          maxLength={MAX_CLASS_NAME} autoFocus autoComplete="off" aria-describedby={`${ids}-h`}
+        />
+        <p id={`${ids}-h`} className="text-sm text-ms-muted">Par exemple : Mercredi 14 h. {MAX_CLASS_NAME} caractères au maximum.</p>
       </div>
-
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-black text-[#2d2d2d] mb-1" style={{ fontFamily: "'Fredoka One', cursive" }}>
-          Mes classes
-        </h1>
-        <p className="text-gray-500 text-sm mb-6">
-          Regroupez vos élèves en classes. Quand vous lancez un cours en direct pour une classe,
-          ses élèves voient le bouton « Rejoindre » dans leur espace : aucun code à leur communiquer,
-          et personne d&apos;autre ne peut entrer.
-        </p>
-
-        <form
-          className="flex gap-2 mb-6"
-          onSubmit={(e) => { e.preventDefault(); void add(); }}
-        >
-          <input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            maxLength={MAX_CLASS_NAME}
-            placeholder="Nom de la nouvelle classe (ex. : Mercredi 14 h)"
-            className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 focus:border-[#BB908E] outline-none text-sm"
-          />
-          <button
-            type="submit"
-            disabled={busy || !newName.trim()}
-            className="flex items-center gap-1.5 px-5 py-2.5 rounded-full font-bold text-sm text-white shadow hover:shadow-md transition-all disabled:opacity-40"
-            style={{ background: "#BB908E" }}
-          >
-            <Plus size={16} /> Créer
-          </button>
-        </form>
-
-        {error && <p className="text-sm font-bold text-red-500 mb-4">{error}</p>}
-
-        {classes === null ? (
-          <p className="text-sm text-gray-400">Chargement des classes…</p>
-        ) : classes.length === 0 ? (
-          <p className="text-sm text-gray-600 bg-[#F5EEE8] rounded-xl p-4">
-            Aucune classe pour l&apos;instant. Créez-en une, puis ajoutez-y vos élèves.
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {classes.map((c) => (
-              <ClassCard
-                key={c.id}
-                cls={c}
-                students={students}
-                showTeacher={!!user?.isAdmin && c.teacherId !== user.id}
-                onChanged={load}
-                onError={setError}
-              />
-            ))}
-          </div>
-        )}
+      {error && <InlineNotice tone="error">{error}</InlineNotice>}
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" variant="primary" disabled={busy || !name.trim()}>{busy ? "Création…" : "Créer la classe"}</Button>
+        <Button variant="secondary" onClick={() => { onOpenChange(false); setError(null); }}>Annuler</Button>
       </div>
-    </div>
+    </form>
   );
 }
 
-function ClassCard({
-  cls, students, showTeacher, onChanged, onError,
+/**
+ * Mes classes : l'espace de travail de l'enseignant. Chaque classe réunit ses
+ * élèves et les leçons qui leur sont proposées ; de là, on prépare une leçon,
+ * on ouvre le cours en direct et on consulte la progression. Les règles
+ * (membres, nombre d'élèves, droits) restent vérifiées par l'API.
+ */
+export default function TeacherClassesPage() {
+  const { user, isAdmin, handleLogout } = useTeacherSession();
+  const [classes, setClasses] = useState<ClassRow[] | null>(null);
+  const [students, setStudents] = useState<StudentRef[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [lessons, setLessons] = useState<ApiLesson[] | null>(null);
+  const [lessonsError, setLessonsError] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+
+  const load = useCallback(() => {
+    fetchTeacherClasses()
+      .then((data) => { setClasses(data.classes); setStudents(data.students); setLoadError(null); })
+      .catch((e: Error) => { setLoadError(e.message); setClasses((c) => c ?? []); });
+  }, []);
+
+  // Toutes les leçons visibles par l'enseignant, regroupées ensuite par classe.
+  const loadLessons = useCallback(() => {
+    fetchLessons()
+      .then((l) => { setLessons(l); setLessonsError(null); })
+      .catch((e: Error) => { setLessonsError(e.message); setLessons((c) => c ?? []); });
+  }, []);
+
+  useEffect(load, [load]);
+  useEffect(loadLessons, [loadLessons]);
+
+  const lessonsByClass = useMemo(() => {
+    const map = new Map<string, ApiLesson[]>();
+    for (const lesson of lessons ?? []) {
+      if (!lesson.classId) continue;
+      const list = map.get(lesson.classId);
+      if (list) list.push(lesson);
+      else map.set(lesson.classId, [lesson]);
+    }
+    return map;
+  }, [lessons]);
+
+  return (
+    <TeacherShell name={user?.name || "Enseignant"} isAdmin={isAdmin} onLogout={handleLogout}>
+      <div className="space-y-6">
+        <header>
+          <h1 className="text-[1.75rem] leading-9 lg:text-[2rem] lg:leading-10 font-semibold tracking-[-0.02em]">Mes classes</h1>
+          <p className="mt-1 text-ms-muted max-w-[65ch]">
+            Chaque classe réunit ses élèves et les leçons qui leur sont proposées. Une leçon enregistrée pour une classe
+            est visible par ses élèves aussitôt ; le cours en direct, lui, projette le diaporama de la leçon.
+          </p>
+        </header>
+
+        <SectionHeader
+          title="Classes"
+          description={classes && classes.length > 0 ? plural(classes.length, "classe") : undefined}
+          actions={!formOpen ? <NewClassForm open={false} onOpenChange={setFormOpen} onCreated={load} /> : undefined}
+        />
+        {formOpen && <NewClassForm open onOpenChange={setFormOpen} onCreated={load} />}
+
+        {loadError && (
+          <InlineNotice tone="error" action={<Button variant="secondary" onClick={load}>Réessayer</Button>}>
+            Les classes n&apos;ont pas pu être chargées ({loadError}).
+          </InlineNotice>
+        )}
+        {lessonsError && (
+          <InlineNotice tone="error" action={<Button variant="secondary" onClick={loadLessons}>Réessayer</Button>}>
+            Les leçons n&apos;ont pas pu être chargées ({lessonsError}).
+          </InlineNotice>
+        )}
+
+        <div className="ms-panel overflow-hidden">
+          {classes === null && <SkeletonRows rows={3} label="Chargement des classes" />}
+          {classes && classes.length === 0 && !loadError && (
+            <EmptyState
+              title="Votre première classe"
+              text="Créez une classe pour y regrouper vos élèves."
+              action={!formOpen ? <Button variant="primary" onClick={() => setFormOpen(true)}>Créer une classe</Button> : undefined}
+            />
+          )}
+          {classes && classes.length > 0 && (
+            <ul className="divide-y divide-ms-line">
+              {classes.map((c, i) => (
+                <ClassItem
+                  key={c.id}
+                  cls={c}
+                  tile={TILES[i % TILES.length]}
+                  students={students}
+                  lessons={lessons === null ? null : (lessonsByClass.get(c.id) ?? [])}
+                  canEditLesson={(l) => isAdmin || l.authorId === user?.id}
+                  showTeacher={isAdmin && c.teacherId !== user?.id}
+                  onChanged={load}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </TeacherShell>
+  );
+}
+
+/** Une leçon de la classe : titre, activités, état du diaporama, et ses deux portes d'entrée. */
+function ClassLessonRow({ lesson, canEdit }: { lesson: ApiLesson; canEdit: boolean }) {
+  const activities = lesson.blocks.length;
+  return (
+    <li className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:gap-4">
+      <div className="min-w-0 flex-1">
+        <p className="font-medium [overflow-wrap:anywhere]">{lesson.title}</p>
+        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ms-muted">
+          <span className="tabular-nums">{plural(activities, "activité")}</span>
+          <span aria-hidden="true">·</span>
+          <DeckStatusPill lesson={lesson} />
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {canEdit && <ButtonLink href={`/teacher/create?edit=${lesson.id}`} variant="secondary">Modifier</ButtonLink>}
+        <ButtonLink href={`/student/lesson/${lesson.id}`} variant="quiet">Voir comme un élève</ButtonLink>
+      </div>
+    </li>
+  );
+}
+
+function ClassItem({
+  cls, tile, students, lessons, canEditLesson, showTeacher, onChanged,
 }: {
   cls: ClassRow;
+  tile: string;
   students: StudentRef[];
+  /** null tant que les leçons chargent. */
+  lessons: ApiLesson[] | null;
+  canEditLesson: (lesson: ApiLesson) => boolean;
   showTeacher: boolean;
   onChanged: () => void;
-  onError: (message: string) => void;
 }) {
   const [editingMembers, setEditingMembers] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set(cls.studentIds));
   const [renaming, setRenaming] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [name, setName] = useState(cls.name);
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Une action choisie dans le menu ouvre un formulaire : on laisse le focus
+  // aller à ce formulaire plutôt que revenir au bouton « Options ».
+  const menuPicked = useRef(false);
+  const ids = useId();
 
   const byId = useMemo(() => new Map(students.map((s) => [s.id, s])), [students]);
   const members = cls.studentIds.map((id) => byId.get(id)).filter((s): s is StudentRef => !!s);
@@ -133,12 +225,13 @@ function ClassCard({
 
   const run = async (action: () => Promise<unknown>) => {
     setBusy(true);
+    setError(null);
     try {
       await action();
       onChanged();
       return true;
     } catch (e) {
-      onError((e as Error).message);
+      setError((e as Error).message);
       return false;
     } finally {
       setBusy(false);
@@ -154,10 +247,8 @@ function ClassCard({
     if (await run(() => updateClass(cls.id, { name }))) setRenaming(false);
   };
 
-  const remove = () => {
-    if (confirm(`Supprimer la classe « ${cls.name} » ? Les comptes des élèves ne sont pas supprimés.`)) {
-      void run(() => deleteClass(cls.id));
-    }
+  const remove = async () => {
+    if (!(await run(() => deleteClass(cls.id)))) setConfirmingDelete(false);
   };
 
   const toggle = (id: string) => {
@@ -169,111 +260,193 @@ function ClassCard({
     });
   };
 
+  const startMembers = () => { setSelected(new Set(cls.studentIds)); setQuery(""); setEditingMembers(true); setError(null); };
+  const startRename = () => { setName(cls.name); setRenaming(true); setError(null); };
+  const startDelete = () => { setConfirmingDelete(true); setError(null); };
+
+  const idle = !renaming && !editingMembers && !confirmingDelete;
+  const lessonCount = lessons?.length ?? 0;
+
   return (
-    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-      <div className="flex items-center justify-between gap-3 mb-3">
-        {renaming ? (
-          <form className="flex-1 flex gap-2" onSubmit={(e) => { e.preventDefault(); void saveName(); }}>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              maxLength={MAX_CLASS_NAME}
-              autoFocus
-              className="flex-1 px-3 py-1.5 rounded-lg border border-gray-200 focus:border-[#BB908E] outline-none font-bold"
-            />
-            <button type="submit" disabled={busy || !name.trim()} aria-label="Enregistrer le nom" className="p-2 rounded-full text-[#6B705C] hover:bg-[#6B705C]/10 disabled:opacity-40">
-              <Check size={18} />
-            </button>
-            <button type="button" onClick={() => { setName(cls.name); setRenaming(false); }} aria-label="Annuler" className="p-2 rounded-full text-gray-400 hover:bg-gray-100">
-              <X size={18} />
-            </button>
-          </form>
-        ) : (
-          <div className="flex items-center gap-2 min-w-0">
-            <h2 className="font-black text-lg text-[#2d2d2d] truncate">{cls.name}</h2>
-            {cls.live && (
-              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#BB908E]/15 text-[#BB908E] text-xs font-bold">
-                <Radio size={12} /> En direct
-              </span>
+    <li id={cls.id} className="scroll-mt-24 space-y-4 px-4 py-5 sm:px-5">
+      {/* En-tête : nom, état, effectif, et le menu Options (renommer, élèves, supprimer). */}
+      <div className="flex items-start gap-3">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          <span aria-hidden="true" className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${tile}`}>
+            <Users size={20} strokeWidth={ICON_STROKE} />
+          </span>
+          <div className="min-w-0 flex-1">
+            {renaming ? (
+              <form className="flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); void saveName(); }}>
+                <label htmlFor={`${ids}-name`} className="text-sm font-semibold">Nom de la classe</label>
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    id={`${ids}-name`} value={name} onChange={(e) => setName(e.target.value)}
+                    maxLength={MAX_CLASS_NAME} autoFocus autoComplete="off"
+                    className="ms-field min-w-0 flex-[1_1_14rem]"
+                  />
+                  <Button type="submit" variant="primary" disabled={busy || !name.trim()}>{busy ? "Enregistrement…" : "Enregistrer"}</Button>
+                  <Button variant="secondary" onClick={() => { setName(cls.name); setRenaming(false); setError(null); }}>Annuler</Button>
+                </div>
+              </form>
+            ) : (
+              <>
+                <h3 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-lg leading-6 font-semibold [overflow-wrap:anywhere]">
+                  {cls.name}
+                  {cls.live && <StatusPill state="info" icon={Radio}>En direct</StatusPill>}
+                </h3>
+                <p className="mt-0.5 text-sm text-ms-muted tabular-nums">
+                  {plural(members.length, "élève")}
+                  {lessons !== null && <> · {plural(lessonCount, "leçon")}</>}
+                  {showTeacher && <> · {cls.teacherName}</>}
+                </p>
+              </>
             )}
-            {showTeacher && <span className="text-xs text-gray-400 font-semibold">· {cls.teacherName}</span>}
           </div>
-        )}
-        {!renaming && (
-          <div className="flex items-center gap-1 shrink-0">
-            <button onClick={() => setRenaming(true)} aria-label="Renommer" title="Renommer" className="p-2 rounded-full text-gray-400 hover:text-[#6B705C] hover:bg-[#6B705C]/10">
-              <Pencil size={16} />
-            </button>
-            <button onClick={remove} disabled={busy} aria-label="Supprimer" title="Supprimer" className="p-2 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50">
-              <Trash2 size={16} />
-            </button>
-          </div>
+        </div>
+
+        {idle && (
+          <DropdownMenu.Root modal={false}>
+            <DropdownMenu.Trigger asChild>
+              <Button variant="quiet" aria-label={`Options de « ${cls.name} »`} className="self-start">
+                <Ellipsis size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Options
+              </Button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content
+                data-ms-app="" data-ms-area="teacher" align="end" sideOffset={6}
+                onCloseAutoFocus={(e) => { if (menuPicked.current) { e.preventDefault(); menuPicked.current = false; } }}
+                className="z-50 flex min-w-60 flex-col gap-0.5 rounded-xl border border-ms-line bg-ms-surface p-1.5 shadow-[var(--ms-shadow-dialog)]"
+              >
+                <DropdownMenu.Item className={MENU_ITEM} onSelect={() => { menuPicked.current = true; startMembers(); }}>
+                  <Users size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Choisir les élèves
+                </DropdownMenu.Item>
+                <DropdownMenu.Item className={MENU_ITEM} onSelect={() => { menuPicked.current = true; startRename(); }}>
+                  <Pencil size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Renommer
+                </DropdownMenu.Item>
+                <DropdownMenu.Separator className="my-1 h-px bg-ms-line" />
+                <DropdownMenu.Item
+                  onSelect={() => { menuPicked.current = true; startDelete(); }}
+                  className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-3 text-[0.9375rem] font-semibold text-ms-danger outline-none data-[highlighted]:bg-ms-danger-soft"
+                >
+                  <Trash2 size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Supprimer la classe
+                </DropdownMenu.Item>
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
         )}
       </div>
 
-      {!editingMembers ? (
-        <>
-          <div className="flex flex-wrap gap-2 mb-3">
-            {members.length === 0 ? (
-              <p className="text-sm text-gray-400">Aucun élève dans cette classe.</p>
-            ) : (
-              members.map((s) => (
-                <span key={s.id} className="px-3 py-1 rounded-full bg-[#F5EEE8] text-sm font-semibold text-[#2d2d2d]">{s.name}</span>
-              ))
-            )}
-          </div>
-          <button
-            onClick={() => { setSelected(new Set(cls.studentIds)); setEditingMembers(true); }}
-            className="flex items-center gap-1.5 text-sm font-bold text-[#6B705C] hover:underline"
-          >
-            <Users size={15} /> Choisir les élèves
-          </button>
-        </>
-      ) : (
-        <div>
-          <div className="relative mb-3">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Rechercher un élève"
-              className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 focus:border-[#BB908E] outline-none text-sm"
-            />
-          </div>
-          {students.length === 0 ? (
-            <p className="text-sm text-gray-400 mb-3">Aucun compte élève sur la plateforme.</p>
-          ) : (
-            <ul className="max-h-72 overflow-y-auto grid sm:grid-cols-2 gap-1 mb-3">
-              {visible.map((s) => (
-                <li key={s.id}>
-                  <label className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#F5EEE8] cursor-pointer text-sm font-semibold text-[#2d2d2d]">
-                    <input
-                      type="checkbox"
-                      checked={selected.has(s.id)}
-                      onChange={() => toggle(s.id)}
-                      className="accent-[#BB908E] w-4 h-4"
-                    />
-                    {s.name}
-                  </label>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => void saveMembers()}
-              disabled={busy}
-              className="px-5 py-2 rounded-full font-bold text-sm text-white shadow disabled:opacity-40"
-              style={{ background: "#6B705C" }}
-            >
-              Enregistrer ({selected.size} élève{selected.size > 1 ? "s" : ""})
-            </button>
-            <button onClick={() => setEditingMembers(false)} className="px-4 py-2 rounded-full font-bold text-sm text-gray-500 hover:bg-gray-100">
-              Annuler
-            </button>
-          </div>
+      {confirmingDelete && (
+        <div role="group" aria-label={`Supprimer « ${cls.name} »`} className="flex flex-wrap items-center gap-2 rounded-xl bg-ms-danger-soft p-3 sm:pl-4">
+          <p className="min-w-0 flex-[1_1_16rem] text-sm text-ms-danger">
+            <span className="font-semibold">Supprimer la classe « {cls.name} » ?</span> Les comptes des élèves ne sont pas supprimés.
+          </p>
+          <Button variant="danger" disabled={busy} onClick={() => void remove()} autoFocus>{busy ? "Suppression…" : "Supprimer"}</Button>
+          <Button variant="secondary" disabled={busy} onClick={() => setConfirmingDelete(false)}>Annuler</Button>
         </div>
       )}
-    </div>
+
+      {error && <InlineNotice tone="error">{error}</InlineNotice>}
+
+      <div className="space-y-4 sm:pl-[3.25rem]">
+        {/* Élèves */}
+        {!editingMembers ? (
+          <div className="space-y-2">
+            <h4 className="text-sm font-semibold">Élèves</h4>
+            {members.length === 0 ? (
+              <p className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-ms-muted">
+                Aucun élève dans cette classe.
+                <Button variant="quiet" className="-my-2" onClick={startMembers}>Choisir les élèves</Button>
+              </p>
+            ) : (
+              <ul aria-label={`Élèves de « ${cls.name} »`} className="flex flex-wrap gap-2">
+                {members.map((s) => (
+                  <li key={s.id} className="rounded-full bg-ms-surface-muted px-3 py-1 text-sm font-medium [overflow-wrap:anywhere]">{s.name}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : (
+          <fieldset className="space-y-3 rounded-xl border border-ms-line p-4">
+            <legend className="px-1 text-sm font-semibold">Élèves de la classe</legend>
+            <div className="flex max-w-md flex-col gap-2">
+              <label htmlFor={`${ids}-q`} className="text-sm font-semibold">Rechercher un élève</label>
+              <div className="relative">
+                <Search size={18} strokeWidth={ICON_STROKE} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ms-muted" />
+                <input id={`${ids}-q`} type="search" value={query} onChange={(e) => setQuery(e.target.value)} className="ms-field pl-10" autoComplete="off" autoFocus />
+              </div>
+            </div>
+            {students.length === 0 ? (
+              <p className="text-sm text-ms-muted">Aucun compte élève sur la plateforme.</p>
+            ) : visible.length === 0 ? (
+              <p className="text-sm text-ms-muted">Aucun élève ne correspond à « {query.trim()} ».</p>
+            ) : (
+              <ul className="grid max-h-80 gap-1 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
+                {visible.map((s) => (
+                  <li key={s.id}>
+                    <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm hover:bg-ms-surface-muted">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(s.id)}
+                        onChange={() => toggle(s.id)}
+                        className="h-5 w-5 flex-shrink-0 accent-[var(--ms-primary)]"
+                      />
+                      <span className="min-w-0 [overflow-wrap:anywhere]">{s.name}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="text-sm tabular-nums text-ms-muted" aria-live="polite">{plural(selected.size, "élève sélectionné", "élèves sélectionnés")}</p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="primary" onClick={() => void saveMembers()} disabled={busy}>
+                {busy ? "Enregistrement…" : `Enregistrer (${plural(selected.size, "élève")})`}
+              </Button>
+              <Button variant="secondary" onClick={() => { setEditingMembers(false); setError(null); }}>Annuler</Button>
+            </div>
+          </fieldset>
+        )}
+
+        {/* Leçons proposées à la classe */}
+        <section aria-labelledby={`${ids}-lessons`} className="space-y-2">
+          <h4 id={`${ids}-lessons`} className="flex items-center gap-2 text-sm font-semibold">
+            <BookOpen size={16} strokeWidth={ICON_STROKE} aria-hidden="true" /> Leçons
+            {lessons !== null && lessonCount > 0 && <span className="font-normal text-ms-muted tabular-nums">({lessonCount})</span>}
+          </h4>
+          <div className="rounded-xl border border-ms-line">
+            {lessons === null && (
+              <div aria-busy="true" aria-label="Chargement des leçons" className="space-y-3 p-3">
+                <div className="flex items-center gap-4"><div className="ms-skeleton h-4 w-40" /><div className="ms-skeleton h-4 w-24" /></div>
+                <div className="flex items-center gap-4"><div className="ms-skeleton h-4 w-32" /><div className="ms-skeleton h-4 w-24" /></div>
+              </div>
+            )}
+            {lessons && lessons.length === 0 && (
+              <p className="px-3 py-3 text-sm text-ms-muted">Aucune leçon pour cette classe.</p>
+            )}
+            {lessons && lessons.length > 0 && (
+              <ul className="divide-y divide-ms-line">
+                {lessons.map((l) => <ClassLessonRow key={l.id} lesson={l} canEdit={canEditLesson(l)} />)}
+              </ul>
+            )}
+          </div>
+        </section>
+
+        {/* Le travail d'enseignement : préparer, ouvrir le cours, suivre. */}
+        <div className="flex flex-wrap gap-2" role="group" aria-label={`Actions pour « ${cls.name} »`}>
+          <ButtonLink href={`/teacher/create?class=${cls.id}`} variant={cls.live ? "secondary" : "primary"}>
+            <Plus size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Préparer une leçon
+          </ButtonLink>
+          <ButtonLink href={`/teacher/present?class=${cls.id}`} variant={cls.live ? "primary" : "secondary"}>
+            {cls.live
+              ? <><Radio size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Rejoindre le cours en cours</>
+              : <><Presentation size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Ouvrir le cours en direct</>}
+          </ButtonLink>
+          <ButtonLink href={`/teacher?classe=${cls.id}#progression`} variant="quiet">
+            <ChartNoAxesColumn size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Voir la progression
+          </ButtonLink>
+        </div>
+      </div>
+    </li>
   );
 }

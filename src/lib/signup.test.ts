@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseSignupInput, parseSignupDecision, normaliseEmail, MIN_PASSWORD, MAX_NAME } from "./signup";
+import { parseSignupInput, parseSignupDecision, normaliseEmail, MIN_PASSWORD, MAX_NAME } from "@/lib/signup";
 
 describe("parseSignupInput", () => {
   it("normalise un formulaire valide", () => {

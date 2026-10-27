@@ -3,16 +3,23 @@ import type { NextConfig } from "next";
 // Content-Security-Policy : restreint d'où peuvent venir scripts, styles, images,
 // frames, etc. `unsafe-inline` reste nécessaire pour les styles inline générés
 // par Tailwind/CVA et pour les <style> JSX. Pour les iframes, on autorise
-// uniquement YouTube (no-cookie) et Google Maps embed.
-const csp = [
+// uniquement YouTube (no-cookie), Google Maps embed et nos propres pages
+// (l'aperçu élève de l'éditeur de leçons).
+// `unsafe-eval` n'est nécessaire qu'au serveur de développement (Turbopack) :
+// en production, les scripts sont compilés, l'évaluation dynamique est refusée.
+const scriptSrc = process.env.NODE_ENV === "development"
+  ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+  : "script-src 'self' 'unsafe-inline'";
+
+const cspDirectives = (frameAncestors: string) => [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Next dev a besoin de eval
+  scriptSrc,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "img-src 'self' data: blob: https:",
   // https: pour les vidéos/audios hébergés (bucket R2 public, liens directs).
   "media-src 'self' data: blob: https:",
-  "frame-src https://www.youtube-nocookie.com https://www.youtube.com https://www.google.com",
+  "frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com https://www.google.com",
   // data:/blob: nécessaires : lessonStorage fait fetch() sur les data URLs
   // (images/audio) pour les convertir en Blob avant stockage IndexedDB.
   // *.r2.cloudflarestorage.com : PUT direct des médias vers R2 (URL signée).
@@ -21,9 +28,10 @@ const csp = [
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
-  "frame-ancestors 'none'",
+  `frame-ancestors ${frameAncestors}`,
   "upgrade-insecure-requests",
 ].join("; ");
+const csp = cspDirectives("'none'");
 
 const securityHeaders = [
   { key: "Content-Security-Policy", value: csp },
@@ -44,7 +52,18 @@ const nextConfig: NextConfig = {
   },
   images: {
     // Photos provisoires de la page d'accueil, à remplacer par les vraies photos dans /public.
-    remotePatterns: [new URL("https://picsum.photos/**")],
+    // Et les médias des leçons sur R2 : next/image les redimensionne à la taille affichée
+    // (les originaux font 2 à 3 Mo). Le domaine public du bucket vient de l'environnement ;
+    // les buckets *.r2.dev sont acceptés en plus, pour les environnements sans variable.
+    remotePatterns: [
+      new URL("https://picsum.photos/**"),
+      new URL("https://*.r2.dev/**"),
+      ...(process.env.R2_PUBLIC_BASE_URL ? [new URL(`${process.env.R2_PUBLIC_BASE_URL.replace(/\/$/, "")}/**`)] : []),
+    ],
+    formats: ["image/avif", "image/webp"],
+    // Les photos ne changent jamais sous la même clé R2 : un cache d'un mois côté CDN.
+    minimumCacheTTL: 60 * 60 * 24 * 30,
+    qualities: [70, 75],
   },
   webpack: (config, { dev }) => {
     if (dev) {
@@ -61,6 +80,15 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         headers: securityHeaders,
+      },
+      // L'aperçu élève s'affiche dans un cadre de l'éditeur de leçons : seul
+      // notre propre site peut l'encadrer.
+      {
+        source: "/teacher/create/apercu",
+        headers: [
+          { key: "Content-Security-Policy", value: cspDirectives("'self'") },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+        ],
       },
     ];
   },

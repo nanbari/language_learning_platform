@@ -1,18 +1,20 @@
+import { Newspaper, Sparkles } from "lucide-react";
+
 export default function NewsPage() {
   return (
     <div>
       <section className="bg-[#F5EEE8] py-16 px-4">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="text-6xl mb-4">📰</div>
-          <h1 className="text-4xl font-black text-[#2D2D2D] mb-4" style={{ fontFamily: "'Fredoka One', cursive" }}>Actualités</h1>
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/70" style={{ color: "#999B84" }}><Newspaper size={30} strokeWidth={1.75} aria-hidden="true" /></div>
+          <h1 className="text-4xl font-black text-[#2D2D2D] mb-4" style={{ fontFamily: "var(--font-fredoka), sans-serif", fontWeight: 700 }}>Actualités</h1>
           <p className="text-[#2D2D2D]/50 text-lg">Les dernières nouvelles de Monte & Souris</p>
         </div>
       </section>
 
       <section className="py-24 px-4 bg-[#FFFDF8]">
         <div className="max-w-2xl mx-auto text-center">
-          <div className="text-5xl mb-6">✨</div>
-          <h2 className="text-2xl font-black text-[#2D2D2D] mb-4" style={{ fontFamily: "'Fredoka One', cursive" }}>
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F5EEEE]" style={{ color: "#BB908E" }}><Sparkles size={30} strokeWidth={1.75} aria-hidden="true" /></div>
+          <h2 className="text-2xl font-black text-[#2D2D2D] mb-4" style={{ fontFamily: "var(--font-fredoka), sans-serif", fontWeight: 700 }}>
             Bientôt ici&nbsp;!
           </h2>
           <p className="text-[#2D2D2D]/55 leading-relaxed">

@@ -26,15 +26,15 @@ export interface TraceProgress {
   marksDone: number[];
 }
 
-export const SPACING = 40;
+const SPACING = 40;
 /** Distance maximale au point de départ (ou de reprise) pour poser le doigt. */
-export const START_TOLERANCE = 130;
+const START_TOLERANCE = 130;
 /** Distance à laquelle un repère est considéré comme franchi. */
-export const HIT_TOLERANCE = 100;
+const HIT_TOLERANCE = 100;
 /** Au-delà, le doigt a quitté la lettre : le geste en cours est annulé. */
-export const OFF_TOLERANCE = 170;
+const OFF_TOLERANCE = 170;
 /** Marge autour d'un point de la lettre pour l'appui. */
-export const MARK_TOLERANCE = 70;
+const MARK_TOLERANCE = 70;
 
 export const INITIAL_PROGRESS: TraceProgress = { stroke: 0, checkpoint: 0, marksDone: [] };
 

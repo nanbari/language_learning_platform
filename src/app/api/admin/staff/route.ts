@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
-import { COOKIE_NAME, verifySession } from "@/lib/auth";
+import { supabaseAdmin } from "@/server/supabase";
 import { parseStaffUpdate, staffUpdateError, type StaffRow } from "@/lib/staff";
-
-// Client service-role : la RLS est contournée, l'autorisation (droit admin)
-// est faite ici même — ne jamais exposer ce client au navigateur.
-let adminClient: ReturnType<typeof supabaseAdmin> | null = null;
-const supabase = () => (adminClient ??= supabaseAdmin());
+import { requireAdmin } from "@/server/session";
+import { serverError } from "@/server/errors";
 
 interface UserRow {
   id: string; name: string; email: string; role: string;
@@ -21,13 +17,6 @@ function toStaffRow(u: UserRow): StaffRow {
   };
 }
 
-async function requireAdmin(req: NextRequest) {
-  const session = await verifySession(req.cookies.get(COOKIE_NAME)?.value);
-  if (!session) return { error: NextResponse.json({ error: "Non authentifié" }, { status: 401 }) };
-  if (!session.isAdmin) return { error: NextResponse.json({ error: "Réservé aux administrateurs" }, { status: 403 }) };
-  return { session };
-}
-
 /**
  * GET /api/admin/staff
  * Enseignants (y compris ceux portant encore l'ancien rôle "admin"), avec
@@ -38,12 +27,12 @@ export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req);
   if ("error" in auth) return auth.error;
 
-  const { data, error } = await supabase()
+  const { data, error } = await supabaseAdmin()
     .from("users")
     .select("*")
     .in("role", ["teacher", "admin"])
     .order("name", { ascending: true });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError("/api/admin/staff error", error);
 
   return NextResponse.json((data as UserRow[]).map(toStaffRow));
 }
@@ -61,7 +50,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const auth = await requireAdmin(req);
   if ("error" in auth) return auth.error;
-  const { session } = auth;
+  const session = auth.user;
 
   const body = await req.json().catch(() => null);
   const parsed = parseStaffUpdate(body);
@@ -71,9 +60,9 @@ export async function POST(req: NextRequest) {
   const guard = staffUpdateError(update, session.id);
   if (guard) return NextResponse.json({ error: guard }, { status: 409 });
 
-  const db = supabase();
+  const db = supabaseAdmin();
   const { data: target, error: loadError } = await db.from("users").select("*").eq("id", update.id).maybeSingle();
-  if (loadError) return NextResponse.json({ error: loadError.message }, { status: 500 });
+  if (loadError) return serverError("/api/admin/staff loadError", loadError);
   if (!target) return NextResponse.json({ error: "Enseignant introuvable" }, { status: 404 });
   if (target.role !== "teacher" && target.role !== "admin") {
     return NextResponse.json({ error: "Seul un enseignant peut recevoir le droit admin" }, { status: 409 });
@@ -86,7 +75,7 @@ export async function POST(req: NextRequest) {
     .eq("id", update.id)
     .select("*")
     .single();
-  if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+  if (updateError) return serverError("/api/admin/staff updateError", updateError);
 
   return NextResponse.json({ user: toStaffRow(updated as UserRow) });
 }

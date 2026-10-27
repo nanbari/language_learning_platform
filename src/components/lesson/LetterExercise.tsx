@@ -9,11 +9,12 @@ import { useEffect, useRef, useState } from "react";
 import { Volume2 } from "lucide-react";
 import { SlideView } from "@/components/present/Slides";
 import { teacherQuestion, type Slide } from "@/lib/presentation";
-import { useExerciseTracker } from "@/lib/useExerciseTracker";
+import { useExerciseTracker } from "@/hooks/useExerciseTracker";
 import { isQuestionKind, loadSounds, playLetterSound, playQuestionSound, readsQuestionOnArrival, stopSounds, type Sounds } from "@/lib/letterSound";
+import { FindLetterStage } from "@/components/student/FindLetterStage";
+import { accentAt, type Accent } from "@/components/student/accents";
 
-/** Temps laissé à la réussite (confettis) avant l'exercice suivant. */
-export const NEXT_LETTER_EXERCISE_DELAY_MS = 1500;
+export { NEXT_LETTER_EXERCISE_DELAY_MS } from "@/lib/letterExercises";
 
 /**
  * Ce que l'élève entend à l'arrivée sur un exercice : pour « retrouver la
@@ -36,10 +37,10 @@ function announceOnArrival(slide: Slide, previous: Slide | undefined) {
 /**
  * `eventId` : id sous lequel journaliser les réponses (letterGameId), ou null
  * pour un écran non suivi (l'écriture, qui ne peut pas être ratée). À monter
- * avec une `key` par exercice.
+ * avec une `key` par exercice. `accent` : pastel de la leçon (espace élève).
  */
-export function LetterExercise({ slide, previous, color, lessonId, eventId, onSolved }: {
-  slide: Slide; previous?: Slide; color: string; lessonId: string; eventId: string | null; onSolved: () => void;
+export function LetterExercise({ slide, previous, color, accent = accentAt(0), lessonId, eventId, onSolved }: {
+  slide: Slide; previous?: Slide; color: string; accent?: Accent; lessonId: string; eventId: string | null; onSolved: () => void;
 }) {
   const [sounds, setSounds] = useState<Sounds | null>(null);
   const solved = useRef(false);
@@ -57,8 +58,21 @@ export function LetterExercise({ slide, previous, color, lessonId, eventId, onSo
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // « Retrouver la lettre » et « écrire » : pas de question écrite, seulement le son de la lettre.
-  const listenOnly = slide.kind === "findLetter" || slide.kind === "write";
+  const onPick = (choiceId: string, correct: boolean) => {
+    if (solved.current) return;
+    if (eventId) track.attempt(correct, { choiceId });
+    if (correct) { solved.current = true; onSolved(); }
+  };
+
+  // « Retrouver la lettre » : la scène de l'espace élève (consigne en
+  // français, bouton d'écoute, retour calme). Les autres jeux gardent
+  // l'écran du cours en direct.
+  if (slide.kind === "findLetter") {
+    return <FindLetterStage target={slide.target} choices={slide.choices} accent={accent} onListen={() => announce(slide)} onPick={onPick} />;
+  }
+
+  // « Écrire » : pas de question écrite, seulement le son de la lettre.
+  const listenOnly = slide.kind === "write";
   const question = listenOnly ? null : teacherQuestion(slide);
   // Son à réécouter : celui de la lettre, ou la question enregistrée.
   const canReplay = listenOnly || (isQuestionKind(slide.kind) && !!sounds?.questions[slide.kind]);
@@ -70,7 +84,7 @@ export function LetterExercise({ slide, previous, color, lessonId, eventId, onSo
           {question && (
             <p
               className="text-center text-3xl font-bold text-[#2D2D2D]/80"
-              style={{ fontFamily: "'Noto Naskh Arabic', 'Cairo', serif", direction: "rtl" }}
+              style={{ fontFamily: "var(--font-noto-naskh-arabic, 'Noto Naskh Arabic'), serif", direction: "rtl" }}
             >
               {question}
             </p>
@@ -90,13 +104,7 @@ export function LetterExercise({ slide, previous, color, lessonId, eventId, onSo
           <SlideView
             slide={slide}
             step={0}
-            game={{
-              onPick: (choiceId, correct) => {
-                if (solved.current) return;
-                if (eventId) track.attempt(correct, { choiceId });
-                if (correct) { solved.current = true; onSolved(); }
-              },
-            }}
+            game={{ onPick }}
           />
         </div>
       </div>

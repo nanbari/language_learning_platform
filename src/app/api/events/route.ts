@@ -1,16 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
-import { COOKIE_NAME, verifySession } from "@/lib/auth";
+import { supabaseAdmin } from "@/server/supabase";
 import { parseExerciseEvent, MAX_BATCH, type ExerciseEventInput } from "@/lib/exerciseEvents";
-
-// Client service-role : la RLS est contournée, l'autorisation est faite ici
-// même (session + rôle) — ne jamais exposer ce client au navigateur.
-let adminClient: ReturnType<typeof supabaseAdmin> | null = null;
-const supabase = () => (adminClient ??= supabaseAdmin());
-
-async function getSession(req: NextRequest) {
-  return verifySession(req.cookies.get(COOKIE_NAME)?.value);
-}
+import { currentUser } from "@/server/session";
+import { isMissingColumn, serverError, warnOnce } from "@/server/errors";
 
 const DEFAULT_LIMIT = 500;
 const MAX_LIMIT = 2000;
@@ -21,8 +13,9 @@ const MAX_LIMIT = 2000;
  * Tri antéchronologique.
  */
 export async function GET(req: NextRequest) {
-  const session = await getSession(req);
-  if (!session) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const auth = await currentUser(req);
+  if ("error" in auth) return auth.error;
+  const session = auth.user;
 
   const { searchParams } = new URL(req.url);
   const userId   = searchParams.get("userId");
@@ -35,7 +28,7 @@ export async function GET(req: NextRequest) {
   }
   const effectiveUserId = session.role === "student" ? session.id : userId;
 
-  let query = supabase()
+  let query = supabaseAdmin()
     .from("exercise_events")
     .select("*")
     .order("created_at", { ascending: false })
@@ -45,7 +38,7 @@ export async function GET(req: NextRequest) {
   if (blockId)         query = query.eq("block_id", blockId);
 
   const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError("/api/events error", error);
   return NextResponse.json(data);
 }
 
@@ -55,8 +48,9 @@ export async function GET(req: NextRequest) {
  * Réservé aux élèves ; user_id vient toujours de la session.
  */
 export async function POST(req: NextRequest) {
-  const session = await getSession(req);
-  if (!session) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const auth = await currentUser(req);
+  if ("error" in auth) return auth.error;
+  const session = auth.user;
   if (session.role !== "student") {
     return NextResponse.json({ error: "Seuls les élèves enregistrent des événements" }, { status: 403 });
   }
@@ -73,7 +67,16 @@ export async function POST(req: NextRequest) {
     rows.push({ ...parsed.value, user_id: session.id });
   }
 
-  const { error } = await supabase().from("exercise_events").insert(rows);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // Un lot renvoyé après une coupure (même event_id) n'est pas enregistré deux fois.
+  const withIds = rows.every((r) => typeof r.event_id === "string");
+  let { error } = withIds
+    ? await supabaseAdmin().from("exercise_events").upsert(rows, { onConflict: "event_id", ignoreDuplicates: true })
+    : await supabaseAdmin().from("exercise_events").insert(rows);
+  if (error && withIds && isMissingColumn(error)) {
+    // Migration 2026-10-29 pas encore passée : on enregistre sans identifiant, comme avant.
+    warnOnce("colonne exercise_events.event_id absente : enregistrement sans identifiant");
+    ({ error } = await supabaseAdmin().from("exercise_events").insert(rows.map(({ event_id: _id, ...r }) => { void _id; return r; })));
+  }
+  if (error) return serverError("/api/events error", error);
   return NextResponse.json({ inserted: rows.length }, { status: 201 });
 }

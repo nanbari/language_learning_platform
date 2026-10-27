@@ -10,7 +10,7 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle, Plus, Send, X } from "lucide-react";
-import { submitEnrollment } from "@/lib/enrollmentApi";
+import { submitEnrollment } from "@/lib/api/enrollment";
 import { ENROLLMENT_LEVELS, LEVEL_LABELS, MAX_CHILD_AGE, MAX_CHILDREN, MIN_CHILD_AGE, type EnrollmentLevel } from "@/lib/enrollment";
 
 const AGES = Array.from({ length: MAX_CHILD_AGE - MIN_CHILD_AGE + 1 }, (_, i) => MIN_CHILD_AGE + i);
@@ -86,15 +86,15 @@ export default function EnrollmentPage() {
               </svg>
             </div>
             <div className="flex flex-col leading-none">
-              <p className="text-xs text-left text-[#2D2D2D]/50 leading-none" style={{ fontFamily: "'Caveat', cursive" }}>
+              <p className="text-xs text-left text-[#2D2D2D]/50 leading-none" style={{ fontFamily: "var(--font-caveat), cursive" }}>
                 ASBL
               </p>
-              <span className="font-black text-xl text-[#2D2D2D] leading-none" style={{ fontFamily: "'Fredoka One', cursive" }}>
+              <span className="font-black text-xl text-[#2D2D2D] leading-none" style={{ fontFamily: "var(--font-fredoka), sans-serif", fontWeight: 700 }}>
                 Monte <span className="text-[#8BA3B1]">&</span> So<span className="text-[#BB908E]">u</span>ri<span className="text-[#999B84]">s</span>
               </span>
             </div>
           </Link>
-          <h1 className="text-2xl sm:text-3xl text-[#2D2D2D]" style={{ fontFamily: "'Fredoka One', cursive" }}>
+          <h1 className="text-2xl sm:text-3xl text-[#2D2D2D]" style={{ fontFamily: "var(--font-fredoka), sans-serif", fontWeight: 700 }}>
             Demande d&apos;inscription aux cours d&apos;arabe
           </h1>
           <p className="text-[#2D2D2D]/60 text-sm mt-2 leading-relaxed">

@@ -3,7 +3,7 @@ import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";
 import { LETTER_STROKES } from "@/data/letterStrokes";
 import { LETTER_FORM_STROKES } from "@/data/letterFormStrokes";
 import { LETTER_POSITIONS, exerciseWords } from "@/data/letterWords";
-import { buildLetterDeck, buildVocabDeck, combineDecks, isRightForm, lessonQcms, lessonVocabWords, letterColor, qcmAnswerLabel, shuffle, stepsFor, lettersPerLesson, hasLessonLetters, teacherInstruction, teacherQuestion, writingGlyph, CHARTER_COLORS, type Qcm, type VocabWord } from "./presentation";
+import { buildLetterDeck, buildVocabDeck, combineDecks, isRightForm, lessonQcms, lessonVocabWords, letterColor, qcmAnswerLabel, shuffle, stepsFor, lettersPerLesson, hasLessonLetters, teacherInstruction, teacherQuestion, writingGlyph, CHARTER_COLORS, type Qcm, type VocabWord } from "@/lib/presentation";
 
 /** Générateur déterministe pour des decks reproductibles. */
 function seeded(seed = 1) {

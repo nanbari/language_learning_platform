@@ -11,8 +11,8 @@
  * puis réussi du premier coup hier n'est donc plus considéré comme faible.
  */
 import type { ContentBlock, Exercise, QuizExercise, WordOrderExercise } from "@/components/lesson/ExerciseRenderers";
-import { describeLetterAnswer, isLettersBlock, letterGames, type LetterGameExercise, type LettersBlock } from "./letterExercises";
-import type { ExerciseEventRow } from "./exerciseEvents";
+import { describeLetterAnswer, isLettersBlock, letterGames, type LetterGameExercise, type LettersBlock } from "@/lib/letterExercises";
+import type { ExerciseEventRow } from "@/lib/exerciseEvents";
 
 /** Exercices dont on sait produire une variante textuelle. */
 export type ReviewableExercise = QuizExercise | WordOrderExercise;

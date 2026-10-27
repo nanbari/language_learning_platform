@@ -14,8 +14,8 @@
  * passe sont séparées de celles des passes précédentes.
  */
 import type { ContentBlock, Exercise, QuizExercise } from "@/components/lesson/ExerciseRenderers";
-import type { ExerciseEventRow } from "./exerciseEvents";
-import { compareEvents, lastRun } from "./weakSpots";
+import type { ExerciseEventRow } from "@/lib/exerciseEvents";
+import { compareEvents, lastRun } from "@/lib/weakSpots";
 
 export interface InsightLesson { id: string; title: string; blocks: ContentBlock[] }
 export interface InsightUser   { id: string; name: string }
@@ -48,7 +48,7 @@ export interface AnswerDescriptor {
   imageUrl: string | null;
 }
 
-export interface WrongAnswerCount extends AnswerDescriptor { count: number }
+interface WrongAnswerCount extends AnswerDescriptor { count: number }
 
 /**
  * Statut d'un exercice pour un élève, d'après sa dernière passe :

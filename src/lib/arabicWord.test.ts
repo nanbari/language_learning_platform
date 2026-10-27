@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { joinedSegments, splitMarkedWord, stripDiacritics } from "./arabicWord";
+import { joinedSegments, splitMarkedWord, stripDiacritics } from "@/lib/arabicWord";
 import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";
 import { LETTER_POSITIONS, LETTER_WORDS } from "@/data/letterWords";
 

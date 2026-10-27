@@ -1,24 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { supabaseAdmin } from "@/lib/supabase";
-import { COOKIE_NAME, verifySession } from "@/lib/auth";
+import { supabaseAdmin } from "@/server/supabase";
 import { analyseWeakSpots, isTextSpot } from "@/lib/weakSpots";
-import { generatePracticeSet, PracticeConfigError, PracticeGenerationError } from "@/lib/practiceGenerator";
+import { generatePracticeSet, PracticeConfigError, PracticeGenerationError } from "@/server/practiceGenerator";
 import { toReplayBlocks, toPracticeSources, type PracticeBlock, type PracticeSet, type PracticeSource } from "@/lib/practice";
 import type { ContentBlock } from "@/components/lesson/ExerciseRenderers";
 import type { ExerciseEventRow } from "@/lib/exerciseEvents";
-import { studentClassIds } from "@/app/api/classes/access";
+import { studentClassIds } from "@/server/classAccess";
+import { currentUser } from "@/server/session";
+import { serverError } from "@/server/errors";
+import { isUuid } from "@/lib/uuid";
 
-// Client service-role : la RLS est contournée, l'autorisation est faite ici
-// même (session + rôle) — ne jamais exposer ce client au navigateur.
-let adminClient: ReturnType<typeof supabaseAdmin> | null = null;
-const supabase = () => (adminClient ??= supabaseAdmin());
-
-async function getSession(req: NextRequest) {
-  return verifySession(req.cookies.get(COOKIE_NAME)?.value);
-}
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Délai minimal entre deux générations Claude pour un même élève et une même leçon. */
 const MIN_INTERVAL_MS = 60_000;
 
@@ -55,13 +47,14 @@ function rowToSet(row: PracticeRow): PracticeSet {
  * Réponse : la série, ou null s'il n'y en a pas encore.
  */
 export async function GET(req: NextRequest) {
-  const session = await getSession(req);
-  if (!session) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const auth = await currentUser(req);
+  if ("error" in auth) return auth.error;
+  const session = auth.user;
 
   const { searchParams } = new URL(req.url);
   const lessonId = searchParams.get("lessonId");
   const userId   = searchParams.get("userId");
-  if (!lessonId || !UUID_RE.test(lessonId)) return NextResponse.json({ error: "lessonId invalide" }, { status: 400 });
+  if (!lessonId || !isUuid(lessonId)) return NextResponse.json({ error: "lessonId invalide" }, { status: 400 });
 
   if (session.role === "student" && userId && userId !== session.id) {
     return NextResponse.json({ error: "Interdit" }, { status: 403 });
@@ -69,7 +62,7 @@ export async function GET(req: NextRequest) {
   const effectiveUserId = session.role === "student" ? session.id : userId;
   if (!effectiveUserId) return NextResponse.json({ error: "userId requis" }, { status: 400 });
 
-  const { data, error } = await supabase()
+  const { data, error } = await supabaseAdmin()
     .from("practice_sets")
     .select("*")
     .eq("user_id", effectiveUserId)
@@ -77,7 +70,7 @@ export async function GET(req: NextRequest) {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError("/api/practice error", error);
   return NextResponse.json(data ? rowToSet(data as PracticeRow) : null);
 }
 
@@ -94,19 +87,20 @@ export async function GET(req: NextRequest) {
  *  503                                   agent non configuré (mode claude)
  */
 export async function POST(req: NextRequest) {
-  const session = await getSession(req);
-  if (!session) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const auth = await currentUser(req);
+  if ("error" in auth) return auth.error;
+  const session = auth.user;
   if (session.role !== "student") {
     return NextResponse.json({ error: "Seuls les élèves génèrent des révisions" }, { status: 403 });
   }
 
   const body = await req.json().catch(() => null);
   const lessonId = body?.lessonId;
-  if (typeof lessonId !== "string" || !UUID_RE.test(lessonId)) {
+  if (typeof lessonId !== "string" || !isUuid(lessonId)) {
     return NextResponse.json({ error: "lessonId invalide" }, { status: 400 });
   }
 
-  const db = supabase();
+  const db = supabaseAdmin();
   const mode = practiceMode();
 
   if (mode === "claude") {
@@ -129,7 +123,7 @@ export async function POST(req: NextRequest) {
     .select("id, title, exercises, class_id")
     .eq("id", lessonId)
     .maybeSingle();
-  if (lessonError) return NextResponse.json({ error: lessonError.message }, { status: 500 });
+  if (lessonError) return serverError("/api/practice lessonError", lessonError);
   // Une leçon qui n'est pas proposée à l'une des classes de l'élève lui est invisible.
   const visible = lesson?.class_id && (await studentClassIds(session.id)).includes(lesson.class_id);
   if (!lesson || !visible) return NextResponse.json({ error: "Leçon introuvable" }, { status: 404 });
@@ -143,7 +137,7 @@ export async function POST(req: NextRequest) {
     .eq("lesson_id", lessonId)
     .order("created_at", { ascending: false })
     .limit(EVENTS_LIMIT);
-  if (eventsError) return NextResponse.json({ error: eventsError.message }, { status: 500 });
+  if (eventsError) return serverError("/api/practice eventsError", eventsError);
 
   const weakSpots = analyseWeakSpots(blocks, (events ?? []) as ExerciseEventRow[]);
   if (weakSpots.length === 0) return NextResponse.json({ status: "nothing_to_review" });
@@ -205,7 +199,7 @@ export async function POST(req: NextRequest) {
     })
     .select()
     .single();
-  if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
+  if (insertError) return serverError("/api/practice insertError", insertError);
 
   return NextResponse.json({ status: "created", set: rowToSet(inserted as PracticeRow) }, { status: 201 });
 }

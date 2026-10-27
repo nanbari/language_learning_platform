@@ -11,7 +11,7 @@
  *
  * Module pur (validation, lecture du fragment), testé à part.
  */
-import { MAX_EMAIL, MAX_PASSWORD, MIN_PASSWORD } from "./signup";
+import { MAX_EMAIL, MAX_PASSWORD, MIN_PASSWORD } from "@/lib/signup";
 
 export const RESET_PAGE_PATH = "/reinitialiser-mot-de-passe";
 

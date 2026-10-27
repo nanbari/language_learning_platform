@@ -7,12 +7,44 @@
  * XMLHttpRequest plutôt que fetch : nécessaire pour la progression d'envoi.
  * Retourne l'URL publique à enregistrer dans la leçon.
  */
-import { needsMp3Transcode, transcodeToMp3 } from "./audioTranscode";
+import { needsMp3Transcode, transcodeToMp3 } from "@/lib/audioTranscode";
+
+/** Au-delà de ce côté, une photo est réduite avant l'envoi : l'écran d'un élève n'en affiche jamais plus. */
+const MAX_IMAGE_SIDE = 1600;
+const SHRINK_ABOVE_BYTES = 400 * 1024;
+
+/**
+ * Réduit une photo d'appareil (souvent 3 à 6 Mo, 4000 px) à 1600 px de côté
+ * au plus, en WebP ou JPEG à 82 %. Les GIF, les SVG et les petites images
+ * passent tels quels ; en cas d'échec, l'original part sans perte.
+ */
+async function shrinkImage(file: File): Promise<File> {
+  if (!file.type.startsWith("image/") || file.type === "image/gif" || file.type === "image/svg+xml") return file;
+  if (file.size <= SHRINK_ABOVE_BYTES || typeof createImageBitmap !== "function") return file;
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(bitmap.width, bitmap.height));
+    if (scale === 1 && file.size <= 2 * SHRINK_ABOVE_BYTES) { bitmap.close(); return file; }
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const type = file.type === "image/png" ? "image/png" : "image/webp";
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, 0.82));
+    if (!blob || blob.size >= file.size) return file;
+    const name = file.name.replace(/\.[^.]+$/, "") + (type === "image/png" ? ".png" : ".webp");
+    return new File([blob], name, { type: blob.type || type });
+  } catch {
+    return file;
+  }
+}
 
 export async function uploadMedia(
-  file: File,
+  source: File,
   onProgress?: (percent: number) => void,
 ): Promise<string> {
+  const file = await shrinkImage(source);
   const res = await fetch("/api/media", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

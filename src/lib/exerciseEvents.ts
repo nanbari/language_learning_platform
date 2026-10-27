@@ -1,3 +1,4 @@
+import { isUuid } from "@/lib/uuid";
 /**
  * Événements d'exercice — modèle partagé client / serveur.
  *
@@ -13,13 +14,15 @@
  *               (rendus non interactifs : appariement, tri)
  */
 
-export const EXERCISE_TYPES = ["quiz", "matching", "dragdrop", "wordorder", "image-quiz"] as const;
+const EXERCISE_TYPES = ["quiz", "matching", "dragdrop", "wordorder", "image-quiz"] as const;
 export type ExerciseType = (typeof EXERCISE_TYPES)[number];
 
-export const EVENT_TYPES = ["attempt", "complete", "hint", "view"] as const;
-export type EventType = (typeof EVENT_TYPES)[number];
+const EVENT_TYPES = ["attempt", "complete", "hint", "view"] as const;
+type EventType = (typeof EVENT_TYPES)[number];
 
 export interface ExerciseEventInput {
+  /** Identifiant choisi par le navigateur : un lot renvoyé après une coupure n'est enregistré qu'une fois. */
+  event_id?: string;
   lesson_id: string;
   block_id: string;
   exercise_type: ExerciseType;
@@ -36,21 +39,21 @@ export interface ExerciseEventInput {
   time_ms?: number | null;
 }
 
-export interface ExerciseEventRow extends Required<Omit<ExerciseEventInput, "hint_count">> {
+export interface ExerciseEventRow extends Required<Omit<ExerciseEventInput, "hint_count" | "event_id">> {
   id: string;
+  /** Absent sur les lignes enregistrées avant la migration 2026-10-29. */
+  event_id?: string | null;
   user_id: string;
   hint_count: number;
   created_at: string;
 }
 
 /** Taille maximale du JSON `answer`, pour éviter qu'un client ne stocke n'importe quoi. */
-export const MAX_ANSWER_BYTES = 2048;
+const MAX_ANSWER_BYTES = 2048;
 /** Durée maximale plausible sur un exercice (6 h) ; au-delà, la valeur est écrêtée. */
 export const MAX_TIME_MS = 6 * 60 * 60 * 1000;
 /** Nombre maximal d'événements acceptés par requête. */
 export const MAX_BATCH = 50;
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type ParseResult = { ok: true; value: ExerciseEventInput } | { ok: false; error: string };
 
@@ -68,9 +71,11 @@ function optionalNonNegInt(v: unknown, name: string, max: number): number | null
 export function parseExerciseEvent(input: unknown): ParseResult {
   if (!isPlainObject(input)) return { ok: false, error: "événement invalide" };
 
-  const { lesson_id, block_id, exercise_type, event_type, correct, answer, attempt_number, hint_count, time_ms } = input;
+  const { event_id, lesson_id, block_id, exercise_type, event_type, correct, answer, attempt_number, hint_count, time_ms } = input;
 
-  if (typeof lesson_id !== "string" || !UUID_RE.test(lesson_id)) return { ok: false, error: "lesson_id invalide" };
+  if (event_id !== undefined && !isUuid(event_id)) return { ok: false, error: "event_id invalide" };
+
+  if (!isUuid(lesson_id)) return { ok: false, error: "lesson_id invalide" };
   if (typeof block_id !== "string" || block_id.length === 0 || block_id.length > 64) return { ok: false, error: "block_id invalide" };
   if (!EXERCISE_TYPES.includes(exercise_type as ExerciseType)) return { ok: false, error: "exercise_type invalide" };
   if (!EVENT_TYPES.includes(event_type as EventType)) return { ok: false, error: "event_type invalide" };
@@ -97,6 +102,7 @@ export function parseExerciseEvent(input: unknown): ParseResult {
   return {
     ok: true,
     value: {
+      ...(typeof event_id === "string" && { event_id }),
       lesson_id,
       block_id,
       exercise_type: exercise_type as ExerciseType,

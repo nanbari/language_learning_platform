@@ -10,7 +10,7 @@
 import { Mp3Encoder } from "@breezystack/lamejs";
 
 export const MP3_SAMPLE_RATE = 24_000;
-export const MP3_KBPS = 48;
+const MP3_KBPS = 48;
 const CHUNK = 1152; // taille de trame MP3
 
 /** Vrai pour un audio qui n'est pas déjà du MP3 (à convertir avant envoi). */

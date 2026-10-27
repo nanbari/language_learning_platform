@@ -10,13 +10,13 @@
  * Ce module est pur (validation, types) et testé à part ; l'accès base est
  * dans les routes serveur.
  */
-import { normaliseEmail } from "./signup";
+import { normaliseEmail } from "@/lib/signup";
 
 export const MIN_CHILD_AGE = 4;
 export const MAX_CHILD_AGE = 12;
-export const MAX_NAME = 80;
-export const MAX_EMAIL = 254;
-export const MAX_PHONE = 30;
+const MAX_NAME = 80;
+const MAX_EMAIL = 254;
+const MAX_PHONE = 30;
 /** Enfants par envoi du formulaire. */
 export const MAX_CHILDREN = 6;
 
@@ -28,10 +28,9 @@ export const LEVEL_LABELS: Record<EnrollmentLevel, { title: string; hint: string
   reader: { title: "Lecteur", hint: "Sait lire l'arabe, même lentement" },
 };
 
-export const ENROLLMENT_STATUSES = ["new", "handled"] as const;
-export type EnrollmentStatus = (typeof ENROLLMENT_STATUSES)[number];
+type EnrollmentStatus = "new" | "handled";
 
-export interface ChildInput {
+interface ChildInput {
   name: string;
   age: number;
   level: EnrollmentLevel;

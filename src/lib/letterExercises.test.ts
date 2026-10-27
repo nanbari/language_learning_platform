@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { letterGames, type LettersBlock } from "./letterExercises";
-import { analyseWeakSpots, describeAnswer, summariseWeakSpots } from "./weakSpots";
-import { toReplayBlocks, exerciseLabel } from "./practice";
-import type { ExerciseEventRow } from "./exerciseEvents";
+import { letterGames, type LettersBlock } from "@/lib/letterExercises";
+import { analyseWeakSpots, describeAnswer, summariseWeakSpots } from "@/lib/weakSpots";
+import { toReplayBlocks, exerciseLabel } from "@/lib/practice";
+import type { ExerciseEventRow } from "@/lib/exerciseEvents";
 
 const LESSON = "123e4567-e89b-12d3-a456-426614174000";
 const block: LettersBlock = { id: "let1", type: "letters", level: "beginner", letterIds: [2, 3] };

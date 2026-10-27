@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { buildTeacherInsights, exerciseSummaryLabel, describeAnswerRich, correctAnswerOf } from "./teacherInsights";
+import { buildTeacherInsights, exerciseSummaryLabel, describeAnswerRich, correctAnswerOf } from "@/lib/teacherInsights";
 import type { ContentBlock, QuizExercise, WordOrderExercise } from "@/components/lesson/ExerciseRenderers";
-import type { ExerciseEventRow } from "./exerciseEvents";
+import type { ExerciseEventRow } from "@/lib/exerciseEvents";
 
 const L1 = "123e4567-e89b-12d3-a456-426614174000";
 const L2 = "223e4567-e89b-12d3-a456-426614174000";

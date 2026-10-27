@@ -1,214 +1,21 @@
 "use client";
-import { useState, use, useEffect, useRef, useCallback } from "react";
+import { useState, use, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Trophy, ChevronRight, Sparkles } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
-import { fetchLessons, type ApiLesson } from "@/lib/lessonsApi";
-import { flushExerciseEvents } from "@/lib/eventsApi";
-import { fetchPracticeSummary } from "@/lib/practiceApi";
-import {
-  QuizRenderer, WordOrderRenderer, MatchingRenderer, DragDropRenderer,
-  type ContentBlock, type Exercise, type SlideItem, type VideoItem,
-  type QuizExercise, type MatchExercise, type WordOrderExercise, type DragExercise,
-} from "@/components/lesson/ExerciseRenderers";
-import { LetterExercise, NEXT_LETTER_EXERCISE_DELAY_MS } from "@/components/lesson/LetterExercise";
-import { buildLetterDeck, type Slide } from "@/lib/presentation";
-import { isLetterGameSlide, letterGameId, type LettersBlock } from "@/lib/letterExercises";
-import { isGame } from "@/lib/liveSession";
-import { playSound, stopSound } from "@/lib/soundPlayer";
-
-/* ── Types ── */
-type LessonBlock = ContentBlock | LettersBlock;
-
-interface StoredLesson {
-  id: string; title: string; createdAt: string;
-  blocks?: LessonBlock[];
-  videos?: VideoItem[]; slideshow?: SlideItem[]; exercises?: Exercise[];
-}
-
-function getYoutubeEmbedUrl(url: string): string | null {
-  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-  return match ? `https://www.youtube-nocookie.com/embed/${match[1]}?rel=0` : null;
-}
-
-// Only allow safe protocols when falling back to <video src>. Blocks javascript:, data:, etc.
-function isSafeVideoUrl(url: string): boolean {
-  try {
-    const u = new URL(url, "http://x");
-    return u.protocol === "https:" || u.protocol === "http:" || u.protocol === "blob:";
-  } catch { return false; }
-}
-
-function uid() { return Math.random().toString(36).slice(2, 8); }
-
-function getLessonBlocks(lesson: StoredLesson): LessonBlock[] {
-  if (lesson.blocks?.length) return lesson.blocks;
-  const blocks: LessonBlock[] = [];
-  for (const v of lesson.videos ?? []) blocks.push({ id: v.id, type: "video", url: v.url, title: v.title });
-  if (lesson.slideshow?.length) blocks.push({ id: uid(), type: "slideshow", slides: lesson.slideshow });
-  for (const ex of lesson.exercises ?? []) blocks.push({ id: uid(), type: "exercise", exercise: ex });
-  return blocks;
-}
-
-// Même ordre que LESSON_COLORS du tableau de bord : la leçon garde la
-// couleur de sa carte.
-const COLORS = ["#8BA3B1", "#999B84", "#6B705C", "#BB908E", "#7B868E", "#CCB9B5"];
-
-/* ── Slideshow renderer ── */
-function SlideshowRenderer({ slides, onDone }: { slides: SlideItem[]; onDone: () => void }) {
-  const [idx, setIdx] = useState(0);
-  const [done, setDone] = useState(false);
-  const timerRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Précharge les sons des diapos pour que le début ne soit pas coupé.
-  useEffect(() => {
-    const preloads = slides.filter((sl) => sl.audioDataUrl).map((sl) => {
-      const a = new Audio();
-      a.preload = "auto";
-      a.src = sl.audioDataUrl!;
-      return a;
-    });
-    return () => { preloads.forEach((a) => { a.src = ""; }); };
-  }, [slides]);
-
-  useEffect(() => {
-    if (done) onDone();
-  }, [done, onDone]);
-
-  const advance = useCallback(() => {
-    setIdx((prev) => {
-      if (prev < slides.length - 1) return prev + 1;
-      setDone(true);
-      return prev;
-    });
-  }, [slides.length]);
-
-  useEffect(() => {
-    const slide    = slides[idx];
-    const SLIDE_POST_DELAY = 2500;
-    const duration = (slide.audioDuration ?? 3000) + SLIDE_POST_DELAY;
-
-    if (timerRef.current) clearTimeout(timerRef.current);
-    // Lecteur partagé : sur téléphone, il continue de jouer d'une diapo à l'autre sans nouveau toucher.
-    if (slide.audioDataUrl) void playSound(slide.audioDataUrl);
-    timerRef.current = setTimeout(advance, duration);
-
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      stopSound();
-    };
-  }, [idx, advance, slides]);
-
-  const slide = slides[idx];
-
-  return (
-    <div className="min-h-screen bg-[#fffef9] flex flex-col items-center justify-center px-4">
-      <div className="max-w-xl w-full">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-bold text-gray-400">{idx + 1} / {slides.length}</span>
-          <span className="text-xs text-gray-400 font-semibold">Leçon illustrée</span>
-        </div>
-        {(slide.imageDataUrl || slide.text) && (
-          <div className="rounded-3xl overflow-hidden shadow-lg border border-gray-100 bg-white">
-            {slide.imageDataUrl && (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={slide.imageDataUrl}
-                alt={`Diapo ${idx + 1}`}
-                className="w-full object-contain max-h-[65vh]"
-              />
-            )}
-            {slide.text && (
-              <p className="px-6 py-4 text-center text-lg font-semibold text-[#2d2d2d] leading-relaxed whitespace-pre-line">
-                {slide.text}
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+import { fetchLessons, type ApiLesson } from "@/lib/api/lessons";
+import { LessonPlayer, type StoredLesson } from "@/components/lesson/LessonPlayer";
+import { STUDENT_ICON } from "@/components/student/StudentShell";
+import { accentAt } from "@/components/student/accents";
 
 /* ─────────────────────────────────────────────
-   Letters renderer — les écrans de lettres du cours en direct, en autonomie
-───────────────────────────────────────────── */
-/** Rang d'un exercice de lettres : le son d'abord, l'écriture en dernier. */
-function exerciseRank(slide: Slide): number {
-  if (slide.kind === "pickSound") return 0;
-  if (slide.kind === "write") return 2;
-  return 1;
-}
-
-/**
- * Les exercices des lettres du jour du cours en direct (écrire, retrouver,
- * choisir le son), mais l'élève avance seul (voir LetterExercise) : un jeu ne
- * se passe qu'une fois réussi, la bonne réponse mène d'elle-même à
- * l'exercice suivant. Les erreurs alimentent la révision.
- */
-function LettersRenderer({ block, color, lessonId, onDone }: { block: LettersBlock; color: string; lessonId: string; onDone: () => void }) {
-  // Sur la plateforme, seulement les exercices : ni écrans de présentation
-  // (titre, tracé, formes), ni « bravo » final — celui de la leçon suffit.
-  // Ordre : choisir le son, retrouver la lettre, puis l'écrire.
-  const [deck] = useState(() => buildLetterDeck(block.letterIds, block.level, block.reviewIds ?? [])
-    .filter(isGame)
-    .sort((a, b) => exerciseRank(a) - exerciseRank(b)));
-  const [index, setIndex] = useState(0);
-  const [solved, setSolved] = useState(false);
-
-  useEffect(() => {
-    if (deck.length === 0) onDone();
-  }, [deck.length, onDone]);
-
-  // Bonne réponse : le temps de voir les confettis, puis exercice suivant.
-  useEffect(() => {
-    if (!solved) return;
-    const timer = setTimeout(() => {
-      if (index < deck.length - 1) {
-        setIndex((i) => i + 1);
-        setSolved(false);
-      } else {
-        onDone();
-      }
-    }, NEXT_LETTER_EXERCISE_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [solved, index, deck.length, onDone]);
-
-  if (deck.length === 0) return null;
-
-  return (
-    <div className="flex-1 flex flex-col w-full max-w-4xl mx-auto px-4 py-6">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-          <div className="h-full rounded-full transition-all duration-500" style={{ background: color, width: `${(index / deck.length) * 100}%` }} />
-        </div>
-        <span className="text-sm font-bold text-gray-500">{index + 1}/{deck.length}</span>
-      </div>
-      <LetterExercise
-        key={index}
-        slide={deck[index]}
-        previous={deck[index - 1]}
-        color={color}
-        lessonId={lessonId}
-        eventId={isLetterGameSlide(deck[index]) ? letterGameId(block.id, deck[index]) : null}
-        onSolved={() => setSolved(true)}
-      />
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────
-   Main lesson page
+   Main lesson page — le déroulé est dans LessonPlayer (partagé avec l'aperçu
+   de l'éditeur de leçons).
 ───────────────────────────────────────────── */
 export default function LessonPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [lesson,     setLesson]     = useState<StoredLesson | null | "loading">("loading");
   const [allLessons, setAllLessons] = useState<ApiLesson[]>([]);
-  const [blockIndex, setBlockIndex] = useState(0);
-  const [completed,  setCompleted]  = useState(false);
-  // Exercices ratés sur cette leçon (null = pas encore calculé). Sert à ne
-  // proposer la révision qu'à un élève qui a effectivement raté quelque chose.
-  const [toReview,   setToReview]   = useState<number | null>(null);
   const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
@@ -220,219 +27,43 @@ export default function LessonPage({ params }: { params: Promise<{ id: string }>
     })();
   }, [id]);
 
-  // À la fin de la leçon, une fois les événements envoyés, on demande au
-  // serveur ce que l'élève a raté pour lui proposer une révision ciblée.
-  useEffect(() => {
-    if (!completed) return;
-    let cancelled = false;
-    (async () => {
-      await flushExerciseEvents();
-      const summary = await fetchPracticeSummary().catch(() => []);
-      if (cancelled) return;
-      setToReview(summary.find((s) => s.lessonId === id)?.toReview ?? 0);
-    })();
-    return () => { cancelled = true; };
-  }, [completed, id]);
+  // Un enseignant qui prévisualise la leçon revient sur son propre tableau de bord.
+  const isTeacher = user?.role === "teacher";
+  const home = isTeacher ? "/teacher" : "/student";
+  const homeLabel = isTeacher ? "Tableau de bord" : "Mes leçons";
+  const backLabel = isTeacher ? "Retour au tableau de bord" : "Retour à mes leçons";
 
   if (lesson === "loading") {
-    return <div className="min-h-screen flex items-center justify-center"><div className="text-4xl animate-float">⏳</div></div>;
+    return (
+      <div data-ms-app="" data-ms-area="student" className="min-h-dvh bg-ms-canvas" aria-busy="true">
+        {/* Même en-tête que la leçon (5,25 rem) : le contenu ne saute pas quand elle arrive. */}
+        <div className="sticky top-0 z-40 border-b border-ms-line bg-ms-surface">
+          <div className="mx-auto flex min-h-20 max-w-[66rem] items-center px-4 sm:px-6"><div className="ms-skeleton h-8 w-40" /></div>
+          <div className="h-1 bg-ms-surface-muted" aria-hidden="true" />
+        </div>
+        <div className="mx-auto flex max-w-[52rem] flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
+          <div className="ms-skeleton h-2 w-full rounded-full" />
+          <div className="ms-skeleton h-72 w-full rounded-3xl" />
+        </div>
+      </div>
+    );
   }
-
-  // Un enseignant qui prévisualise la leçon revient sur son propre tableau de bord.
-  const home = user?.role === "teacher" ? "/teacher" : "/student";
 
   if (!lesson) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-2xl font-black mb-4">Leçon introuvable 😅</p>
-          <Link href={home} className="text-[#8BA3B1] hover:underline">← Retour au tableau de bord</Link>
+      <div data-ms-app="" data-ms-area="student" className="min-h-dvh bg-ms-canvas flex items-center justify-center px-4">
+        <div className="text-center flex flex-col items-center gap-4">
+          <p className="text-2xl font-extrabold">Cette leçon est introuvable.</p>
+          <Link href={home} data-variant="primary" className="ms-button">
+            <ArrowLeft size={STUDENT_ICON} strokeWidth={1.75} aria-hidden="true" /> {backLabel}
+          </Link>
         </div>
       </div>
     );
   }
 
-  const lessonIdx = allLessons.findIndex((l) => l.id === id);
-  const color = COLORS[lessonIdx >= 0 ? lessonIdx % COLORS.length : 0];
+  // Même rotation que les cartes de l'accueil élève : la leçon garde sa couleur.
+  const accent = accentAt(allLessons.findIndex((l) => l.id === id));
 
-  const blocks = getLessonBlocks(lesson);
-  const currentBlock = blocks[blockIndex] ?? null;
-
-  const exerciseBlocks = blocks.filter((b) => b.type === "exercise");
-  const exercisesDone  = blocks.slice(0, blockIndex).filter((b) => b.type === "exercise").length;
-
-  const advanceBlock = () => {
-    if (blockIndex < blocks.length - 1) setBlockIndex((i) => i + 1);
-    else setCompleted(true);
-  };
-
-  /* ── Navbar shared ── */
-  const nav = (
-    <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
-      <Link href={home} className="flex items-center gap-2 text-gray-600 hover:text-[#6B705C] transition-colors">
-        <ArrowLeft size={18} /> Retour
-      </Link>
-      <p className="font-black text-[#2d2d2d] text-sm truncate max-w-[200px]">{lesson.title}</p>
-      <div className="w-[60px]" />
-    </div>
-  );
-
-  /* ── Completed screen ── */
-  if (completed || !currentBlock) {
-    return (
-      <div className="min-h-screen bg-[#fffef9] flex items-center justify-center px-4">
-        <div className="text-center max-w-md animate-bounce-in">
-          <h1 className="text-4xl font-black text-[#2d2d2d] mb-2" style={{ fontFamily: "'Fredoka One', cursive" }}>
-            Félicitations !
-          </h1>
-          <p className="text-gray-600 mb-8">Tu as terminé <strong>{lesson.title}</strong> !</p>
-          {exerciseBlocks.length > 0 && toReview !== null && toReview > 0 && (
-            <Link href={`/student/practice/${lesson.id}`}
-              className="mb-4 w-full px-6 py-3 rounded-full text-white font-bold flex items-center justify-center gap-2 hover:shadow-lg transition-all"
-              style={{ background: "#BB908E" }}>
-              <Sparkles size={16} />
-              Réviser ce que j&apos;ai raté ({toReview} exercice{toReview > 1 ? "s" : ""})
-            </Link>
-          )}
-          {exerciseBlocks.length > 0 && toReview === 0 && (
-            <p className="mb-4 text-sm font-semibold text-[#999B84]">
-              ✨ Tout réussi du premier coup, rien à revoir !
-            </p>
-          )}
-          <div className="flex gap-4 justify-center">
-            <button onClick={() => { setCompleted(false); setToReview(null); setBlockIndex(0); }}
-              className="px-6 py-3 rounded-full border-2 font-bold hover:opacity-80 transition-all"
-              style={{ borderColor: color, color }}>
-              Rejouer
-            </button>
-            <Link href={home}
-              className="px-6 py-3 rounded-full text-white font-bold hover:shadow-lg transition-all flex items-center gap-2"
-              style={{ background: color }}>
-              <Trophy size={16} /> Tableau de bord
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  /* ── Video block ── */
-  if (currentBlock.type === "video") {
-    const embedUrl = getYoutubeEmbedUrl(currentBlock.url);
-    return (
-      <div className="min-h-screen bg-[#fffef9] flex flex-col">
-        {nav}
-        <div className="flex-1 flex flex-col justify-center w-full max-w-4xl mx-auto px-4 py-8">
-          {currentBlock.title && (
-            <h2 className="text-xl font-black text-[#2d2d2d] mb-4 text-center">{currentBlock.title}</h2>
-          )}
-          <div className="rounded-3xl overflow-hidden shadow-md border border-gray-100 bg-black aspect-video mb-6">
-            {embedUrl ? (
-              <iframe src={embedUrl} className="w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen />
-            ) : isSafeVideoUrl(currentBlock.url) ? (
-              <video src={currentBlock.url} controls className="w-full h-full" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-white/70 text-sm">
-                URL vidéo invalide
-              </div>
-            )}
-          </div>
-          <button onClick={advanceBlock}
-            className="w-full py-4 rounded-2xl text-white font-black text-lg flex items-center justify-center gap-2 hover:shadow-xl hover:scale-[1.02] transition-all"
-            style={{ background: color }}>
-            Continuer <ChevronRight size={20} />
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  /* ── Letters block ── */
-  if (currentBlock.type === "letters") {
-    return (
-      <div className="min-h-screen bg-[#fffef9] flex flex-col">
-        {nav}
-        <LettersRenderer key={blockIndex} block={currentBlock} color={color} lessonId={lesson.id} onDone={advanceBlock} />
-      </div>
-    );
-  }
-
-  /* ── Slideshow block ── */
-  if (currentBlock.type === "slideshow") {
-    return (
-      <div className="min-h-screen bg-[#fffef9]">
-        {nav}
-        <SlideshowRenderer key={blockIndex} slides={currentBlock.slides} onDone={advanceBlock} />
-      </div>
-    );
-  }
-
-  /* ── Exercise block ── */
-  const ex = currentBlock.exercise;
-  return (
-    <div className="min-h-screen bg-[#fffef9] flex flex-col">
-      {nav}
-      <div className="flex-1 flex flex-col justify-center w-full max-w-2xl mx-auto px-4 py-10">
-        {ex.type !== "wordorder" && (
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-bold text-white mb-3"
-              style={{ background: color }}>
-              {ex.type === "quiz" ? "Quiz"
-                : ex.type === "matching" ? "🔗 Appariement"
-                : "🗂️ Tri"}
-              {exerciseBlocks.length > 1 && ` · ${exercisesDone + 1}/${exerciseBlocks.length}`}
-            </div>
-          </div>
-        )}
-
-        {ex.type === "quiz" && (
-          <QuizRenderer
-            key={blockIndex}
-            ex={ex as QuizExercise}
-            color={color}
-            onNext={advanceBlock}
-            idx={exercisesDone}
-            total={exerciseBlocks.length}
-            lessonId={lesson.id}
-            blockId={currentBlock.id}
-          />
-        )}
-
-        {ex.type === "matching" && (
-          <MatchingRenderer
-            key={blockIndex}
-            ex={ex as MatchExercise}
-            color={color}
-            onNext={advanceBlock}
-            lessonId={lesson.id}
-            blockId={currentBlock.id}
-          />
-        )}
-
-        {ex.type === "wordorder" && (
-          <WordOrderRenderer
-            key={blockIndex}
-            ex={ex as WordOrderExercise}
-            color={color}
-            onNext={advanceBlock}
-            lessonId={lesson.id}
-            blockId={currentBlock.id}
-          />
-        )}
-
-        {ex.type === "dragdrop" && (
-          <DragDropRenderer
-            key={blockIndex}
-            ex={ex as DragExercise}
-            color={color}
-            onNext={advanceBlock}
-            lessonId={lesson.id}
-            blockId={currentBlock.id}
-          />
-        )}
-      </div>
-    </div>
-  );
+  return <LessonPlayer lesson={lesson} accent={accent} home={home} homeLabel={homeLabel} backLabel={backLabel} />;
 }

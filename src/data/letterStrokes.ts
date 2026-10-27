@@ -7,7 +7,7 @@
  * traits suivent la ligne médiane du glyphe. `width` est l'épaisseur du
  * masque qui révèle la lettre le long du trait.
  */
-export interface PenStroke { d: string; width: number; length: number }
+interface PenStroke { d: string; width: number; length: number }
 export interface PenMark { cx: number; cy: number; r: number }
 export interface LetterStrokes { outline: string; strokes: PenStroke[]; marks: PenMark[] }
 

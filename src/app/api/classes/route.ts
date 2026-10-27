@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { COOKIE_NAME, verifySession, isStaff } from "@/lib/auth";
+import { isStaff } from "@/server/auth";
 import { isLive, parseNewClass, type ClassRow, type LiveClass, type TeacherClasses } from "@/lib/classes";
-import { supabase } from "./access";
+import { supabaseAdmin } from "@/server/supabase";
+import { currentUser } from "@/server/session";
+import { serverError } from "@/server/errors";
 
 interface ClassDbRow {
   id: string;
@@ -20,16 +22,17 @@ interface ClassDbRow {
  * - Élève : les cours en direct de ses classes, avec leur salon. Réponse : LiveClass[].
  */
 export async function GET(req: NextRequest) {
-  const session = await verifySession(req.cookies.get(COOKIE_NAME)?.value);
-  if (!session) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-  const db = supabase();
+  const auth = await currentUser(req);
+  if ("error" in auth) return auth.error;
+  const session = auth.user;
+  const db = supabaseAdmin();
 
   if (!isStaff(session)) {
     const { data, error } = await db
       .from("class_members")
       .select("class:classes(id, name, live_room, live_started_at, teacher:users!classes_teacher_id_fkey(name))")
       .eq("student_id", session.id);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return serverError("/api/classes error", error);
 
     const now = Date.now();
     const live: LiveClass[] = [];
@@ -52,8 +55,8 @@ export async function GET(req: NextRequest) {
     q,
     db.from("users").select("id, name").eq("role", "student").order("name"),
   ]);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (studentsError) return NextResponse.json({ error: studentsError.message }, { status: 500 });
+  if (error) return serverError("/api/classes error", error);
+  if (studentsError) return serverError("/api/classes studentsError", studentsError);
 
   const now = Date.now();
   const body: TeacherClasses = {
@@ -72,18 +75,19 @@ export async function GET(req: NextRequest) {
 
 /** POST /api/classes — { name } : nouvelle classe de l'enseignant connecté. */
 export async function POST(req: NextRequest) {
-  const session = await verifySession(req.cookies.get(COOKIE_NAME)?.value);
-  if (!session) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const auth = await currentUser(req);
+  if ("error" in auth) return auth.error;
+  const session = auth.user;
   if (!isStaff(session)) return NextResponse.json({ error: "Interdit" }, { status: 403 });
 
   const parsed = parseNewClass(await req.json().catch(() => null));
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
-  const { data, error } = await supabase()
+  const { data, error } = await supabaseAdmin()
     .from("classes")
     .insert({ teacher_id: session.id, name: parsed.value.name })
     .select("id")
     .single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError("/api/classes error", error);
   return NextResponse.json({ id: data.id }, { status: 201 });
 }

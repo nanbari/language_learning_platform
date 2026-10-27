@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { encodePcmToMp3, needsMp3Transcode, MP3_SAMPLE_RATE } from "./audioTranscode";
+import { encodePcmToMp3, needsMp3Transcode, MP3_SAMPLE_RATE } from "@/lib/audioTranscode";
 
 describe("needsMp3Transcode", () => {
   it("convertit les enregistrements WebM, OGG et MP4 mais pas le MP3 ni les images", () => {

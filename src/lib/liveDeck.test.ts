@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildLessonDeck, lessonParts, type LettersBlock } from "./liveDeck";
+import { buildLessonDeck, lessonParts, type LettersBlock } from "@/lib/liveDeck";
 
 /** Générateur déterministe pour des decks reproductibles. */
 function seeded(seed = 1) {

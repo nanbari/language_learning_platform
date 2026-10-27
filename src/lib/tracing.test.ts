@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   INITIAL_PROGRESS, advance, buildGuide, canStart, hint, isComplete, samplePath, strokeFraction, strokesDone, tapMark,
   type Pt, type TraceGuide, type TraceProgress,
-} from "./tracing";
+} from "@/lib/tracing";
 import { LETTER_STROKES } from "@/data/letterStrokes";
 import { LETTER_FORM_STROKES } from "@/data/letterFormStrokes";
 import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";

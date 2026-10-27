@@ -1,24 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
-import { COOKIE_NAME, verifySession } from "@/lib/auth";
+import { supabaseAdmin } from "@/server/supabase";
 import { parseSignupDecision, type SignupRequestRow } from "@/lib/signup";
-
-// Client service-role : la RLS est contournée, l'autorisation (rôle admin)
-// est faite ici même — ne jamais exposer ce client au navigateur.
-let adminClient: ReturnType<typeof supabaseAdmin> | null = null;
-const supabase = () => (adminClient ??= supabaseAdmin());
+import { requireAdmin } from "@/server/session";
+import { serverError } from "@/server/errors";
 
 /** Colonnes exposées à l'admin : jamais password_hash. */
 const PUBLIC_COLUMNS = "id, email, name, status, created_at, reviewed_at, reviewed_by";
 /** Demandes déjà traitées affichées pour l'historique. */
 const REVIEWED_LIMIT = 20;
-
-async function requireAdmin(req: NextRequest) {
-  const session = await verifySession(req.cookies.get(COOKIE_NAME)?.value);
-  if (!session) return { error: NextResponse.json({ error: "Non authentifié" }, { status: 401 }) };
-  if (!session.isAdmin) return { error: NextResponse.json({ error: "Réservé aux administrateurs" }, { status: 403 }) };
-  return { session };
-}
 
 /**
  * GET /api/admin/signups
@@ -30,13 +19,13 @@ export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req);
   if ("error" in auth) return auth.error;
 
-  const db = supabase();
+  const db = supabaseAdmin();
   const [{ data: pending, error: e1 }, { data: reviewed, error: e2 }] = await Promise.all([
     db.from("signup_requests").select(PUBLIC_COLUMNS).eq("status", "pending").order("created_at", { ascending: true }),
     db.from("signup_requests").select(PUBLIC_COLUMNS).neq("status", "pending").order("reviewed_at", { ascending: false }).limit(REVIEWED_LIMIT),
   ]);
-  if (e1) return NextResponse.json({ error: e1.message }, { status: 500 });
-  if (e2) return NextResponse.json({ error: e2.message }, { status: 500 });
+  if (e1) return serverError("/api/admin/signups e1", e1);
+  if (e2) return serverError("/api/admin/signups e2", e2);
 
   return NextResponse.json({
     pending: (pending ?? []) as SignupRequestRow[],
@@ -58,21 +47,21 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const auth = await requireAdmin(req);
   if ("error" in auth) return auth.error;
-  const { session } = auth;
+  const session = auth.user;
 
   const body = await req.json().catch(() => null);
   const parsed = parseSignupDecision(body);
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
   const { id, action } = parsed;
 
-  const db = supabase();
+  const db = supabaseAdmin();
 
   const { data: request, error: loadError } = await db
     .from("signup_requests")
     .select("id, email, name, status, password_hash")
     .eq("id", id)
     .maybeSingle();
-  if (loadError) return NextResponse.json({ error: loadError.message }, { status: 500 });
+  if (loadError) return serverError("/api/admin/signups loadError", loadError);
   if (!request) return NextResponse.json({ error: "Demande introuvable" }, { status: 404 });
   if (request.status !== "pending") {
     return NextResponse.json({ error: "Cette demande a déjà été traitée" }, { status: 409 });
@@ -108,7 +97,7 @@ export async function POST(req: NextRequest) {
     if (profileError) {
       // Ne pas laisser un compte Auth orphelin : l'admin pourra réessayer.
       await db.auth.admin.deleteUser(created.user.id).catch(() => {});
-      return NextResponse.json({ error: profileError.message }, { status: 500 });
+      return serverError("/api/admin/signups profileError", profileError);
     }
   }
 
@@ -123,7 +112,7 @@ export async function POST(req: NextRequest) {
     .eq("id", id)
     .select(PUBLIC_COLUMNS)
     .single();
-  if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+  if (updateError) return serverError("/api/admin/signups updateError", updateError);
 
   return NextResponse.json({ request: updated as SignupRequestRow });
 }

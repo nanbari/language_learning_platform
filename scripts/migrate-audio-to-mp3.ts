@@ -18,7 +18,7 @@ import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { presignUpload, publicUrl } from "../src/lib/r2.ts";
+import { presignUpload, publicUrl } from "../src/server/r2.ts";
 
 // Charge .env.local dans process.env (sans dépendance dotenv)
 for (const line of readFileSync(".env.local", "utf8").split(/\r?\n/)) {

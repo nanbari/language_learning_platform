@@ -65,7 +65,7 @@ export interface VocabWord {
 }
 
 /** Une animation d'un ancien diaporama : le fichier vidéo et, pour l'enseignant, ce qu'elle montre. */
-export interface Clip {
+interface Clip {
   src: string;
   caption: string;
   /** Question en arabe qui désigne ce clip parmi d'autres, posée par l'enseignant. */
@@ -73,7 +73,7 @@ export interface Clip {
 }
 
 /** Un clip proposé au jeu « quelle animation ? » : celui d'un mot présenté. */
-export interface ClipChoice {
+interface ClipChoice {
   /** Identifiant du mot, pour le décompte des réponses. */
   id: string;
   clip: Clip;
@@ -92,7 +92,7 @@ export interface Qcm {
 }
 
 /** Réponse d'un QCM : son texte et/ou son image, selon le mode de réponse choisi par l'enseignant. */
-export interface QcmOption {
+interface QcmOption {
   id: string;
   text?: string;
   imageUrl?: string;
@@ -135,17 +135,16 @@ export function letterColor(letter: ArabicLetter): string {
   return letter.medial.endsWith("ـ") ? "#8BA3B1" : "#BB908E";
 }
 
-export function inCharter(letter: ArabicLetter): ArabicLetter {
+function inCharter(letter: ArabicLetter): ArabicLetter {
   return { ...letter, color: letterColor(letter) };
 }
 
-export const WORD_COUNTS = [4, 6, 8] as const;
 /** En dessous, pas de « Qu'est-ce qui a disparu ? » ni de quiz à quatre images. */
 export const MIN_VOCAB_WORDS = 4;
 /** Au-delà, le texte d'une diapositive est une phrase, pas un mot à apprendre. */
-export const MAX_WORD_LENGTH = 24;
+const MAX_WORD_LENGTH = 24;
 /** Cartes proposées à chaque manche de « Où est la lettre ? ». */
-export const CHOICES_PER_ROUND = 3;
+const CHOICES_PER_ROUND = 3;
 
 /**
  * Lettres par leçon, au plus : trois pour un débutant (lettre isolée
@@ -235,11 +234,11 @@ function pickChoices(target: ArabicLetter, pool: ArabicLetter[], rng: Rng): Arab
   return shuffle([target, ...others, ...fillers], rng);
 }
 
-export function findLetterSlide(target: ArabicLetter, pool: ArabicLetter[], rng: Rng): Slide {
+function findLetterSlide(target: ArabicLetter, pool: ArabicLetter[], rng: Rng): Slide {
   return { kind: "findLetter", target, choices: pickChoices(target, pool, rng) };
 }
 
-export function pickSoundSlide(target: ArabicLetter, pool: ArabicLetter[], rng: Rng): Slide {
+function pickSoundSlide(target: ArabicLetter, pool: ArabicLetter[], rng: Rng): Slide {
   return { kind: "pickSound", target, choices: pickChoices(target, pool, rng) };
 }
 
@@ -250,7 +249,7 @@ function pickWord(letter: ArabicLetter, position: LetterPosition, rng: Rng): Let
 }
 
 /** Un mot de la lettre (position tirée au sort) ; l'élève nomme la lettre colorée. */
-export function findInWordSlide(target: ArabicLetter, pool: ArabicLetter[], rng: Rng): Slide {
+function findInWordSlide(target: ArabicLetter, pool: ArabicLetter[], rng: Rng): Slide {
   const position = LETTER_POSITIONS[Math.floor(rng() * LETTER_POSITIONS.length)];
   return { kind: "findInWord", word: pickWord(target, position, rng), target, choices: pickChoices(target, pool, rng) };
 }
@@ -272,7 +271,7 @@ function formChoices(letter: ArabicLetter, rng: Rng): FormChoice[] {
  * Formes à écrire, sans doublon de tracé : ا د ذ ر ز و s'écrivent pareil au
  * milieu et à la fin, et n'ont donc que deux exercices.
  */
-export function writingForms(letter: ArabicLetter): LetterPosition[] {
+function writingForms(letter: ArabicLetter): LetterPosition[] {
   const seen = new Set<string>();
   return LETTER_POSITIONS.filter((form) => !seen.has(letter[form]) && seen.add(letter[form]));
 }

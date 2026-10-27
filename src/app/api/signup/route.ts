@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { supabaseAdmin } from "@/lib/supabase";
+import { supabaseAdmin } from "@/server/supabase";
 import { parseSignupInput } from "@/lib/signup";
-
-// Client service-role : la RLS est contournée — ne jamais exposer ce client
-// au navigateur. Cette route est publique : elle n'écrit que dans
-// signup_requests et ne crée jamais de compte.
-let adminClient: ReturnType<typeof supabaseAdmin> | null = null;
-const supabase = () => (adminClient ??= supabaseAdmin());
+import { rateLimit } from "@/server/rateLimit";
+import { serverError } from "@/server/errors";
 
 /** Coût bcrypt : ~100 ms par hachage, suffisant pour un formulaire public. */
 const BCRYPT_ROUNDS = 10;
@@ -28,15 +24,17 @@ export async function POST(req: NextRequest) {
   const parsed = parseSignupInput(body);
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
   const { name, email, password } = parsed.value;
+  const limited = await rateLimit(req, "signup");
+  if (limited) return limited;
 
-  const db = supabase();
+  const db = supabaseAdmin();
 
   const { data: existingUser, error: userError } = await db
     .from("users")
     .select("id")
     .eq("email", email)
     .maybeSingle();
-  if (userError) return NextResponse.json({ error: userError.message }, { status: 500 });
+  if (userError) return serverError("/api/signup userError", userError);
   if (existingUser) {
     return NextResponse.json({ error: "Un compte existe déjà avec cette adresse e-mail" }, { status: 409 });
   }
@@ -47,7 +45,7 @@ export async function POST(req: NextRequest) {
     .eq("email", email)
     .eq("status", "pending")
     .maybeSingle();
-  if (pendingError) return NextResponse.json({ error: pendingError.message }, { status: 500 });
+  if (pendingError) return serverError("/api/signup pendingError", pendingError);
   if (pending) {
     return NextResponse.json({ error: "Une demande est déjà en attente pour cette adresse e-mail" }, { status: 409 });
   }
@@ -62,7 +60,7 @@ export async function POST(req: NextRequest) {
     if (insertError.code === "23505") {
       return NextResponse.json({ error: "Une demande est déjà en attente pour cette adresse e-mail" }, { status: 409 });
     }
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+    return serverError("/api/signup insertError", insertError);
   }
 
   return NextResponse.json({ ok: true }, { status: 201 });

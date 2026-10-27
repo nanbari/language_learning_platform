@@ -1,37 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
-import { COOKIE_NAME, verifySession } from "@/lib/auth";
+import { supabaseAdmin } from "@/server/supabase";
 import { isQuestionKind } from "@/lib/letterSound";
+import { deleteObjects } from "@/server/r2";
 
-// Client service-role : la RLS est contournée, l'autorisation est faite ici
-// même (session + rôle) — ne jamais exposer ce client au navigateur.
-let adminClient: ReturnType<typeof supabaseAdmin> | null = null;
-const supabase = () => (adminClient ??= supabaseAdmin());
+/** URL actuellement enregistrée pour une lettre ou une question, s'il y en a une. */
+async function previousUrl(table: "letter_sounds" | "question_sounds", column: string, value: unknown): Promise<string | null> {
+  const { data } = await supabaseAdmin().from(table).select("url").eq(column, value).maybeSingle();
+  return (data as { url?: string } | null)?.url ?? null;
+}
+import { currentUser, requireAdmin } from "@/server/session";
+import { serverError } from "@/server/errors";
 
 const isLetterId = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= 28;
 
 // Les sons sont communs à toute la plateforme : seul un admin les modifie.
-async function requireAdmin(req: NextRequest) {
-  const session = await verifySession(req.cookies.get(COOKIE_NAME)?.value);
-  if (!session) return { error: NextResponse.json({ error: "Non authentifié" }, { status: 401 }) };
-  if (!session.isAdmin) return { error: NextResponse.json({ error: "Réservé aux administrateurs" }, { status: 403 }) };
-  return { session };
-}
-
 /**
  * GET /api/letter-sounds
  * Sons enregistrés, pour tout utilisateur connecté.
  * Réponse : { letters: { [numéro de lettre]: URL }, questions: { [type d'exercice]: URL } }
  */
 export async function GET(req: NextRequest) {
-  const session = await verifySession(req.cookies.get(COOKIE_NAME)?.value);
-  if (!session) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const auth = await currentUser(req);
+  if ("error" in auth) return auth.error;
 
   const [letters, questions] = await Promise.all([
-    supabase().from("letter_sounds").select("letter_id, url"),
-    supabase().from("question_sounds").select("kind, url"),
+    supabaseAdmin().from("letter_sounds").select("letter_id, url"),
+    supabaseAdmin().from("question_sounds").select("kind, url"),
   ]);
-  if (letters.error) return NextResponse.json({ error: letters.error.message }, { status: 500 });
+  if (letters.error) return serverError("/api/letter-sounds letters.error", letters.error);
   // Questions illisibles (table pas encore créée) : les sons des lettres restent servis.
   return NextResponse.json({
     letters: Object.fromEntries((letters.data ?? []).map((r) => [r.letter_id, r.url])),
@@ -56,17 +52,22 @@ export async function PUT(req: NextRequest) {
   if (typeof url !== "string" || !base || !url.startsWith(`${base}/`)) {
     return NextResponse.json({ error: "URL de son invalide" }, { status: 400 });
   }
-  const stamp = { url, updated_by: auth.session.id, updated_at: new Date().toISOString() };
+  const stamp = { url, updated_by: auth.user.id, updated_at: new Date().toISOString() };
 
+  let previous: string | null = null;
   let result;
   if (isLetterId(letterId)) {
-    result = await supabase().from("letter_sounds").upsert({ letter_id: letterId, ...stamp });
+    previous = await previousUrl("letter_sounds", "letter_id", letterId);
+    result = await supabaseAdmin().from("letter_sounds").upsert({ letter_id: letterId, ...stamp });
   } else if (isQuestionKind(question)) {
-    result = await supabase().from("question_sounds").upsert({ kind: question, ...stamp });
+    previous = await previousUrl("question_sounds", "kind", question);
+    result = await supabaseAdmin().from("question_sounds").upsert({ kind: question, ...stamp });
   } else {
     return NextResponse.json({ error: "Lettre ou question invalide" }, { status: 400 });
   }
-  if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 });
+  if (result.error) return serverError("/api/letter-sounds result.error", result.error);
+  // L'ancien enregistrement, s'il y en avait un autre, ne sert plus à personne : effacé du bucket après coup.
+  if (previous && previous !== url) void deleteObjects([previous]);
   return NextResponse.json({ url });
 }
 
@@ -85,12 +86,13 @@ export async function DELETE(req: NextRequest) {
 
   let result;
   if (isLetterId(letterId)) {
-    result = await supabase().from("letter_sounds").delete().eq("letter_id", letterId);
+    result = await supabaseAdmin().from("letter_sounds").delete().eq("letter_id", letterId).select("url");
   } else if (isQuestionKind(question)) {
-    result = await supabase().from("question_sounds").delete().eq("kind", question);
+    result = await supabaseAdmin().from("question_sounds").delete().eq("kind", question).select("url");
   } else {
     return NextResponse.json({ error: "Lettre ou question invalide" }, { status: 400 });
   }
-  if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 });
+  if (result.error) return serverError("/api/letter-sounds result.error", result.error);
+  void deleteObjects(((result.data ?? []) as { url: string }[]).map((r) => r.url));
   return new NextResponse(null, { status: 204 });
 }

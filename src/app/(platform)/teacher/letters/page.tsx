@@ -1,7 +1,12 @@
 "use client";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
-import { ArrowLeft, Mic, Square, Play, CheckCircle, Trash2, Loader2 } from "lucide-react";
+import * as Tabs from "@radix-ui/react-tabs";
+import { MessageCircleQuestion, Type } from "lucide-react";
+import TeacherShell from "@/components/teacher/TeacherShell";
+import { useTeacherSession } from "@/components/teacher/useTeacherSession";
+import { ICON_STROKE, SkeletonRows } from "@/components/platform/ui";
+import AudioRecorderRow, { micErrorMessage, type RecorderPhase } from "@/components/teacher/audio/AudioRecorderRow";
+import { AudioLibraryPanel, RecordedProgress, RecordingTips } from "@/components/teacher/audio/AudioLibraryPanel";
 import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";
 import { uploadMedia } from "@/lib/mediaUpload";
 import { needsMp3Transcode, transcodeToMp3 } from "@/lib/audioTranscode";
@@ -17,11 +22,24 @@ const QUESTIONS: Record<QuestionKind, { arabic: string; label: string }> = {
   completeWord: { arabic: "أَيُّ شَكْلٍ يُكْمِلُ الْكَلِمَةَ؟", label: "Compléter le mot (avancé)" },
 };
 
-const ARABIC_FONT = { fontFamily: "'Noto Naskh Arabic', 'Cairo', serif" };
+/** Tuiles des lettres : les trois pastels de la charte, en alternance. */
+const TILES = ["bg-ms-slate-soft text-ms-slate-ink", "bg-ms-sage-soft text-ms-sage-ink", "bg-ms-blush-soft text-ms-blush-ink"];
 
 /** Ce qu'on enregistre : le son d'une lettre ou la question d'un exercice. */
 type Target = { letterId: number } | { question: QuestionKind };
 const keyOf = (t: Target) => ("letterId" in t ? `l${t.letterId}` : `q${t.question}`);
+
+interface Entry {
+  key: string;
+  target: Target;
+  name: string;
+  replacement: string;
+  hasAudio: boolean;
+  search: string;
+  leading: ReactNode;
+  title: ReactNode;
+  subtitle: ReactNode;
+}
 
 /**
  * Sons enregistrés par un admin, communs à toute la plateforme :
@@ -29,14 +47,18 @@ const keyOf = (t: Target) => ("letterId" in t ? `l${t.letterId}` : `q${t.questio
  * - la question de chaque exercice de lettres, lue à l'élève quand
  *   l'exercice apparaît dans une leçon.
  * Chaque enregistrement est converti en MP3, téléversé sur R2 et enregistré
- * dès l'arrêt du micro.
+ * dès l'arrêt du micro. L'accès est réservé aux admins (proxy et API).
  */
 export default function LetterSoundsPage() {
+  const { user, isAdmin, handleLogout } = useTeacherSession();
   const [sounds, setSounds] = useState<Sounds>({ letters: {}, questions: {} });
   const [loaded, setLoaded] = useState(false);
+  const [requestingFor, setRequestingFor] = useState<string | null>(null);
   const [recordingFor, setRecordingFor] = useState<string | null>(null);
   const [savingFor, setSavingFor] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [savedFor, setSavedFor] = useState<string | null>(null);
+  const [error, setError] = useState<{ key: string; text: string } | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [duration, setDuration] = useState(0);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -75,9 +97,11 @@ export default function LetterSoundsPage() {
       const file = new File([blob], `${keyOf(t)}.${ext}`, { type: blob.type });
       const url = await uploadMedia(file);
       await saveSound(t, url);
+      // L'URL n'est remplacée qu'une fois le serveur d'accord : sinon l'ancien son reste.
       setUrl(t, url);
+      setSavedFor(keyOf(t));
     } catch (e) {
-      setError(`${name} : enregistrement non sauvegardé (${e instanceof Error ? e.message : "erreur inconnue"}).`);
+      setError({ key: keyOf(t), text: `${name} : enregistrement non sauvegardé (${e instanceof Error ? e.message : "erreur inconnue"}).` });
     } finally {
       setSavingFor(null);
     }
@@ -85,6 +109,8 @@ export default function LetterSoundsPage() {
 
   const startRecording = async (t: Target, name: string) => {
     setError(null);
+    setSavedFor(null);
+    setRequestingFor(keyOf(t));
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
@@ -104,8 +130,10 @@ export default function LetterSoundsPage() {
       setRecordingFor(keyOf(t));
       setDuration(0);
       timerRef.current = setInterval(() => setDuration((d) => d + 1), 1000);
-    } catch {
-      setError("Impossible d'accéder au microphone. Vérifiez les permissions de votre navigateur.");
+    } catch (e) {
+      setError({ key: keyOf(t), text: micErrorMessage(e) });
+    } finally {
+      setRequestingFor(null);
     }
   };
 
@@ -116,160 +144,145 @@ export default function LetterSoundsPage() {
     setRecordingFor(null);
   };
 
-  const remove = async (t: Target, name: string, replacement: string) => {
-    if (!confirm(`Supprimer l'enregistrement « ${name} » ? ${replacement}`)) return;
+  const remove = async (t: Target, name: string) => {
     setError(null);
+    setSavedFor(null);
     try {
       await deleteSound(t);
       setUrl(t, undefined);
     } catch (e) {
-      setError(`${name} : suppression impossible (${e instanceof Error ? e.message : "erreur inconnue"}).`);
+      setError({ key: keyOf(t), text: `${name} : suppression impossible (${e instanceof Error ? e.message : "erreur inconnue"}).` });
     }
   };
 
-  const busy = recordingFor !== null || savingFor !== null;
+  const busy = requestingFor !== null || recordingFor !== null || savingFor !== null;
+  const activeKey = requestingFor ?? recordingFor ?? savingFor;
 
-  /** Une ligne : ce qu'il faut dire, puis écouter / supprimer / enregistrer. */
-  const row = (t: Target, name: string, replacement: string, content: ReactNode) => {
-    const key = keyOf(t);
-    const url = urlOf(t);
-    const isRecording = recordingFor === key;
-    return (
-      <div key={key}
-        className={`bg-white rounded-2xl p-3 border-2 shadow-sm transition-all flex items-center justify-between gap-3 ${
-          isRecording ? "border-red-300 bg-red-50/60" : url ? "border-[#6B705C]/30" : "border-gray-100"
-        }`}>
-        <div className="flex items-center gap-3 min-w-0">
-          {content}
-          {url && <CheckCircle size={14} className="text-[#6B705C] shrink-0" />}
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {isRecording ? (
-            <>
-              <span className="text-xs font-mono font-bold text-red-500 bg-red-100 px-2 py-1 rounded-full animate-pulse">
-                ● 0:{String(duration).padStart(2, "0")}
-              </span>
-              <button onClick={stopRecording} title="Arrêter et sauvegarder"
-                className="w-10 h-10 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors shadow">
-                <Square size={14} fill="white" />
-              </button>
-            </>
-          ) : savingFor === key ? (
-            <span className="flex items-center gap-1.5 text-xs font-bold text-gray-500">
-              <Loader2 size={14} className="animate-spin" /> Sauvegarde…
-            </span>
-          ) : (
-            <>
-              {url && (
-                <>
-                  <button onClick={() => new Audio(url).play()} title="Écouter"
-                    className="w-9 h-9 rounded-full bg-[#6B705C]/10 text-[#6B705C] flex items-center justify-center hover:bg-[#6B705C]/20 transition-colors">
-                    <Play size={14} fill="currentColor" />
-                  </button>
-                  <button onClick={() => remove(t, name, replacement)} disabled={busy} title="Supprimer"
-                    className="w-9 h-9 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center hover:bg-red-50 hover:text-red-400 transition-colors disabled:opacity-40">
-                    <Trash2 size={14} />
-                  </button>
-                </>
-              )}
-              <button onClick={() => startRecording(t, name)} disabled={busy || !loaded}
-                title={url ? "Ré-enregistrer" : "Enregistrer"}
-                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
-                  url ? "bg-gray-100 text-gray-600 hover:bg-[#6B705C]/10 hover:text-[#6B705C]" : "bg-[#6B705C] text-white shadow hover:shadow-md"
-                }`}>
-                <Mic size={16} />
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    );
-  };
+  const phaseOf = (key: string): RecorderPhase =>
+    requestingFor === key ? "requesting"
+      : recordingFor === key ? "recording"
+        : savingFor === key ? "uploading"
+          : error?.key === key ? "error"
+            : savedFor === key ? "saved" : "idle";
 
-  const lettersCount = ARABIC_ALPHABET.filter((l) => sounds.letters[l.id]).length;
-  const questionsCount = QUESTION_KINDS.filter((k) => sounds.questions[k]).length;
+  const questionEntries: Entry[] = QUESTION_KINDS.map((kind) => {
+    const { arabic, label } = QUESTIONS[kind];
+    const target: Target = { question: kind };
+    return {
+      key: keyOf(target), target, name: label, replacement: "La question restera seulement écrite.",
+      hasAudio: !!urlOf(target), search: `${label} ${arabic}`,
+      leading: (
+        <span aria-hidden="true" className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-ms-slate-soft text-ms-slate-ink">
+          <MessageCircleQuestion size={22} strokeWidth={ICON_STROKE} />
+        </span>
+      ),
+      title: <span lang="ar" dir="rtl" className="ms-arabic block text-xl">{arabic}</span>,
+      subtitle: label,
+    };
+  });
+
+  const letterEntries: Entry[] = ARABIC_ALPHABET.map((letter, i) => {
+    const target: Target = { letterId: letter.id };
+    return {
+      key: keyOf(target), target, name: letter.nameTranslit, replacement: "La voix de l'appareil la remplacera.",
+      hasAudio: !!urlOf(target), search: `${letter.nameTranslit} ${letter.translit} ${letter.name} ${letter.isolated} ${letter.id}`,
+      leading: (
+        <span lang="ar" dir="rtl" aria-hidden="true"
+          className={`ms-arabic flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl text-3xl leading-none ${TILES[i % TILES.length]}`}>
+          {letter.isolated}
+        </span>
+      ),
+      title: <span className="font-semibold">{letter.nameTranslit}</span>,
+      subtitle: (
+        <>Son : <span lang="ar" dir="rtl" className="ms-arabic text-base text-ms-ink">{spokenSound(letter)}</span> · lettre {letter.id}</>
+      ),
+    };
+  });
+
+  const renderRow = (e: Entry) => (
+    <AudioRecorderRow
+      key={e.key}
+      id={`snd-${e.key}`}
+      name={e.name}
+      leading={e.leading}
+      title={e.title}
+      subtitle={e.subtitle}
+      hasAudio={e.hasAudio}
+      phase={phaseOf(e.key)}
+      elapsed={duration}
+      error={error?.key === e.key ? error.text : null}
+      expanded={expanded === e.key}
+      onToggle={() => setExpanded((k) => (k === e.key ? null : e.key))}
+      locked={busy}
+      canRecord={loaded}
+      onRecord={() => startRecording(e.target, e.name)}
+      onStop={stopRecording}
+      onPlay={() => { const url = urlOf(e.target); if (url) new Audio(url).play(); }}
+      onDelete={() => remove(e.target, e.name)}
+      deleteHint={e.replacement}
+    />
+  );
+
+  const lettersCount = letterEntries.filter((e) => e.hasAudio).length;
+  const questionsCount = questionEntries.filter((e) => e.hasAudio).length;
+  const tabClass =
+    "ms-button data-[state=active]:!bg-ms-primary-soft data-[state=active]:!text-ms-primary data-[state=active]:!border-ms-primary";
 
   return (
-    <div className="min-h-screen bg-[#fffef9]">
-      <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
-        <Link href="/teacher" className="flex items-center gap-2 text-gray-500 hover:text-[#BB908E] transition-colors">
-          <ArrowLeft size={18} /> Tableau de bord
-        </Link>
-        <span className="font-black text-[#2d2d2d]" style={{ fontFamily: "'Fredoka One', cursive" }}>
-          Sons des lettres
-        </span>
-        <span className="w-24" />
-      </div>
-
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        {error && (
-          <p className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-600">{error}</p>
-        )}
-
-        <section className="mb-10">
-          <div className="flex items-baseline justify-between mb-1">
-            <h2 className="text-xl font-black text-[#2d2d2d]" style={{ fontFamily: "'Fredoka One', cursive" }}>
-              Questions des exercices
-            </h2>
-            <span className="text-sm font-bold text-[#6B705C]">{questionsCount}/{QUESTION_KINDS.length}</span>
-          </div>
-          <p className="text-gray-500 text-sm mb-4">
-            Lisez chaque question à voix haute. Dans une leçon, l&apos;élève l&apos;entend quand l&apos;exercice
-            apparaît, et peut la réécouter. Sans enregistrement, la question reste seulement écrite.
+    <TeacherShell name={user?.name || "Enseignant"} isAdmin={isAdmin} onLogout={handleLogout}>
+      <div className="space-y-6">
+        <header>
+          <h1 className="text-[1.75rem] leading-9 lg:text-[2rem] lg:leading-10 font-semibold tracking-[-0.02em]">Sons des lettres</h1>
+          <p className="mt-1 text-ms-muted max-w-[65ch]">
+            Enregistrez le son de chaque lettre et les questions des exercices. Ces sons sont communs à toute la plateforme.
           </p>
-          <div className="space-y-3">
-            {QUESTION_KINDS.map((kind) => {
-              const { arabic, label } = QUESTIONS[kind];
-              return row({ question: kind }, label, "La question restera seulement écrite.", (
-                <div className="min-w-0">
-                  <p className="text-xl font-bold text-[#2d2d2d] leading-snug" style={{ ...ARABIC_FONT, direction: "rtl" }}>{arabic}</p>
-                  <p className="text-xs text-gray-500">{label}</p>
-                </div>
-              ));
-            })}
-          </div>
-        </section>
+        </header>
 
-        <section>
-          <div className="flex items-baseline justify-between mb-1">
-            <h2 className="text-xl font-black text-[#2d2d2d]" style={{ fontFamily: "'Fredoka One', cursive" }}>
-              Son de chaque lettre
-            </h2>
-            <span className="text-sm font-bold text-[#6B705C]">{lettersCount}/{ARABIC_ALPHABET.length}</span>
-          </div>
-          <p className="text-gray-500 text-sm mb-4">
-            Joué dans les exercices « choisir le son », « retrouver la lettre » et « écrire ». Tant
-            qu&apos;une lettre n&apos;a pas de son, la voix de l&apos;appareil la prononce.
-          </p>
-          <div className="grid sm:grid-cols-2 gap-3">
-            {ARABIC_ALPHABET.map((letter) =>
-              row({ letterId: letter.id }, letter.nameTranslit, "La voix de l'appareil la remplacera.", (
-                <>
-                  <span className="w-12 h-12 shrink-0 rounded-xl flex items-center justify-center text-3xl"
-                    style={{ ...ARABIC_FONT, color: letter.color, background: `${letter.color}1A` }}>
-                    {letter.isolated}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="font-black text-[#2d2d2d]">{letter.nameTranslit}</p>
-                    <p className="text-xs text-gray-500">
-                      Son : <span style={ARABIC_FONT}>{spokenSound(letter)}</span> · {letter.id}
-                    </p>
-                  </div>
-                </>
-              )),
-            )}
-          </div>
-        </section>
+        <Tabs.Root defaultValue="letters" className="space-y-5">
+          <Tabs.List aria-label="Bibliothèque audio" className="flex flex-wrap gap-2">
+            <Tabs.Trigger value="letters" disabled={busy} data-variant="secondary" className={tabClass}>
+              <Type size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Son de chaque lettre
+              <span className="tabular-nums text-sm font-normal">{loaded ? `${lettersCount}/${ARABIC_ALPHABET.length}` : ""}</span>
+            </Tabs.Trigger>
+            <Tabs.Trigger value="questions" disabled={busy} data-variant="secondary" className={tabClass}>
+              <MessageCircleQuestion size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Questions des exercices
+              <span className="tabular-nums text-sm font-normal">{loaded ? `${questionsCount}/${QUESTION_KINDS.length}` : ""}</span>
+            </Tabs.Trigger>
+          </Tabs.List>
 
-        <div className="mt-8 bg-[#fff8ee] rounded-2xl p-5 border border-[#ffd166]/30">
-          <p className="font-bold text-[#8b6f47] mb-2">Conseils pour un bon enregistrement</p>
-          <ul className="space-y-1 text-sm text-[#8b6f47]">
-            <li>• Pour une lettre, dites son <strong>son</strong> (« ba »), pas son nom (« bâ&apos; »).</li>
-            <li>• Appuyez sur le micro, parlez, puis arrêtez tout de suite : court, sans silence.</li>
-            <li>• L&apos;enregistrement est sauvegardé dès l&apos;arrêt ; écoutez-le avec ▶ et ré-enregistrez au besoin.</li>
-          </ul>
-        </div>
+          <Tabs.Content value="letters" className="space-y-4 focus-visible:outline-none">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <p className="max-w-[65ch] text-sm text-ms-muted">
+                Joué dans les exercices « choisir le son », « retrouver la lettre » et « écrire ». Tant qu&apos;une lettre
+                n&apos;a pas de son, la voix de l&apos;appareil la prononce.
+              </p>
+              {loaded && <RecordedProgress recorded={lettersCount} total={ARABIC_ALPHABET.length} tone="slate" />}
+            </div>
+            {loaded
+              ? <AudioLibraryPanel items={letterEntries} pinnedKey={activeKey} renderRow={renderRow} searchLabel="Rechercher une lettre" listLabel="Lettres de l'alphabet" />
+              : <div className="ms-panel"><SkeletonRows rows={6} label="Chargement des sons" /></div>}
+          </Tabs.Content>
+
+          <Tabs.Content value="questions" className="space-y-4 focus-visible:outline-none">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <p className="max-w-[65ch] text-sm text-ms-muted">
+                Lisez chaque question à voix haute. Dans une leçon, l&apos;élève l&apos;entend quand l&apos;exercice apparaît,
+                et peut la réécouter. Sans enregistrement, la question reste seulement écrite.
+              </p>
+              {loaded && <RecordedProgress recorded={questionsCount} total={QUESTION_KINDS.length} tone="blush" />}
+            </div>
+            {loaded
+              ? <AudioLibraryPanel items={questionEntries} pinnedKey={activeKey} renderRow={renderRow} searchLabel="Rechercher une question" listLabel="Questions des exercices" />
+              : <div className="ms-panel"><SkeletonRows rows={3} label="Chargement des sons" /></div>}
+          </Tabs.Content>
+        </Tabs.Root>
+
+        <RecordingTips>
+          <li>Pour une lettre, dites son <strong>son</strong> (« ba »), pas son nom (« bâ&apos; »).</li>
+          <li>Appuyez sur « Enregistrer le son », parlez, puis sur « Arrêter » tout de suite : court, sans silence.</li>
+          <li>L&apos;enregistrement est sauvegardé dès l&apos;arrêt. Écoutez-le, puis remplacez l&apos;audio au besoin.</li>
+        </RecordingTips>
       </div>
-    </div>
+    </TeacherShell>
   );
 }

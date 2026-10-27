@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   toPracticeBlocks, toReplayBlocks, toPracticeSources, MAX_REPLAY_PER_SET,
   GENERATED_PREFIX, GeneratedSetSchema, type GeneratedSet,
-} from "./practice";
-import type { ReviewableExercise, WeakSpot } from "./weakSpots";
+} from "@/lib/practice";
+import type { ReviewableExercise, WeakSpot } from "@/lib/weakSpots";
 
 const sources = new Map<string, ReviewableExercise>([
   ["q1", {

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { supabaseAdmin } from "@/server/supabase";
+import { errorRef } from "@/server/errors";
 
 // Endpoint de santé pour les probes Kubernetes (liveness/readiness)
 // et les health checks du load balancer.
@@ -9,17 +10,26 @@ import { supabaseAdmin } from "@/lib/supabase";
 // pause (7 jours d'inactivité). Le cron .github/workflows/keepalive.yml
 // appelle cette variante. Les probes K8s utilisent la variante rapide
 // sans paramètre, qui ne dépend pas de la base.
+//
+// L'endpoint est public : il ne dit jamais plus que « ok » ou « dégradé ».
+// Le message d'erreur de la base reste dans les journaux du serveur, sous une
+// référence que la réponse cite. Le champ `db: "ok"` est attendu tel quel par
+// keepalive.yml (grep) : ne pas le renommer.
 export async function GET(req: NextRequest) {
   const deep = new URL(req.url).searchParams.get("deep");
   if (!deep) return Response.json({ status: "ok" });
 
-  const { error } = await supabaseAdmin()
-    .from("lessons")
-    .select("id")
-    .limit(1);
-
-  if (error) {
-    return Response.json({ status: "degraded", db: error.message }, { status: 503 });
+  try {
+    const { error } = await supabaseAdmin().from("lessons").select("id").limit(1);
+    if (!error) return Response.json({ status: "ok", db: "ok" });
+    return degraded(error.message);
+  } catch (e) {
+    return degraded(e instanceof Error ? e.message : String(e));
   }
-  return Response.json({ status: "ok", db: "ok" });
+}
+
+function degraded(detail: string) {
+  const ref = errorRef();
+  console.error(`[health ${ref}] base indisponible : ${detail}`);
+  return Response.json({ status: "degraded", ref }, { status: 503 });
 }

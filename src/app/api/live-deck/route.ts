@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { COOKIE_NAME, verifySession, isStaff } from "@/lib/auth";
-import { saveLessonDeck } from "@/lib/lessonDeck";
+import { isStaff } from "@/server/auth";
+import { saveLessonDeck } from "@/server/lessonDeck";
+import { currentUser } from "@/server/session";
 
 /**
  * Depuis l'éditeur de leçon : construit et enregistre le diaporama du cours
  * en direct de la leçon. `changed: false` si la leçon avait déjà ce diaporama.
  */
 export async function POST(req: NextRequest) {
-  const session = await verifySession(req.cookies.get(COOKIE_NAME)?.value);
-  if (!session) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const auth = await currentUser(req);
+  if ("error" in auth) return auth.error;
+  const session = auth.user;
   if (!isStaff(session)) return NextResponse.json({ error: "Interdit" }, { status: 403 });
 
   const body = (await req.json().catch(() => null)) as { lessonId?: unknown } | null;

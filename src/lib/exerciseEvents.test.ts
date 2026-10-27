@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseExerciseEvent, MAX_TIME_MS } from "./exerciseEvents";
+import { parseExerciseEvent, MAX_TIME_MS } from "@/lib/exerciseEvents";
 
 const LESSON = "123e4567-e89b-12d3-a456-426614174000";
 const base = { lesson_id: LESSON, block_id: "ab12cd", exercise_type: "quiz", event_type: "attempt" };

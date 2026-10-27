@@ -1,28 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { COOKIE_NAME, sessionCookieOptions, signSession, verifySession, type SessionUser } from "@/lib/auth";
-import { supabase, supabaseAdmin } from "@/lib/supabase";
+import { COOKIE_NAME, sessionCookieOptions, signSession, verifySession, type SessionUser } from "@/server/auth";
+import { supabase, supabaseAdmin } from "@/server/supabase";
+import { profileToSession as toSessionUser, type ProfileRow } from "@/server/session";
+import { rateLimit } from "@/server/rateLimit";
 
 function isProd(): boolean { return process.env.NODE_ENV === "production"; }
-
-interface ProfileRow {
-  id: string; email: string; name: string; role: string;
-  /** Absent tant que la migration is_admin n'a pas été appliquée. */
-  is_admin?: boolean | null;
-}
-
-/**
- * Convertit une ligne de public.users en session. L'ancien rôle "admin"
- * (avant la colonne is_admin) vaut enseignant + admin.
- */
-function toSessionUser(p: ProfileRow): SessionUser {
-  return {
-    id: p.id,
-    email: p.email,
-    name: p.name,
-    role: p.role === "student" ? "student" : "teacher",
-    isAdmin: p.role === "admin" || p.is_admin === true,
-  };
-}
 
 /**
  * Vérifie les identifiants auprès de Supabase Auth puis charge le profil
@@ -42,7 +24,11 @@ async function authenticate(email: string, password: string): Promise<SessionUse
     .eq("id", data.user.id)
     .single();
 
-  if (profile) return toSessionUser(profile as ProfileRow);
+  if (profile) {
+    // Compte désactivé par un admin : mêmes identifiants, mais plus d'accès.
+    if ((profile as ProfileRow).disabled_at) return null;
+    return toSessionUser(profile as ProfileRow);
+  }
 
   const meta = (data.user.user_metadata ?? {}) as { name?: string; role?: string };
   const role = meta.role === "teacher" || meta.role === "admin" ? "teacher" : "student";
@@ -72,7 +58,15 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ user: null }, { status: 200 });
 
   let user: SessionUser = { id: session.id, email: session.email, name: session.name, role: session.role, isAdmin: session.isAdmin };
-  const { data: profile } = await supabaseAdmin().from("users").select("*").eq("id", session.id).maybeSingle();
+  const { data: profile, error } = await supabaseAdmin().from("users").select("*").eq("id", session.id).maybeSingle();
+  // Profil disparu ou compte désactivé : la session est close, cookie effacé.
+  // (Une erreur de lecture ne ferme rien : la session reste telle quelle et
+  // les routes de données, qui relisent le profil, refuseront d'elles-mêmes.)
+  if (!error && (!profile || (profile as ProfileRow).disabled_at)) {
+    const res = NextResponse.json({ user: null });
+    res.cookies.set(COOKIE_NAME, "", { httpOnly: true, secure: isProd(), sameSite: "lax", path: "/", maxAge: 0 });
+    return res;
+  }
   const fresh = profile ? toSessionUser(profile as ProfileRow) : null;
 
   const changed = fresh && (fresh.isAdmin !== user.isAdmin || fresh.role !== user.role || fresh.name !== user.name);
@@ -97,6 +91,8 @@ export async function POST(req: NextRequest) {
     if (!email || !password) {
       return NextResponse.json({ error: "Identifiants invalides" }, { status: 401 });
     }
+    const limited = await rateLimit(req, "login", email);
+    if (limited) return limited;
     const user = await authenticate(email, password);
     if (!user) {
       // Same response shape for unknown email vs bad password — avoids enumeration

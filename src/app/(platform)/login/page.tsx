@@ -1,15 +1,27 @@
 "use client";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Eye, EyeOff, LogIn, LogOut, ArrowRight } from "lucide-react";
+import { ArrowRight, CheckCircle2, LogIn, LogOut } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
-import type { SessionUser } from "@/lib/auth";
+import type { SessionUser } from "@/server/auth";
+import { AuthError, AuthField, AuthShell, PasswordInput } from "@/components/layout/AuthShell";
+
+const ICON_STROKE = 1.75;
+const TITLE = "Connexion";
+const SUBTITLE = "Accédez à votre espace d'apprentissage";
 
 /** Espace d'une personne connectée. */
 function dashboardFor(u: Pick<SessionUser, "role" | "isAdmin">): string {
   return u.role === "teacher" || u.isAdmin ? "/teacher" : "/student";
 }
+
+const SIGNUP_FOOTER = (
+  <>
+    Pas encore de compte élève ?{" "}
+    <Link href="/inscription" className="inline-flex min-h-11 items-center font-semibold text-ms-primary underline-offset-4 hover:underline">Faire une demande</Link>
+  </>
+);
 
 function LoginForm() {
   const params = useSearchParams();
@@ -17,12 +29,12 @@ function LoginForm() {
   const [role, setRole] = useState<"student" | "teacher">(defaultRole);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPass, setShowPass] = useState(false);
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   // Session déjà ouverte dans ce navigateur (undefined = pas encore vérifié)
   const [current, setCurrent] = useState<SessionUser | null | undefined>(undefined);
+  const errorRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
   const clearStore = useAuthStore((s) => s.logout);
@@ -36,6 +48,11 @@ function LoginForm() {
       .catch(() => { if (!cancelled) setCurrent(null); });
     return () => { cancelled = true; };
   }, []);
+
+  // Après un envoi raté, le focus va sur le message (les champs gardent leur saisie).
+  useEffect(() => {
+    if (error) errorRef.current?.focus();
+  }, [error]);
 
   const handleSwitchAccount = async () => {
     await fetch("/api/auth", {
@@ -64,7 +81,7 @@ function LoginForm() {
         return;
       }
       // Mirror server-validated user into Zustand for UI use
-      login({ ...data.user, badges: [] });
+      login(data.user);
       const next = params.get("next");
       router.push(next && next.startsWith("/") ? next : dashboardFor(data.user));
     } catch {
@@ -73,160 +90,131 @@ function LoginForm() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-[#F5EEE8] flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-end gap-3 group mb-6">
-              {/* Logo */}
-            <div className="relative w-10 h-10 flex items-end justify-center">
-              <svg width="40" height="40" viewBox="0 0 40 40" fill="none" className="group-hover:scale-110 transition-transform">
-                {/* plus basse à gauche */}
-                <rect x="1"  y="28" width="11" height="11" rx="2" stroke="#BB908E" strokeWidth="2.5"/>
-                {/* moyenne au centre */}
-                <rect x="14" y="20" width="12" height="19" rx="2" stroke="#8BA3B1" strokeWidth="2.5"/>
-                {/* plus haute à droite */}
-                <rect x="28" y="10"  width="11" height="29" rx="2" stroke="#999B84" strokeWidth="2.5"/>
-                <text x="2" y="10" fontSize="7" fill="#999B84">★</text>
-              </svg>
-            </div>
-            <div className="flex flex-col leading-none">
-              <p className="text-xs text-left text-[#2D2D2D]/50 leading-none" style={{ fontFamily: "'Caveat', cursive" }}>
-                ASBL
-              </p>
-              <span className="font-black text-xl text-[#2D2D2D] leading-none" style={{ fontFamily: "'Fredoka One', cursive" }}>
-                Monte <span className="text-[#8BA3B1]">&</span> So<span className="text-[#BB908E]">u</span>ri<span className="text-[#999B84]">s</span>
-              </span>
-            </div>
-          </Link>
-          <h1 className="text-2xl font-black text-[#2D2D2D]">Connexion</h1>
-          <p className="text-[#2D2D2D]/50 text-sm mt-1">Accédez à votre espace d'apprentissage</p>
-        </div>
-
-        {current ? (
-          <div className="bg-[#FFFDF8] rounded-3xl shadow-lg p-8 border border-[#EDE5D8] space-y-4">
-            <p className="text-sm text-[#2D2D2D]/60">Vous êtes déjà connecté·e en tant que</p>
-            <p className="font-black text-lg text-[#2D2D2D]">
-              {current.name}
-              <span className="ml-2 text-xs font-semibold text-[#6B705C] bg-[#EDE5D8] rounded-full px-2 py-0.5 align-middle">
-                {current.role === "teacher" ? "Enseignant" : "Élève"}
-              </span>
+  if (current) {
+    return (
+      <AuthShell title={TITLE} subtitle={SUBTITLE} footer={SIGNUP_FOOTER}>
+        <div className="flex flex-col gap-5">
+          <div className="min-w-0">
+            <p className="text-sm text-ms-muted">Vous êtes déjà connecté·e en tant que</p>
+            <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="text-lg font-semibold [overflow-wrap:anywhere]">{current.name}</span>
+              <span className="ms-status" data-state="info">{current.role === "teacher" ? "Enseignant" : "Élève"}</span>
             </p>
-            <p className="text-xs text-[#2D2D2D]/40 break-all">{current.email}</p>
+            <p className="mt-1 text-sm text-ms-muted [overflow-wrap:anywhere]">{current.email}</p>
+          </div>
+          <div className="flex flex-col gap-3">
             <button
               type="button"
               onClick={() => {
                 const next = params.get("next");
                 router.push(next && next.startsWith("/") ? next : dashboardFor(current));
               }}
-              className="w-full py-3 rounded-xl text-white font-bold flex items-center justify-center gap-2 hover:shadow-md hover:scale-[1.02] transition-all"
-              style={{ background: "#6B705C" }}
+              data-variant="primary"
+              className="ms-button w-full"
             >
-              Continuer <ArrowRight size={16} />
+              Continuer <ArrowRight size={18} strokeWidth={ICON_STROKE} aria-hidden="true" />
             </button>
-            <button
-              type="button"
-              onClick={handleSwitchAccount}
-              className="w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 border border-[#EDE5D8] text-[#2D2D2D]/70 hover:bg-[#F5EEE8] transition-all"
-            >
-              <LogOut size={16} /> Se déconnecter et changer de compte
+            <button type="button" onClick={handleSwitchAccount} data-variant="secondary" className="ms-button w-full">
+              <LogOut size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Se déconnecter et changer de compte
             </button>
-            <p className="text-xs text-center text-[#2D2D2D]/40">
-              Ordinateur partagé ? Pensez à vous déconnecter après usage.
-            </p>
           </div>
-        ) : (
-        <div className="bg-[#FFFDF8] rounded-3xl shadow-lg p-8 border border-[#EDE5D8]">
-          {/* Role selector */}
-          <div className="flex rounded-2xl bg-[#EDE5D8] p-1 mb-6">
-            {(["student", "teacher"] as const).map((r) => (
-              <button
-                key={r}
-                onClick={() => setRole(r)}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                  role === r
-                    ? "bg-[#FFFDF8] shadow text-[#6B705C]"
-                    : "text-[#2D2D2D]/50"
-                }`}
-              >
-                {r === "student" ? "Élève" : "Enseignant"}
-              </button>
-            ))}
-          </div>
-
-          {params.get("reset") === "ok" && (
-            <div className="mb-4 bg-[#6B705C]/10 text-[#6B705C] text-sm rounded-xl px-4 py-2 border border-[#6B705C]/20">
-              Mot de passe enregistré. Vous pouvez vous connecter.
-            </div>
-          )}
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-[#2D2D2D]/70 mb-1">Email</label>
-              <input
-                type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                placeholder="votre@email.be"
-                required
-                className="w-full px-4 py-3 rounded-xl border border-[#EDE5D8] bg-[#F5EEE8]/50 focus:border-[#6B705C] focus:ring-2 focus:ring-[#6B705C]/20 outline-none transition-all text-[#2D2D2D]"
-              />
-            </div>
-            <div>
-              <div className="flex items-baseline justify-between mb-1">
-                <label className="block text-sm font-semibold text-[#2D2D2D]/70">Mot de passe</label>
-                <Link href="/mot-de-passe-oublie" className="text-xs text-[#6B705C] hover:underline font-semibold">
-                  Mot de passe oublié ?
-                </Link>
-              </div>
-              <div className="relative">
-                <input
-                  type={showPass ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="w-full px-4 py-3 pr-12 rounded-xl border border-[#EDE5D8] bg-[#F5EEE8]/50 focus:border-[#6B705C] focus:ring-2 focus:ring-[#6B705C]/20 outline-none transition-all text-[#2D2D2D]"
-                />
-                <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#2D2D2D]/40">
-                  {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-            </div>
-
-            <label className="flex items-center gap-2 text-sm text-[#2D2D2D]/70 select-none cursor-pointer">
-              <input
-                type="checkbox"
-                checked={remember}
-                onChange={(e) => setRemember(e.target.checked)}
-                className="w-4 h-4 rounded border-[#EDE5D8] accent-[#6B705C]"
-              />
-              Rester connecté·e sur cet appareil (7 jours)
-            </label>
-
-            {error && <div className="bg-red-50 text-red-500 text-sm rounded-xl px-4 py-2 border border-red-100">{error}</div>}
-
-            <button
-              type="submit"
-              disabled={loading || current === undefined}
-              className="w-full py-3 rounded-xl text-white font-bold flex items-center justify-center gap-2 hover:shadow-md hover:scale-[1.02] transition-all disabled:opacity-70"
-              style={{ background: "#6B705C" }}
-            >
-              {loading ? "Connexion..." : <><LogIn size={16} /> Se connecter</>}
-            </button>
-          </form>
-
+          <p className="text-center text-[0.8125rem] leading-[1.125rem] text-ms-muted">
+            Ordinateur partagé ? Pensez à vous déconnecter après usage.
+          </p>
         </div>
-        )}
+      </AuthShell>
+    );
+  }
 
-        <p className="text-center text-sm text-[#2D2D2D]/50 mt-6">
-          Pas encore de compte élève ?{" "}
-          <Link href="/inscription" className="text-[#6B705C] hover:underline font-semibold">Faire une demande</Link>
-        </p>
+  const describedBy = error ? "login-error" : undefined;
+
+  return (
+    <AuthShell title={TITLE} subtitle={SUBTITLE} footer={SIGNUP_FOOTER}>
+      {/* Choix de l'espace */}
+      <div role="group" aria-label="Je me connecte en tant que" className="mb-6 grid grid-cols-2 gap-1 rounded-xl bg-ms-surface-muted p-1">
+        {(["student", "teacher"] as const).map((r) => (
+          <button
+            key={r}
+            type="button"
+            onClick={() => setRole(r)}
+            aria-pressed={role === r}
+            className={`min-h-11 rounded-lg px-3 text-[0.9375rem] font-semibold transition-colors duration-[140ms] ${
+              role === r ? "bg-ms-surface text-ms-primary shadow-[var(--ms-shadow-control)]" : "text-ms-muted hover:text-ms-ink"
+            }`}
+          >
+            {r === "student" ? "Élève" : "Enseignant"}
+          </button>
+        ))}
       </div>
-    </div>
+
+      {params.get("reset") === "ok" && (
+        <div role="status" className="mb-5 flex items-start gap-3 rounded-xl bg-ms-primary-soft px-4 py-3 text-sm leading-5 text-ms-primary">
+          <CheckCircle2 size={18} strokeWidth={ICON_STROKE} className="mt-px shrink-0" aria-hidden="true" />
+          Mot de passe enregistré. Vous pouvez vous connecter.
+        </div>
+      )}
+
+      <form onSubmit={handleLogin} className="flex flex-col gap-5">
+        <AuthField id="login-email" label="Adresse e-mail">
+          <input
+            id="login-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+            placeholder="votre@email.be" required autoComplete="email"
+            aria-describedby={describedBy} aria-invalid={error ? true : undefined}
+            className="ms-field"
+          />
+        </AuthField>
+        <AuthField
+          id="login-password"
+          label="Mot de passe"
+          action={
+            <Link href="/mot-de-passe-oublie" className="inline-flex min-h-11 items-center text-sm font-semibold text-ms-primary underline-offset-4 hover:underline">
+              Mot de passe oublié ?
+            </Link>
+          }
+        >
+          <PasswordInput id="login-password" value={password} onChange={setPassword} autoComplete="current-password"
+            describedBy={describedBy} invalid={!!error} />
+        </AuthField>
+
+        <label className="flex min-h-11 cursor-pointer select-none items-center gap-3 text-sm leading-5">
+          <input
+            type="checkbox"
+            checked={remember}
+            onChange={(e) => setRemember(e.target.checked)}
+            className="h-5 w-5 shrink-0 accent-[var(--ms-primary)]"
+          />
+          Rester connecté·e sur cet appareil (7 jours)
+        </label>
+
+        <AuthError id="login-error" message={error} ref={errorRef} />
+
+        <button type="submit" disabled={loading || current === undefined} data-variant="primary" className="ms-button w-full">
+          {loading ? "Connexion…" : <><LogIn size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Se connecter</>}
+        </button>
+      </form>
+    </AuthShell>
+  );
+}
+
+/** Pendant la lecture des paramètres : la forme du formulaire, sans animation. */
+function LoginSkeleton() {
+  return (
+    <AuthShell title={TITLE} subtitle={SUBTITLE} footer={null}>
+      <div aria-busy="true" aria-label="Chargement du formulaire" className="flex flex-col gap-5">
+        <div className="ms-skeleton h-[3.25rem] w-full" />
+        <div className="ms-skeleton h-4 w-32" />
+        <div className="ms-skeleton h-12 w-full" />
+        <div className="ms-skeleton h-4 w-28" />
+        <div className="ms-skeleton h-12 w-full" />
+        <div className="ms-skeleton h-12 w-full" />
+      </div>
+    </AuthShell>
   );
 }
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#F5EEE8]"><div className="text-2xl animate-float">🌟</div></div>}>
+    <Suspense fallback={<LoginSkeleton />}>
       <LoginForm />
     </Suspense>
   );

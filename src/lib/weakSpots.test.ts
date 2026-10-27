@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { analyseWeakSpots, describeAnswer, summariseWeakSpots } from "./weakSpots";
+import { analyseWeakSpots, describeAnswer, summariseWeakSpots } from "@/lib/weakSpots";
 import type { ContentBlock, QuizExercise, WordOrderExercise } from "@/components/lesson/ExerciseRenderers";
-import type { ExerciseEventRow } from "./exerciseEvents";
+import type { ExerciseEventRow } from "@/lib/exerciseEvents";
 
 const LESSON = "123e4567-e89b-12d3-a456-426614174000";
 const USER   = "223e4567-e89b-12d3-a456-426614174000";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_CHILDREN, parseEnrollmentHandled, parseEnrollmentInput } from "./enrollment";
+import { MAX_CHILDREN, parseEnrollmentHandled, parseEnrollmentInput } from "@/lib/enrollment";
 
 const ADAM = { name: " Adam ", age: 7, level: "beginner" };
 const VALID = {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";
 import { EXERCISE_WORDS, LETTER_POSITIONS, exerciseWords } from "@/data/letterWords";
-import { joinedSegments, stripDiacritics } from "./arabicWord";
+import { joinedSegments, stripDiacritics } from "@/lib/arabicWord";
 
 const ZWJ = "\u200d";
 const ALIFS = ["ا", "أ", "إ", "آ"];

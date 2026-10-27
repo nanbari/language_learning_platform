@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Logo, Wordmark } from "./Header";
+import { Logo, Wordmark } from "@/components/layout/Header";
 
 const navigation = [
   ["Accueil", "/"],

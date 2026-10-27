@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { readsQuestionOnArrival } from "./letterSound";
-import { buildLetterDeck } from "./presentation";
-import { isGame } from "./liveSession";
+import { readsQuestionOnArrival } from "@/lib/letterSound";
+import { buildLetterDeck } from "@/lib/presentation";
+import { isGame } from "@/lib/liveSession";
 
 describe("readsQuestionOnArrival", () => {
   it("lit la question au premier exercice d'une suite de même type seulement", () => {

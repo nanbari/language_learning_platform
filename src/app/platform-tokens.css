@@ -1,0 +1,506 @@
+/*
+ * Monte & Souris — jetons de la plateforme (espaces enseignant et élève).
+ * Source : docs/monte-souris-redesign.md, § 4.
+ *
+ * Importé par globals.css ; les couleurs sont exposées à Tailwind v4 par le
+ * bloc @theme inline de globals.css (bg-ms-surface, text-ms-muted…).
+ * Les styles ci-dessous ne s'appliquent que sous [data-ms-app] : le site
+ * public n'est pas concerné. Une page migrée pose data-ms-app sur sa racine
+ * et data-ms-area="teacher" ou "student" sur la zone correspondante.
+ *
+ * Polices : --font-dm-sans et --font-noto-naskh-arabic sont fournies par
+ * next/font dans teacher/layout.tsx et student/layout.tsx ; --font-nunito
+ * par le layout racine.
+ */
+
+:root {
+  /* Core surfaces and text */
+  --ms-canvas: #F5EEE8;
+  --ms-surface: #FFFDF8;
+  --ms-surface-muted: #EDE5D8;
+  --ms-ink: #2A2B27;
+  --ms-text-muted: #65675E;
+  --ms-line: #DAD3C7;
+  --ms-control-border: #858878;
+
+  /* Action hierarchy */
+  --ms-primary: #59634C;
+  --ms-primary-hover: #4D5741;
+  --ms-primary-pressed: #414B36;
+  --ms-primary-soft: #E9EDDF;
+  --ms-on-primary: #FFFDF8;
+
+  /* Retained brand support: not interchangeable action colours */
+  --ms-brand-moss: #6B705C;
+  --ms-sage: #999B84;
+  --ms-blush: #BB908E;
+  --ms-petal: #CCB9B5;
+  --ms-blush-soft: #F3E7E4;
+  --ms-slate: #8BA3B1;
+  --ms-stone: #7B868E;
+
+  /* Les trois pastels de la charte, en trois intensités : le pastel pour le
+     décor, un fond très clair, et une teinte profonde qui porte un texte
+     (≥ 4,5:1 sur son fond clair, ≥ 6:1 en blanc dessus). */
+  --ms-slate-soft: #E6EDF1;
+  --ms-sage-soft: #ECEDE4;
+  --ms-blush-ink: #8A5552;
+  --ms-slate-ink: #46606E;
+  --ms-sage-ink: #5C5E48;
+
+  /* Semantic states */
+  --ms-info: #445B66;
+  --ms-info-soft: #EAF0F2;
+  --ms-review: #865337;
+  --ms-review-soft: #F5EADD;
+  --ms-danger: #984F47;
+  --ms-danger-soft: #F9EEEB;
+
+  /* Families: loader variables must be assigned by the application */
+  --ms-font-teacher: "DM Sans", system-ui, sans-serif;
+  --ms-font-student: "Nunito", system-ui, sans-serif;
+  --ms-font-arabic: "Noto Naskh Arabic", serif;
+
+  /* Scale: sizes are rem so user font preferences remain effective */
+  --ms-space-0: 0;
+  --ms-space-1: 0.25rem;
+  --ms-space-2: 0.5rem;
+  --ms-space-3: 0.75rem;
+  --ms-space-4: 1rem;
+  --ms-space-6: 1.5rem;
+  --ms-space-8: 2rem;
+  --ms-space-10: 2.5rem;
+  --ms-space-12: 3rem;
+  --ms-space-16: 4rem;
+
+  --ms-text-meta: 0.8125rem;
+  --ms-text-dense: 0.875rem;
+  --ms-text-control: 0.9375rem;
+  --ms-text-body: 1rem;
+  --ms-text-student-body: 1.125rem;
+  --ms-text-section: 1.25rem;
+  --ms-text-student-section: 1.5rem;
+  --ms-text-title-mobile: 1.75rem;
+  --ms-text-title: 2rem;
+
+  --ms-line-meta: 1.125rem;
+  --ms-line-dense: 1.25rem;
+  --ms-line-control: 1.375rem;
+  --ms-line-body: 1.5rem;
+  --ms-line-section: 1.75rem;
+  --ms-line-student-section: 2rem;
+  --ms-line-title-mobile: 2.25rem;
+  --ms-line-title: 2.5rem;
+
+  --ms-weight-regular: 400;
+  --ms-weight-medium: 500;
+  --ms-weight-semibold: 600;
+  --ms-weight-bold: 700;
+  --ms-weight-student-heading: 800;
+
+  /* Dimensions */
+  --ms-teacher-hit: 2.75rem;
+  --ms-teacher-control: 3rem;
+  --ms-student-hit: 4rem;
+  --ms-answer-min: 6.5rem;
+  --ms-sidebar: 15rem;
+  --ms-header: 4.5rem;
+  --ms-teacher-max: 80rem;
+  --ms-student-max: 66rem;
+  --ms-exercise-max: 52rem;
+
+  /* Shape */
+  --ms-radius-control: 0.75rem;
+  --ms-radius-panel: 1rem;
+  --ms-radius-dialog: 1.25rem;
+  --ms-radius-student-control: 1rem;
+  --ms-radius-answer: 1.25rem;
+  --ms-radius-student-panel: 1.5rem;
+  --ms-radius-pill: 9999px;
+
+  /* Elevation */
+  --ms-shadow-control: 0 1px 2px rgba(42, 43, 39, 0.06);
+  --ms-shadow-student: 0 4px 16px rgba(42, 43, 39, 0.05);
+  --ms-shadow-dialog: 0 16px 48px rgba(42, 43, 39, 0.14);
+
+  /* Motion */
+  --ms-duration-press: 80ms;
+  --ms-duration-hover: 140ms;
+  --ms-duration-reveal: 180ms;
+  --ms-duration-success: 240ms;
+  --ms-ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Styles des composants, dans la couche « components » de Tailwind : les
+   utilitaires (lg:hidden, w-full…) peuvent ainsi les ajuster. */
+@layer components {
+
+/* Scope these foundations to the platform, not the marketing site. */
+[data-ms-app] {
+  background: var(--ms-canvas);
+  color: var(--ms-ink);
+}
+
+[data-ms-app],
+[data-ms-app] *,
+[data-ms-app] *::before,
+[data-ms-app] *::after {
+  box-sizing: border-box;
+}
+
+[data-ms-area="teacher"] {
+  /* DM Sans n'a pas de glyphes arabes : les mots arabes des libellés
+     (exercices, réponses) retombent sur Noto Naskh Arabic. */
+  font-family: var(--font-dm-sans, var(--ms-font-teacher)), var(--font-noto-naskh-arabic, var(--ms-font-arabic)), system-ui, sans-serif;
+  font-size: var(--ms-text-body);
+  line-height: var(--ms-line-body);
+}
+
+[data-ms-area="student"] {
+  /* Nunito n'a pas de glyphes arabes : même repli que l'espace enseignant. */
+  font-family: var(--font-nunito, var(--ms-font-student)), var(--font-noto-naskh-arabic, var(--ms-font-arabic)), system-ui, sans-serif;
+  font-size: var(--ms-text-student-body);
+  line-height: var(--ms-line-section);
+}
+
+/* A visible light moat protects focus visibility on filled controls. */
+[data-ms-app] :where(
+  a, button, input, select, textarea, summary, [tabindex]
+):focus-visible {
+  box-shadow: 0 0 0 3px var(--ms-surface);
+  outline: 3px solid var(--ms-primary);
+  outline-offset: 3px;
+}
+
+[data-ms-app] .ms-muted {
+  color: var(--ms-text-muted);
+}
+
+[data-ms-app] .ms-panel {
+  min-inline-size: 0;
+  background: var(--ms-surface);
+  border: 1px solid var(--ms-line);
+  border-radius: var(--ms-radius-panel);
+}
+
+[data-ms-area="student"] .ms-panel {
+  border-radius: var(--ms-radius-student-panel);
+}
+
+[data-ms-app] .ms-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ms-space-2);
+  min-block-size: var(--ms-teacher-control);
+  min-inline-size: var(--ms-teacher-hit);
+  padding: 0.625rem 1rem;
+  border: 1px solid transparent;
+  border-radius: var(--ms-radius-control);
+  font: inherit;
+  font-size: var(--ms-text-control);
+  font-weight: var(--ms-weight-semibold);
+  line-height: var(--ms-line-control);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--ms-duration-hover) var(--ms-ease),
+    border-color var(--ms-duration-hover) var(--ms-ease),
+    color var(--ms-duration-hover) var(--ms-ease),
+    transform var(--ms-duration-press) var(--ms-ease);
+}
+
+[data-ms-app] .ms-button[data-variant="primary"] {
+  background: var(--ms-primary);
+  color: var(--ms-on-primary);
+}
+
+[data-ms-app] .ms-button[data-variant="secondary"] {
+  background: var(--ms-surface);
+  color: var(--ms-ink);
+  border-color: var(--ms-control-border);
+}
+
+[data-ms-app] .ms-button[data-variant="quiet"] {
+  background: transparent;
+  color: var(--ms-primary);
+}
+
+[data-ms-app] .ms-button[data-variant="danger"] {
+  background: var(--ms-danger-soft);
+  color: var(--ms-danger);
+  border-color: var(--ms-danger);
+}
+
+@media (hover: hover) {
+  [data-ms-app] .ms-button[data-variant="primary"]:not(:disabled):not([aria-disabled="true"]):hover {
+    background: var(--ms-primary-hover);
+  }
+
+  [data-ms-app] .ms-button:is(
+    [data-variant="secondary"], [data-variant="quiet"]
+  ):not(:disabled):not([aria-disabled="true"]):hover {
+    background: var(--ms-surface-muted);
+  }
+
+  [data-ms-app] .ms-button[data-variant="danger"]:not(:disabled):not([aria-disabled="true"]):hover {
+    background: var(--ms-surface);
+    border-color: var(--ms-danger);
+  }
+}
+
+[data-ms-app] .ms-button:not(:disabled):not([aria-disabled="true"]):active {
+  transform: translateY(1px);
+}
+
+[data-ms-app] .ms-button[data-variant="primary"]:not(:disabled):not([aria-disabled="true"]):active {
+  background: var(--ms-primary-pressed);
+}
+
+[data-ms-app] .ms-button:is(:disabled, [aria-disabled="true"]) {
+  color: var(--ms-text-muted);
+  background: var(--ms-surface-muted);
+  border-color: var(--ms-line);
+  cursor: not-allowed;
+  transform: none;
+  /* Components using aria-disabled must also suppress activation in JS. */
+}
+
+[data-ms-area="student"] .ms-button {
+  min-block-size: var(--ms-student-hit);
+  min-inline-size: var(--ms-student-hit);
+  padding: 1rem 1.5rem;
+  border-radius: var(--ms-radius-student-control);
+  font-size: var(--ms-text-student-body);
+  font-weight: var(--ms-weight-bold);
+  line-height: var(--ms-line-section);
+}
+
+[data-ms-app] .ms-field {
+  display: block;
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: var(--ms-teacher-control);
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--ms-control-border);
+  border-radius: var(--ms-radius-control);
+  background: var(--ms-surface);
+  color: var(--ms-ink);
+  font: inherit;
+}
+
+[data-ms-area="student"] .ms-field {
+  min-block-size: var(--ms-student-hit);
+}
+
+[data-ms-app] .ms-field::placeholder {
+  color: var(--ms-text-muted);
+  opacity: 1;
+}
+
+[data-ms-app] .ms-field[aria-invalid="true"] {
+  border-color: var(--ms-danger);
+  /* Pair with a persistent, associated inline error message. */
+}
+
+[data-ms-app] .ms-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  max-inline-size: 100%;
+  padding: 0.25rem 0.625rem;
+  border: 1px solid transparent;
+  border-radius: var(--ms-radius-pill);
+  background: var(--ms-surface-muted);
+  color: var(--ms-ink);
+  font-size: var(--ms-text-dense);
+  font-weight: var(--ms-weight-semibold);
+  line-height: var(--ms-line-dense);
+  /* Noninteractive only; filters/buttons need the relevant minimum target. */
+}
+
+[data-ms-app] .ms-status[data-state="success"] {
+  background: var(--ms-primary-soft);
+  color: var(--ms-primary);
+}
+
+[data-ms-app] .ms-status[data-state="review"] {
+  background: var(--ms-review-soft);
+  color: var(--ms-review);
+}
+
+[data-ms-app] .ms-status[data-state="info"] {
+  background: var(--ms-info-soft);
+  color: var(--ms-info);
+}
+
+[data-ms-app] .ms-status[data-state="error"] {
+  background: var(--ms-danger-soft);
+  color: var(--ms-danger);
+}
+
+/* « Pas commencé » : contour neutre, texte lisible. */
+[data-ms-app] .ms-status[data-state="outline"] {
+  background: transparent;
+  border-color: var(--ms-control-border);
+  color: var(--ms-text-muted);
+}
+
+[data-ms-app] .ms-arabic {
+  font-family: var(--font-noto-naskh-arabic, var(--ms-font-arabic)), serif;
+  font-weight: var(--ms-weight-regular);
+  line-height: 1.75;
+  letter-spacing: normal;
+  text-transform: none;
+  /* Set lang="ar" and dir="rtl" in HTML, not only through CSS. */
+  /* Never force a tight fixed height or overflow:hidden around diacritics. */
+}
+
+[data-ms-app] .ms-arabic-word {
+  font-size: clamp(3rem, 7vw, 6rem);
+}
+
+[data-ms-app] .ms-arabic-letter {
+  font-size: clamp(4rem, 10vw, 9rem);
+  line-height: 1.5;
+}
+
+[data-ms-app] .ms-answer-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  inline-size: 100%;
+  max-inline-size: 38rem;
+  margin-inline: auto;
+}
+
+[data-ms-app] .ms-answer-tile {
+  min-inline-size: 0;
+  min-block-size: var(--ms-answer-min);
+  padding: 0.75rem;
+  border: 2px solid var(--ms-control-border);
+  border-radius: var(--ms-radius-answer);
+  background: var(--ms-surface);
+  color: var(--ms-ink);
+  cursor: pointer;
+  /* Behaviour must use a real button/radio pattern, not a clickable div. */
+}
+
+/* A bounded tile glyph prevents the display-letter scale from overflowing. */
+[data-ms-app] .ms-answer-tile .ms-arabic-letter {
+  font-size: clamp(4rem, 6vw, 6rem);
+}
+
+[data-ms-app] .ms-answer-tile[data-selected="true"] {
+  border-color: var(--ms-primary);
+  background: var(--ms-primary-soft);
+  /* Add a visible check/selection label and correct accessibility semantics. */
+}
+
+/* Tuile de réponse de l'élève : la lettre trouvée garde sa coche et son
+   libellé ; une lettre déjà essayée s'efface sans tremblement ni buzzer. */
+[data-ms-app] .ms-answer-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ms-space-2);
+  box-shadow: var(--ms-shadow-student);
+  transition:
+    background-color var(--ms-duration-hover) var(--ms-ease),
+    border-color var(--ms-duration-hover) var(--ms-ease),
+    transform var(--ms-duration-press) var(--ms-ease);
+}
+
+@media (hover: hover) {
+  [data-ms-app] .ms-answer-tile:not(:disabled):hover {
+    border-color: var(--ms-primary);
+  }
+}
+
+[data-ms-app] .ms-answer-tile:not(:disabled):active {
+  transform: scale(0.99);
+}
+
+[data-ms-app] .ms-answer-tile[data-state="found"] {
+  border-color: var(--ms-primary);
+  background: var(--ms-primary-soft);
+  cursor: default;
+  transition-duration: var(--ms-duration-success);
+}
+
+[data-ms-app] .ms-answer-tile[data-state="tried"] {
+  border-style: dashed;
+  border-color: var(--ms-line);
+  background: var(--ms-surface-muted);
+  box-shadow: none;
+  cursor: default;
+}
+
+[data-ms-app] .ms-answer-tile[data-state="tried"] .ms-answer-glyph {
+  opacity: 0.45;
+}
+
+[data-ms-app] .ms-answer-tile[data-state="rest"]:disabled {
+  cursor: default;
+}
+
+[data-ms-app] .ms-skeleton {
+  background: var(--ms-surface-muted);
+  border-radius: var(--ms-radius-control);
+  /* Static by default. Set aria-busy on the labelled parent region. */
+}
+
+/* Lavis pastel statique (accueil élève, connexion) : au plus une zone par
+   écran, jamais sous un tableau, un champ ou une réponse. La page doit rester
+   juste sans lui : il ne porte aucune information. Contrastes vérifiés sur le
+   point le plus coloré (docs/redesign). */
+[data-ms-app] .ms-welcome-wash {
+  background:
+    radial-gradient(ellipse at 88% 15%, rgba(204, 185, 181, 0.30) 0%, rgba(204, 185, 181, 0) 58%),
+    radial-gradient(ellipse at 12% 88%, rgba(153, 155, 132, 0.20) 0%, rgba(153, 155, 132, 0) 62%),
+    linear-gradient(135deg, #FFFDF8 0%, #F5EEE8 100%);
+}
+
+/* Surface d'une scène d'apprentissage (image, mot, lettre) : un filet fin,
+   pas de cadre épais ni d'ombre de dialogue. Le contenu fait la taille. */
+[data-ms-app] .ms-stage-card,
+.ms-stage-card {
+  background: var(--ms-surface);
+  border: 1px solid var(--ms-line);
+  border-radius: var(--ms-radius-student-panel);
+  box-shadow: var(--ms-shadow-student);
+}
+
+[data-ms-app] .ms-safe-bottom {
+  padding-block-end: max(1rem, env(safe-area-inset-bottom));
+}
+
+@media (min-width: 48rem) {
+  [data-ms-app] .ms-answer-grid {
+    gap: 1rem;
+  }
+
+  [data-ms-app] .ms-answer-tile {
+    min-block-size: 10rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-ms-app] .ms-button,
+  [data-ms-app] .ms-answer-tile,
+  [data-ms-app] [data-ms-motion] {
+    transition: none;
+    animation: none;
+    scroll-behavior: auto;
+  }
+
+  [data-ms-app] .ms-button:not(:disabled):not([aria-disabled="true"]):active,
+  [data-ms-app] .ms-answer-tile:not(:disabled):active {
+    transform: none;
+  }
+}
+
+} /* @layer components */

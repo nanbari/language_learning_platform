@@ -38,7 +38,7 @@ const FRUIT_IMAGES: Record<string, keyof typeof FRUITS> = {
   "9865056a-8dae-4c0c-9cd9-60f2f831dfa0-media.jpg": "raisin",
 };
 
-export const IMAGE_WORDS: Record<string, string> = Object.fromEntries(
+const IMAGE_WORDS: Record<string, string> = Object.fromEntries(
   Object.entries(FRUIT_IMAGES).map(([file, fruit]) => [`${MEDIA}${file}`, FRUITS[fruit]]),
 );
 

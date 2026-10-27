@@ -11,10 +11,9 @@
  * l'accès base sont dans les routes serveur.
  */
 
-export const SIGNUP_STATUSES = ["pending", "approved", "rejected"] as const;
-export type SignupStatus = (typeof SIGNUP_STATUSES)[number];
+type SignupStatus = "pending" | "approved" | "rejected";
 
-export const SIGNUP_ACTIONS = ["approve", "reject"] as const;
+const SIGNUP_ACTIONS = ["approve", "reject"] as const;
 export type SignupAction = (typeof SIGNUP_ACTIONS)[number];
 
 export const MIN_NAME = 2;

@@ -1,22 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
-import { COOKIE_NAME, verifySession } from "@/lib/auth";
-import { studentCanSeeLesson } from "@/app/api/classes/access";
-
-// Client service-role : la RLS est contournée, l'autorisation est faite ici
-// même (session + rôle) — ne jamais exposer ce client au navigateur.
-// Initialisation paresseuse : la clé service-role n'est disponible qu'à
-// l'exécution, pas au build (où Next évalue les modules des routes).
-let adminClient: ReturnType<typeof supabaseAdmin> | null = null;
-const supabase = () => (adminClient ??= supabaseAdmin());
-
-async function getSession(req: NextRequest) {
-  return verifySession(req.cookies.get(COOKIE_NAME)?.value);
-}
+import { supabaseAdmin } from "@/server/supabase";
+import { studentCanSeeLesson } from "@/server/classAccess";
+import { currentUser } from "@/server/session";
+import { serverError } from "@/server/errors";
 
 export async function GET(req: NextRequest) {
-  const session = await getSession(req);
-  if (!session) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const auth = await currentUser(req);
+  if ("error" in auth) return auth.error;
+  const session = auth.user;
 
   const { searchParams } = new URL(req.url);
   const userId   = searchParams.get("userId");
@@ -28,18 +19,19 @@ export async function GET(req: NextRequest) {
   }
   const effectiveUserId = session.role === "student" ? session.id : userId;
 
-  let query = supabase().from("progress").select("*");
+  let query = supabaseAdmin().from("progress").select("*");
   if (effectiveUserId) query = query.eq("user_id", effectiveUserId);
   if (lessonId)        query = query.eq("lesson_id", lessonId);
 
   const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError("/api/progress error", error);
   return NextResponse.json(data);
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getSession(req);
-  if (!session) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const auth = await currentUser(req);
+  if ("error" in auth) return auth.error;
+  const session = auth.user;
   if (session.role !== "student") {
     return NextResponse.json({ error: "Seuls les élèves enregistrent leur progression" }, { status: 403 });
   }
@@ -58,7 +50,7 @@ export async function POST(req: NextRequest) {
   // user_id always comes from the session, never the body.
   const userId = session.id;
 
-  const { data: existing } = await supabase()
+  const { data: existing } = await supabaseAdmin()
     .from("progress")
     .select("id, score")
     .eq("user_id", userId)
@@ -67,25 +59,25 @@ export async function POST(req: NextRequest) {
 
   if (existing) {
     if (score > existing.score) {
-      const { data, error } = await supabase()
+      const { data, error } = await supabaseAdmin()
         .from("progress")
         .update({ score, completed_at: new Date().toISOString() })
         .eq("id", existing.id)
         .select()
         .single();
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (error) return serverError("/api/progress error", error);
       return NextResponse.json(data);
     }
     return NextResponse.json(existing);
   }
 
-  const { data, error } = await supabase()
+  const { data, error } = await supabaseAdmin()
     .from("progress")
     .insert({ user_id: userId, lesson_id: lessonId, score })
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError("/api/progress error", error);
 
   return NextResponse.json(data, { status: 201 });
 }

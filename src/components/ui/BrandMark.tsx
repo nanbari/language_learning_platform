@@ -19,7 +19,7 @@ export function BrandMark({ className }: { className?: string }) {
 /** Le nom de l'association, avec ses lettres de couleur. */
 export function Wordmark({ className }: { className?: string }) {
   return (
-    <span className={`font-black text-[#2D2D2D] ${className ?? ""}`} style={{ fontFamily: "'Fredoka One', cursive" }}>
+    <span className={`font-black text-[#2D2D2D] ${className ?? ""}`} style={{ fontFamily: "var(--font-fredoka), sans-serif", fontWeight: 700 }}>
       Monte <span className="text-[#8BA3B1]">&</span> So<span className="text-[#BB908E]">u</span>ri<span className="text-[#999B84]">s</span>
     </span>
   );

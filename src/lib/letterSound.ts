@@ -33,7 +33,7 @@ export function readsQuestionOnArrival(kind: unknown, previousKind: unknown): ki
   return isQuestionKind(kind) && kind !== previousKind;
 }
 
-export function letterSoundUrl(letter: ArabicLetter): string {
+function letterSoundUrl(letter: ArabicLetter): string {
   return `/sounds/letters/${letter.id}.mp3`;
 }
 

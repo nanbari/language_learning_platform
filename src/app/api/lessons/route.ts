@@ -1,18 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
-import { COOKIE_NAME, verifySession, isStaff, type SessionUser } from "@/lib/auth";
-import { ownedClass, studentClassIds } from "@/app/api/classes/access";
-
-// Client service-role : la RLS est contournée, l'autorisation est faite ici
-// même (session + rôle) — ne jamais exposer ce client au navigateur.
-// Initialisation paresseuse : la clé service-role n'est disponible qu'à
-// l'exécution, pas au build (où Next évalue les modules des routes).
-let adminClient: ReturnType<typeof supabaseAdmin> | null = null;
-const supabase = () => (adminClient ??= supabaseAdmin());
-
-async function getSession(req: NextRequest) {
-  return verifySession(req.cookies.get(COOKIE_NAME)?.value);
-}
+import { supabaseAdmin } from "@/server/supabase";
+import { isStaff, type SessionUser } from "@/server/auth";
+import { ownedClass, studentClassIds } from "@/server/classAccess";
+import { withLiveStale } from "@/server/lessonLiveStale";
+import { currentUser } from "@/server/session";
+import { isMissingColumn, serverError, warnOnce } from "@/server/errors";
+import { collectMediaUrls, deleteObjects } from "@/server/r2";
 
 /**
  * Valide la classe à laquelle la leçon est proposée : l'enseignant doit la
@@ -27,13 +20,14 @@ async function checkClass(session: SessionUser, classId: unknown) {
 }
 
 export async function GET(req: NextRequest) {
-  const session = await getSession(req);
-  if (!session) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const auth = await currentUser(req);
+  if ("error" in auth) return auth.error;
+  const session = auth.user;
 
   const { searchParams } = new URL(req.url);
   const authorId = searchParams.get("authorId");
 
-  let query = supabase().from("lessons").select("*").order("created_at", { ascending: false });
+  let query = supabaseAdmin().from("lessons").select("*").order("created_at", { ascending: false });
   // Un élève ne voit que les leçons proposées à ses classes.
   if (!isStaff(session)) {
     const classIds = await studentClassIds(session.id).catch(() => null);
@@ -50,13 +44,15 @@ export async function GET(req: NextRequest) {
   }
 
   const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+  if (error) return serverError("/api/lessons error", error);
+
+  return NextResponse.json(await withLiveStale((data ?? []) as { id: string; title: string; exercises: unknown }[]));
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getSession(req);
-  if (!session) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const auth = await currentUser(req);
+  if ("error" in auth) return auth.error;
+  const session = auth.user;
   if (!isStaff(session)) {
     return NextResponse.json({ error: "Seuls les enseignants peuvent créer des leçons" }, { status: 403 });
   }
@@ -68,19 +64,20 @@ export async function POST(req: NextRequest) {
 
   // Identity is derived from the session — the body's author_id is ignored.
   // published_at : les leçons sont visibles des élèves dès leur création.
-  const { data, error } = await supabase()
+  const { data, error } = await supabaseAdmin()
     .from("lessons")
     .insert({ title, subject, age_group, author_id: session.id, class_id, exercises, published_at: new Date().toISOString() })
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError("/api/lessons error", error);
   return NextResponse.json(data, { status: 201 });
 }
 
 export async function PATCH(req: NextRequest) {
-  const session = await getSession(req);
-  if (!session) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const auth = await currentUser(req);
+  if ("error" in auth) return auth.error;
+  const session = auth.user;
   if (!isStaff(session)) {
     return NextResponse.json({ error: "Interdit" }, { status: 403 });
   }
@@ -97,23 +94,42 @@ export async function PATCH(req: NextRequest) {
   // L'éditeur n'envoie que les blocs : le diaporama du cours en direct
   // (exercises.live, voir lib/lessonDeck) est conservé.
   if (updates.exercises) {
-    const { data: current } = await supabase().from("lessons").select("exercises").eq("id", id).single();
+    const { data: current } = await supabaseAdmin().from("lessons").select("exercises").eq("id", id).single();
     updates.exercises = { ...(current?.exercises ?? {}), ...updates.exercises };
   }
 
-  let query = supabase().from("lessons").update(updates).eq("id", id);
-  // Teachers can only patch their own lessons; admins can patch any.
-  if (!session.isAdmin) query = query.eq("author_id", session.id);
-
-  const { data, error } = await query.select().single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!data) return NextResponse.json({ error: "Leçon introuvable" }, { status: 404 });
-  return NextResponse.json(data);
+  // Enregistrement atomique : la version attendue fait partie du WHERE et
+  // l'incrément de la même instruction. 0 ligne = quelqu'un a enregistré
+  // entre-temps (409, l'éditeur garde le brouillon) ou leçon inaccessible (404).
+  const expected = Number.isInteger(body.version) ? (body.version as number) : null;
+  delete updates.version;
+  const run = (checkVersion: boolean) => {
+    let query = supabaseAdmin().from("lessons").update(checkVersion ? { ...updates, version: expected! + 1 } : updates).eq("id", id);
+    if (!session.isAdmin) query = query.eq("author_id", session.id);
+    if (checkVersion) query = query.eq("version", expected!);
+    return query.select();
+  };
+  let { data, error } = await run(expected !== null);
+  if (error && expected !== null && isMissingColumn(error)) {
+    warnOnce("colonne lessons.version absente : enregistrement sans contrôle de version");
+    ({ data, error } = await run(false));
+  }
+  if (error) return serverError("/api/lessons error", error);
+  if (!data || data.length === 0) {
+    const { data: existing } = await supabaseAdmin().from("lessons").select("id, author_id").eq("id", id).maybeSingle();
+    const reachable = existing && (session.isAdmin || existing.author_id === session.id);
+    if (reachable && expected !== null) {
+      return NextResponse.json({ error: "La leçon a été modifiée ailleurs depuis son ouverture." }, { status: 409 });
+    }
+    return NextResponse.json({ error: "Leçon introuvable" }, { status: 404 });
+  }
+  return NextResponse.json(data[0]);
 }
 
 export async function DELETE(req: NextRequest) {
-  const session = await getSession(req);
-  if (!session) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const auth = await currentUser(req);
+  if ("error" in auth) return auth.error;
+  const session = auth.user;
   if (!isStaff(session)) {
     return NextResponse.json({ error: "Interdit" }, { status: 403 });
   }
@@ -121,11 +137,14 @@ export async function DELETE(req: NextRequest) {
   const { id } = await req.json().catch(() => ({}) as { id?: string });
   if (!id) return NextResponse.json({ error: "id requis" }, { status: 400 });
 
-  let query = supabase().from("lessons").delete().eq("id", id);
+  let query = supabaseAdmin().from("lessons").delete().eq("id", id);
   // Teachers can only delete their own lessons; admins can delete any.
   if (!session.isAdmin) query = query.eq("author_id", session.id);
 
-  const { error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const { data, error } = await query.select("exercises");
+  if (error) return serverError("/api/lessons error", error);
+  // Les médias de la leçon (images, audios sur R2) partent avec elle — après coup, sans bloquer la réponse.
+  const urls = (data ?? []).flatMap((row) => collectMediaUrls(row.exercises));
+  if (urls.length > 0) void deleteObjects(urls);
   return NextResponse.json({ ok: true });
 }

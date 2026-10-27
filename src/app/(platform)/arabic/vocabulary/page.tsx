@@ -1,8 +1,13 @@
 "use client";
-import { useState, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ArrowLeft, Volume2, ChevronRight, Star } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, Volume2 } from "lucide-react";
 import { VOCAB_THEMES, ArabicWord, VocabTheme } from "@/data/arabicVocabulary";
+import StudentShell, { STUDENT_ICON } from "@/components/student/StudentShell";
+import { ThemeArt } from "@/components/student/ThemeArt";
+import { VocabPicture } from "@/components/student/VocabPicture";
+import { INSTRUCTION_ID, loadVocabSounds, playVocabSound, type VocabSounds } from "@/lib/vocabSound";
+import { accentAt } from "@/components/student/accents";
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -29,7 +34,10 @@ export default function VocabularyPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [total, setTotal] = useState(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [audioFailed, setAudioFailed] = useState(false);
+  // Sons enregistrés par l'enseignant sur la plateforme ({ id du mot: URL }).
+  const [sounds, setSounds] = useState<VocabSounds>({});
+  useEffect(() => { let active = true; loadVocabSounds().then((s) => { if (active) setSounds(s); }); return () => { active = false; }; }, []);
 
   const startTheme = useCallback((t: VocabTheme) => {
     setTheme(t);
@@ -38,17 +46,14 @@ export default function VocabularyPage() {
     setScore(0);
     setTotal(0);
     setPhase("exercise");
-  }, []);
+    // La consigne, si l'enseignant l'a enregistrée : une fois, en entrant dans l'exercice (le toucher sur le thème autorise le son).
+    if (sounds[INSTRUCTION_ID]) void playVocabSound(INSTRUCTION_ID);
+  }, [sounds]);
 
   const playAudio = useCallback(() => {
     if (!theme || !round) return;
-    const key = `ms_arabic_audio_${theme.id}_${round.target.id}`;
-    const stored = localStorage.getItem(key);
-    if (!stored) return;
-    audioRef.current?.pause();
-    const audio = new Audio(stored);
-    audioRef.current = audio;
-    audio.play();
+    setAudioFailed(false);
+    void playVocabSound(round.target.id).then((ok) => { if (!ok) setAudioFailed(true); });
   }, [theme, round]);
 
   const handleSelect = useCallback((word: ArabicWord) => {
@@ -61,54 +66,51 @@ export default function VocabularyPage() {
   const next = useCallback(() => {
     if (!theme) return;
     setSelected(null);
+    setAudioFailed(false);
     setRound(buildRound(theme.words));
   }, [theme]);
 
   /* ── Theme selection ── */
   if (phase === "themes") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#fff8ee] via-[#fffef9] to-[#f0faf5]">
-        <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm">
-          <Link href="/arabic" className="flex items-center gap-2 text-gray-500 hover:text-[#f9a875] transition-colors">
-            <ArrowLeft size={18} /> Retour
+      <StudentShell>
+        <div className="flex flex-col gap-8">
+          <Link href="/arabic" data-variant="quiet" className="ms-button -ms-3 self-start text-ms-primary">
+            <ArrowLeft size={STUDENT_ICON} strokeWidth={1.75} aria-hidden="true" /> Apprends l&apos;arabe
           </Link>
-          <span className="font-black text-[#2d2d2d]" style={{ fontFamily: "'Fredoka One', cursive" }}>
-            المُفْرَدَات — Vocabulaire
-          </span>
-          <div className="w-24" />
-        </div>
 
-        <div className="max-w-3xl mx-auto px-4 py-10">
-          <div className="text-center mb-10">
-            <div className="text-5xl mb-3">📖</div>
-            <h1 className="text-3xl font-black text-[#2d2d2d] mb-2" style={{ fontFamily: "'Fredoka One', cursive" }}>
-              Choisis un thème
-            </h1>
-            <p className="text-[#8b6f47] font-semibold">Niveau 1 — Exercice «&nbsp;Où est… ?&nbsp;»</p>
-          </div>
+          <header className="flex flex-col gap-2">
+            <p lang="ar" dir="rtl" className="ms-arabic self-start text-xl text-ms-muted">المُفْرَدَات</p>
+            <h1 className="text-[2rem] font-extrabold leading-10 tracking-[-0.02em]">Choisis un thème</h1>
+            <p className="text-ms-muted">Pour chaque mot, trouve la bonne image.</p>
+          </header>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {VOCAB_THEMES.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => startTheme(t)}
-                className="montessori-card p-5 text-center hover:scale-105 transition-transform"
-                style={{ background: t.bg, border: `2px solid ${t.color}40` }}
-              >
-                <div className="text-4xl mb-2">{t.emoji}</div>
-                <p
-                  className="text-xs font-bold text-gray-500 mb-1"
-                  style={{ fontFamily: "'Cairo', sans-serif", direction: "rtl" }}
-                >
-                  {t.nameArabic}
-                </p>
-                <p className="font-bold text-[#2d2d2d] text-sm">{t.nameFrench}</p>
-                <p className="text-xs text-gray-400 mt-1">{t.words.length} mots</p>
-              </button>
-            ))}
-          </div>
+          <ul className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
+            {VOCAB_THEMES.map((t, i) => {
+              const accent = accentAt(i);
+              return (
+                <li key={t.id} className="min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => startTheme(t)}
+                    className="group flex h-full w-full min-w-0 flex-col overflow-hidden rounded-3xl border border-ms-line bg-ms-surface text-start shadow-[var(--ms-shadow-student)] transition-[border-color,transform] duration-[140ms] hover:border-ms-control active:scale-[0.99]"
+                  >
+                    {/* L'illustration du thème, en grand, sur le pastel de sa place dans la liste. */}
+                    <span className="flex h-28 w-full items-end justify-center px-4 pt-3 sm:h-36" style={{ background: accent.soft }}>
+                      <ThemeArt themeId={t.id} className="h-full w-auto max-w-full transition-transform duration-[140ms] group-hover:-translate-y-0.5" />
+                    </span>
+                    <span className="flex flex-1 flex-col gap-0.5 p-4">
+                      <span className="text-xl font-extrabold leading-7 [overflow-wrap:anywhere]">{t.nameFrench}</span>
+                      <span lang="ar" dir="rtl" className="ms-arabic self-start text-lg text-ms-ink">{t.nameArabic}</span>
+                      <span className="mt-1 text-sm text-ms-muted tabular-nums">{t.words.length} mots</span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         </div>
-      </div>
+      </StudentShell>
     );
   }
 
@@ -116,73 +118,75 @@ export default function VocabularyPage() {
   if (!round || !theme) return null;
   const { target, choices } = round;
   const isCorrect = selected === target.id;
+  const accent = accentAt(VOCAB_THEMES.findIndex((t) => t.id === theme.id));
+  // L'enregistrement de la question n'existe que si l'enseignant l'a déposé sur cet appareil.
+  const hasAudio = !!sounds[target.id];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#fff8ee] via-[#fffef9] to-[#f0faf5]">
-      <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm">
-        <button
-          onClick={() => setPhase("themes")}
-          className="flex items-center gap-2 text-gray-500 hover:text-[#f9a875] transition-colors"
-        >
-          <ArrowLeft size={18} /> Thèmes
-        </button>
-        <span className="font-black text-[#2d2d2d]" style={{ fontFamily: "'Fredoka One', cursive" }}>
-          {theme.emoji} {theme.nameFrench}
-        </span>
-        <div className="flex items-center gap-1 text-sm font-bold text-[#f9a875]">
-          <Star size={14} fill="#f9a875" /> {score}/{total}
-        </div>
-      </div>
-
-      <div className="max-w-xl mx-auto px-4 py-10">
-        {/* Question */}
-        <div className="bg-white rounded-3xl shadow-lg p-8 mb-8 text-center">
-          <p className="text-xs text-gray-400 uppercase tracking-widest mb-3">Question</p>
-          <div className="flex items-center justify-center gap-3 mb-3">
-            <h2
-              className="text-4xl font-black text-[#2d2d2d] leading-normal"
-              style={{ fontFamily: "'Cairo', sans-serif", direction: "rtl" }}
-            >
-              أَيْنَ {target.arabic}؟
-            </h2>
-            <button
-              onClick={playAudio}
-              className="w-11 h-11 rounded-full bg-[#f9a875]/10 hover:bg-[#f9a875]/20 flex items-center justify-center transition-colors shrink-0"
-              title="Écouter la question"
-            >
-              <Volume2 size={20} className="text-[#f9a875]" />
-            </button>
+    <StudentShell>
+      <div className="mx-auto flex w-full max-w-[52rem] flex-col gap-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <button type="button" onClick={() => setPhase("themes")} data-variant="quiet" className="ms-button -ms-3 text-ms-primary">
+            <ArrowLeft size={STUDENT_ICON} strokeWidth={1.75} aria-hidden="true" /> Thèmes
+          </button>
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-12 w-16 shrink-0 items-end justify-center overflow-hidden rounded-xl px-1 pt-1" style={{ background: accent.soft }}>
+              <ThemeArt themeId={theme.id} className="h-full w-auto" />
+            </span>
+            <span className="truncate text-lg font-extrabold">{theme.nameFrench}</span>
+            <span className="ms-status tabular-nums">{score} sur {total}</span>
           </div>
-          <p className="text-[#8b6f47] font-semibold text-lg">
-            Où est {target.french}&nbsp;?
-          </p>
         </div>
+        <div className="h-1 rounded-full" style={{ background: accent.pastel }} aria-hidden="true" />
 
-        {/* 3 choices — horizontally */}
-        <div className="flex gap-4">
+        {/* Question */}
+        <section aria-labelledby="question" className="ms-panel flex flex-col items-center gap-3 px-5 py-6 text-center sm:px-8">
+          <p className="text-xl font-bold leading-7 sm:text-2xl sm:leading-8">{hasAudio ? "Écoute, puis choisis l'image." : "Choisis l'image."}</p>
+          <h1 id="question" lang="ar" dir="rtl" className="ms-arabic text-[clamp(3rem,7vw,4.5rem)]">
+            أَيْنَ {target.arabic}؟
+          </h1>
+          <p className="text-lg font-semibold text-ms-muted">Où est {target.french}&nbsp;?</p>
+          {hasAudio && (
+            <button type="button" onClick={playAudio} data-variant="primary" className="ms-button min-w-44" style={{ background: accent.deep }}>
+              <Volume2 size={STUDENT_ICON} strokeWidth={1.75} aria-hidden="true" /> Écouter
+            </button>
+          )}
+          {audioFailed && (
+            <p role="alert" className="flex flex-wrap items-center justify-center gap-3 text-ms-danger">
+              Le son n&apos;a pas pu démarrer.
+              <button type="button" onClick={playAudio} data-variant="secondary" className="ms-button">Réessayer</button>
+            </p>
+          )}
+        </section>
+
+        {/* 3 choices */}
+        <div role="group" aria-label="Images à choisir" className="ms-answer-grid rounded-3xl p-2 min-[400px]:p-3 sm:p-5"
+          style={{ background: accent.soft, maxInlineSize: "40rem" }}>
           {choices.map((word) => {
             const isThis = selected === word.id;
             const isAnswer = word.id === target.id;
-            let border = "border-gray-100";
-            let bg = "bg-white";
-            if (isThis && isAnswer) { border = "border-[#95d5b2]"; bg = "bg-[#f0faf5]"; }
-            else if (isThis && !isAnswer) { border = "border-[#ff8fa3]"; bg = "bg-[#fff0f3]"; }
-            else if (selected && isAnswer) { border = "border-[#95d5b2]"; bg = "bg-[#f0faf5]"; }
-
+            // Réponse trouvée ou montrée : coche ; image choisie à tort : effacée, sans tremblement.
+            const state = selected && isAnswer ? "found" : isThis ? "tried" : "rest";
             return (
               <button
                 key={word.id}
+                type="button"
                 onClick={() => handleSelect(word)}
                 disabled={!!selected}
-                className={`${bg} border-2 ${border} rounded-3xl flex-1 py-6 flex flex-col items-center gap-3 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all disabled:hover:translate-y-0 disabled:cursor-default`}
+                data-state={state}
+                aria-label={`${word.french}${state === "found" ? " — bonne réponse" : state === "tried" ? " — ton choix" : ""}`}
+                className="ms-answer-tile"
               >
-                <span className="text-6xl select-none">{word.emoji}</span>
+                {/* L'image du mot (photo, dessin ou pictogramme), toujours dans le même carré. */}
+                <span className="ms-answer-glyph block w-full max-w-40 overflow-hidden rounded-2xl" aria-hidden="true">
+                  <VocabPicture word={word} sizes="(min-width: 640px) 10rem, 30vw" />
+                </span>
                 {selected && (
-                  <span
-                    className="text-sm font-bold text-[#2d2d2d] px-2 text-center"
-                    style={{ fontFamily: "'Cairo', sans-serif" }}
-                  >
-                    {word.arabic}
+                  <span lang="ar" dir="rtl" className="ms-arabic ms-answer-glyph text-xl">{word.arabic}</span>
+                )}
+                {state === "found" && (
+                  <span className="absolute end-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-ms-primary text-ms-on-primary">
+                    <Check size={22} strokeWidth={2.5} aria-hidden="true" />
                   </span>
                 )}
               </button>
@@ -190,35 +194,33 @@ export default function VocabularyPage() {
           })}
         </div>
 
-        {/* Feedback */}
-        {selected && (
-          <div className="mt-8 text-center animate-bounce-in">
-            {isCorrect ? (
-              <div>
-                <div className="text-5xl mb-2">🌟</div>
-                <p className="text-2xl font-black text-[#95d5b2]">Bravo !</p>
-              </div>
-            ) : (
-              <div>
-                <p className="text-gray-500 text-sm mb-2">C'était…</p>
-                <p
-                  className="text-2xl font-black text-[#2d2d2d]"
-                  style={{ fontFamily: "'Cairo', sans-serif" }}
-                >
-                  {target.arabic} <span className="text-3xl">{target.emoji}</span>
+        {/* Feedback — zone réservée pour que la page ne saute pas */}
+        <div aria-live="polite" className="flex min-h-40 flex-col items-center gap-4 text-center">
+          {selected && (
+            <>
+              {isCorrect ? (
+                <p className="flex items-center justify-center gap-3 text-xl font-bold leading-7">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-ms-primary-soft text-ms-primary">
+                    <Check size={22} strokeWidth={2.5} aria-hidden="true" />
+                  </span>
+                  <span className="text-ms-primary">Tu as trouvé.</span>
                 </p>
-                <p className="text-[#8b6f47] font-semibold">{target.french}</p>
-              </div>
-            )}
-            <button
-              onClick={next}
-              className="mt-5 inline-flex items-center gap-2 px-7 py-3 bg-[#BB908E] text-white rounded-full font-bold shadow hover:bg-[#a87e7c] hover:shadow-lg hover:scale-105 transition-all"
-            >
-              Question suivante <ChevronRight size={16} />
-            </button>
-          </div>
-        )}
+              ) : (
+                <div>
+                  <p className="text-xl font-bold leading-7 text-ms-muted">Voici la bonne image.</p>
+                  <p className="mt-1">
+                    <span lang="ar" dir="rtl" className="ms-arabic text-[1.75rem]">{target.arabic}</span>
+                    <span className="ms-2 font-semibold text-ms-muted">{target.french}</span>
+                  </p>
+                </div>
+              )}
+              <button type="button" onClick={next} data-variant="primary" className="ms-button min-w-60" style={{ background: accent.deep }}>
+                Question suivante <ChevronRight size={STUDENT_ICON} strokeWidth={1.75} aria-hidden="true" />
+              </button>
+            </>
+          )}
+        </div>
       </div>
-    </div>
+    </StudentShell>
   );
 }

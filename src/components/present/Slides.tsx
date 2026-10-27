@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Check, RotateCcw, Volume2 } from "lucide-react";
 import { Confetti } from "@/components/Confetti";
 import { BrandMark, Wordmark } from "@/components/ui/BrandMark";
+import { LessonImage } from "@/components/platform/LessonImage";
 import { LetterGlyph, LetterTracing } from "@/components/present/LetterTracing";
 import { LetterWriting } from "@/components/present/LetterWriting";
 import { isRightForm, writingGlyph, type Slide, type VocabWord } from "@/lib/presentation";
@@ -12,9 +13,12 @@ import { loadSounds, playLetterSound } from "@/lib/letterSound";
 import type { ArabicLetter } from "@/data/arabicAlphabet";
 
 // Naskh : le style des cahiers d'école, cohérent avec le tracé animé des lettres.
-const ARABIC_FONT = { fontFamily: "'Noto Naskh Arabic', 'Cairo', serif", direction: "rtl" as const };
-/** Fond de la bonne réponse : sauge de la charte, éclaircie. */
-const SOLVED_BG = "#999B8466";
+const ARABIC_FONT = { fontFamily: "var(--font-noto-naskh-arabic, 'Noto Naskh Arabic'), serif", direction: "rtl" as const };
+/** Bonne réponse : contour et fond doux de la couleur principale (brief, § 4.6). */
+const SOLVED_BG = "var(--ms-primary-soft)";
+const SOLVED_BORDER = "var(--ms-primary)";
+/** Contour neutre des cartes (rose poudré de la charte). */
+const NEUTRAL_BORDER = "var(--ms-petal)";
 
 /** Un mot arabe se lit de droite à gauche ; un mot français garde son sens de lecture. */
 function wordFont(text: string) {
@@ -33,8 +37,11 @@ function WordLabel({ word, color }: { word: VocabWord; color: string }) {
 /** Illustration d'un mot, à la taille du texte qui l'entoure : l'image de l'enseignant, à défaut un emoji. */
 function WordPicture({ word }: { word: VocabWord }) {
   if (!word.imageUrl) return <>{word.emoji}</>;
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src={word.imageUrl} alt="" draggable={false} className="inline-block w-[1em] h-[1em] object-cover rounded-[0.12em]" />;
+  return (
+    <span className="relative inline-block h-[1em] w-[1em] overflow-hidden rounded-[0.08em] align-top">
+      <LessonImage src={word.imageUrl} alt="" priority className="object-cover" sizes="(orientation: portrait) 70vw, 70vh" />
+    </span>
+  );
 }
 
 function TitleSlide({ slide }: { slide: Extract<Slide, { kind: "title" }> }) {
@@ -47,12 +54,11 @@ function TitleSlide({ slide }: { slide: Extract<Slide, { kind: "title" }> }) {
         className="text-[22vmin] leading-none mb-[3vmin] font-black"
         style={{ ...ARABIC_FONT, color: slide.color }}
       >
-        {slide.emoji ?? (
-          <span className="inline-flex flex-col items-center gap-[3vmin]">
-            <BrandMark className="w-[34vmin] h-[34vmin]" />
-            <Wordmark className="text-[9vmin] leading-none" />
-          </span>
-        )}
+        {/* Le logo de l'association, jamais un emoji (anciens diaporamas compris). */}
+        <span className="inline-flex flex-col items-center gap-[3vmin]">
+          <BrandMark className="w-[34vmin] h-[34vmin]" />
+          <Wordmark className="text-[9vmin] leading-none" />
+        </span>
       </motion.div>
       {slide.arabic && (
         <motion.p
@@ -100,7 +106,7 @@ function LetterSlide({ letter }: { letter: ArabicLetter }) {
       <button
         onClick={(e) => { e.stopPropagation(); setReplay((r) => r + 1); }}
         aria-label="Retracer la lettre"
-        className="mt-[3vmin] inline-flex items-center justify-center w-10 h-10 rounded-full bg-[#FFFDF8] border border-[#EDE5D8] text-[#2D2D2D]/60 hover:text-[#BB908E] transition-colors"
+        className="mt-[3vmin] inline-flex items-center justify-center w-10 h-10 rounded-full bg-ms-surface border border-ms-line text-ms-muted hover:text-ms-ink transition-colors"
       >
         <RotateCcw size={16} />
       </button>
@@ -124,8 +130,8 @@ function FormsSlide({ slide, step }: { slide: Extract<Slide, { kind: "forms" }>;
         return (
           <div key={form.key} className="w-[30vmin] flex flex-col items-center">
             <div
-              className="w-full rounded-[3vmin] bg-[#FFFDF8] border-4 shadow-md flex flex-col items-center justify-center py-[3vmin]"
-              style={{ borderColor: shown ? letter.color : "#EDE5D8" }}
+              className="w-full rounded-[3vmin] bg-ms-surface border-4 shadow-[var(--ms-shadow-student)] flex flex-col items-center justify-center py-[3vmin]"
+              style={{ borderColor: shown ? letter.color : "var(--ms-surface-muted)" }}
             >
               <div className="h-[24vmin] flex items-center">
                 {shown ? (
@@ -133,13 +139,13 @@ function FormsSlide({ slide, step }: { slide: Extract<Slide, { kind: "forms" }>;
                     initial={{ scale: 0, rotate: -15 }}
                     animate={{ scale: 1, rotate: 0 }}
                     transition={{ type: "spring", stiffness: 200, damping: 12 }}
-                    className="text-[17vmin] leading-none font-black text-[#2D2D2D]"
+                    className="text-[17vmin] leading-none font-black text-ms-ink"
                     style={ARABIC_FONT}
                   >
                     {form.glyph}
                   </motion.span>
                 ) : (
-                  <span className="text-[12vmin] text-[#2D2D2D]/15 font-black">?</span>
+                  <span className="text-[12vmin] text-ms-ink/15 font-black">?</span>
                 )}
               </div>
             </div>
@@ -149,7 +155,7 @@ function FormsSlide({ slide, step }: { slide: Extract<Slide, { kind: "forms" }>;
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
                   <div className="text-[11vmin] leading-none mb-[1vmin]">{form.word.emoji}</div>
                   {/* Seule la lettre étudiée prend la couleur ; le reste du mot reste sombre. */}
-                  <p className="text-[10vmin] leading-tight font-black text-[#2D2D2D] whitespace-nowrap" style={ARABIC_FONT}>
+                  <p className="text-[10vmin] leading-tight font-black text-ms-ink whitespace-nowrap" style={ARABIC_FONT}>
                     {before}
                     <span style={{ color: letter.color }}>{target}</span>
                     {after}
@@ -181,7 +187,7 @@ function CountBadge({ count }: { count?: number }) {
     <motion.span
       initial={{ scale: 0 }}
       animate={{ scale: 1 }}
-      className="absolute -top-[1.5vmin] -right-[1.5vmin] min-w-[6vmin] h-[6vmin] px-[1vmin] rounded-full bg-[#2D2D2D] text-white text-[3vmin] font-black flex items-center justify-center shadow"
+      className="absolute -top-[1.5vmin] -right-[1.5vmin] min-w-[6vmin] h-[6vmin] px-[1vmin] rounded-full bg-ms-ink text-white text-[3vmin] font-black flex items-center justify-center shadow"
       style={{ fontFamily: "'Nunito', sans-serif", direction: "ltr" }}
     >
       {count}
@@ -220,7 +226,7 @@ function LetterChoices({
           const isTarget = letter.id === target.id;
           const isWrong = wrong.includes(letter.id);
           // `neutral` : la couleur d'une carte ne doit pas trahir la lettre colorée du mot.
-          const border = neutral ? "#CCB9B5" : letter.color;
+          const border = neutral ? NEUTRAL_BORDER : letter.color;
           return (
             <motion.button
               key={letter.id}
@@ -233,8 +239,8 @@ function LetterChoices({
               }}
               animate={isWrong ? { x: [0, -10, 10, -6, 6, 0], opacity: 0.3 } : solved && isTarget ? { scale: [1, 1.2, 1.1] } : {}}
               whileHover={solved || isWrong ? undefined : { scale: 1.06 }}
-              className="relative w-[28vmin] h-[28vmin] rounded-[3vmin] bg-[#FFFDF8] border-4 shadow-md text-[#2D2D2D] flex items-center justify-center"
-              style={{ borderColor: solved && isTarget ? "#6B705C" : border, background: solved && isTarget ? SOLVED_BG : undefined }}
+              className="relative w-[28vmin] h-[28vmin] rounded-[3vmin] bg-ms-surface border-4 shadow-[var(--ms-shadow-student)] text-ms-ink flex items-center justify-center"
+              style={{ borderColor: solved && isTarget ? SOLVED_BORDER : border, background: solved && isTarget ? SOLVED_BG : undefined }}
             >
               <LetterGlyph char={letter.isolated} className="w-[22vmin] h-[22vmin]" />
               {solved && <CountBadge count={game?.counts?.[String(letter.id)]} />}
@@ -271,7 +277,7 @@ function PickSoundSlide({ slide, game }: { slide: Extract<Slide, { kind: "pickSo
   return (
     <div className="text-center">
       <div
-        className="w-[36vmin] h-[36vmin] mx-auto mb-[4vmin] rounded-[4vmin] bg-[#FFFDF8] border-4 shadow-md flex items-center justify-center"
+        className="w-[36vmin] h-[36vmin] mx-auto mb-[4vmin] rounded-[4vmin] bg-ms-surface border-4 shadow-[var(--ms-shadow-student)] flex items-center justify-center"
         style={{ borderColor: target.color, color: target.color }}
       >
         <LetterGlyph char={target.isolated} className="w-[29vmin] h-[29vmin]" />
@@ -289,11 +295,11 @@ function PickSoundSlide({ slide, game }: { slide: Extract<Slide, { kind: "pickSo
               <button
                 onClick={(e) => { e.stopPropagation(); setPlaying(letter.id); playLetterSound(letter); }}
                 aria-label="Écouter le son"
-                className="relative w-[22vmin] h-[22vmin] rounded-[3vmin] bg-[#FFFDF8] border-4 shadow-md flex items-center justify-center transition-transform hover:scale-105"
+                className="relative w-[22vmin] h-[22vmin] rounded-[3vmin] bg-ms-surface border-4 shadow-[var(--ms-shadow-student)] flex items-center justify-center transition-transform hover:scale-105"
                 style={{
-                  borderColor: solved && isTarget ? "#6B705C" : playing === letter.id ? "#8BA3B1" : "#CCB9B5",
+                  borderColor: solved && isTarget ? SOLVED_BORDER : playing === letter.id ? "var(--ms-slate)" : NEUTRAL_BORDER,
                   background: solved && isTarget ? SOLVED_BG : undefined,
-                  color: playing === letter.id ? "#8BA3B1" : "#2D2D2D",
+                  color: playing === letter.id ? "var(--ms-slate)" : "var(--ms-ink)",
                 }}
               >
                 <Volume2 className="w-[11vmin] h-[11vmin]" />
@@ -311,9 +317,9 @@ function PickSoundSlide({ slide, game }: { slide: Extract<Slide, { kind: "pickSo
                 aria-label="Choisir ce son"
                 className="w-[9vmin] h-[9vmin] rounded-full border-4 flex items-center justify-center transition-colors"
                 style={{
-                  borderColor: "#6B705C",
-                  background: solved && isTarget ? "#6B705C" : "#FFFDF8",
-                  color: solved && isTarget ? "#FFFDF8" : "#6B705C",
+                  borderColor: SOLVED_BORDER,
+                  background: solved && isTarget ? SOLVED_BORDER : "var(--ms-surface)",
+                  color: solved && isTarget ? "var(--ms-surface)" : SOLVED_BORDER,
                 }}
               >
                 <Check className="w-[5vmin] h-[5vmin]" strokeWidth={3} />
@@ -334,9 +340,9 @@ function FindInWordSlide({ slide, game }: { slide: Extract<Slide, { kind: "findI
     <div className="text-center">
       <div className="flex items-center justify-center gap-[4vmin] mb-[4vmin]">
         <span className="text-[14vmin] leading-none">{slide.word.emoji}</span>
-        <p className="text-[22vmin] leading-tight font-black text-[#2D2D2D] whitespace-nowrap" style={ARABIC_FONT}>
+        <p className="text-[22vmin] leading-tight font-black text-ms-ink whitespace-nowrap" style={ARABIC_FONT}>
           {before}
-          <span style={{ color: "#BB908E" }}>{target}</span>
+          <span style={{ color: "var(--ms-blush)" }}>{target}</span>
           {after}
         </p>
       </div>
@@ -356,14 +362,14 @@ function CompleteWordSlide({ slide, game }: { slide: Extract<Slide, { kind: "com
     <div className="text-center">
       <div className="flex items-center justify-center gap-[4vmin] mb-[4vmin]">
         <span className="text-[14vmin] leading-none">{slide.word.emoji}</span>
-        <p className="text-[22vmin] leading-tight font-black text-[#2D2D2D] whitespace-nowrap" style={ARABIC_FONT}>
+        <p className="text-[22vmin] leading-tight font-black text-ms-ink whitespace-nowrap" style={ARABIC_FONT}>
           {before}
           {/* Le trou garde la largeur de la lettre : invisible, elle reste liée à ses voisines. */}
           <span
             className="rounded-[1.5vmin] transition-colors"
             style={solved
               ? { color: letter.color }
-              : { color: "transparent", background: "#EDE5D8", boxShadow: "inset 0 0 0 0.5vmin #CCB9B5" }}
+              : { color: "transparent", background: "var(--ms-surface-muted)", boxShadow: "inset 0 0 0 0.5vmin var(--ms-petal)" }}
           >
             {target}
           </span>
@@ -386,8 +392,8 @@ function CompleteWordSlide({ slide, game }: { slide: Extract<Slide, { kind: "com
               }}
               animate={isWrong ? { x: [0, -10, 10, -6, 6, 0], opacity: 0.3 } : solved && isTarget ? { scale: [1, 1.2, 1.1] } : {}}
               whileHover={solved || isWrong ? undefined : { scale: 1.06 }}
-              className="relative w-[28vmin] h-[28vmin] rounded-[3vmin] bg-[#FFFDF8] border-4 shadow-md text-[17vmin] leading-none font-black text-[#2D2D2D] flex items-center justify-center"
-              style={{ ...ARABIC_FONT, borderColor: solved && isTarget ? "#6B705C" : letter.color, background: solved && isTarget ? SOLVED_BG : undefined }}
+              className="relative w-[28vmin] h-[28vmin] rounded-[3vmin] bg-ms-surface border-4 shadow-[var(--ms-shadow-student)] text-[17vmin] leading-none font-black text-ms-ink flex items-center justify-center"
+              style={{ ...ARABIC_FONT, borderColor: solved && isTarget ? SOLVED_BORDER : letter.color, background: solved && isTarget ? SOLVED_BG : undefined }}
             >
               {choice.glyph}
               {solved && <CountBadge count={game?.counts?.[choice.position]} />}
@@ -409,20 +415,20 @@ function FlashcardSlide({ slide, step }: { slide: Extract<Slide, { kind: "flashc
         initial={{ scale: 0.6, opacity: 0 }}
         animate={{ scale: 1, opacity: 1, rotateY: flipped ? 180 : 0 }}
         transition={{ rotateY: { duration: 0.7 }, default: { type: "spring", stiffness: 160, damping: 14 } }}
-        className="relative w-[70vmin] h-[62vmin]"
+        className="relative w-[min(74vmin,100%)] aspect-[8/7]"
         style={{ transformStyle: "preserve-3d" }}
       >
         <div
-          className="absolute inset-0 rounded-[4vmin] bg-[#FFFDF8] border-[6px] shadow-xl flex flex-col items-center justify-center"
-          style={{ borderColor: slide.color, backfaceVisibility: "hidden" }}
+          className="ms-stage-card absolute inset-0 flex flex-col items-center justify-center overflow-hidden"
+          style={{ backfaceVisibility: "hidden" }}
         >
-          <span className="text-[38vmin] leading-none"><WordPicture word={slide.word} /></span>
+          <span className="text-[60vmin] leading-none"><WordPicture word={slide.word} /></span>
         </div>
         <div
-          className="absolute inset-0 rounded-[4vmin] border-[6px] shadow-xl flex flex-col items-center justify-center bg-[#FFFDF8]"
-          style={{ borderColor: slide.color, backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
+          className="ms-stage-card absolute inset-0 flex flex-col items-center justify-center overflow-hidden"
+          style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
         >
-          <span className="text-[24vmin] leading-none mb-[2vmin]"><WordPicture word={slide.word} /></span>
+          <span className="text-[30vmin] leading-none mb-[2vmin]"><WordPicture word={slide.word} /></span>
           <WordLabel word={slide.word} color={slide.color} />
         </div>
       </motion.div>
@@ -437,8 +443,7 @@ function VideoSlide({ slide }: { slide: Extract<Slide, { kind: "video" }> }) {
       initial={{ scale: 0.8, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ type: "spring", stiffness: 160, damping: 16 }}
-      className="mx-auto w-[min(88vw,142vmin)] aspect-video rounded-[4vmin] border-[6px] shadow-xl overflow-hidden bg-[#F5EEE8]"
-      style={{ borderColor: slide.color }}
+      className="ms-stage-card mx-auto w-[min(88vw,142vmin)] max-w-full aspect-video overflow-hidden !bg-ms-canvas"
     >
       <video key={slide.src} src={slide.src} autoPlay loop muted playsInline className="w-full h-full object-cover" />
     </motion.div>
@@ -476,8 +481,8 @@ function MissingSlide({ slide, step }: { slide: Extract<Slide, { kind: "missing"
             <motion.div
               key={word.id}
               animate={found ? { scale: [1, 1.25, 1.1] } : { scale: 1 }}
-              className="w-[22vmin] h-[22vmin] rounded-[3vmin] bg-[#FFFDF8] border-4 shadow-md flex items-center justify-center text-[14vmin] leading-none"
-              style={{ borderColor: found ? "#6B705C" : slide.color }}
+              className="w-[22vmin] h-[22vmin] rounded-[3vmin] bg-ms-surface border-4 shadow-[var(--ms-shadow-student)] flex items-center justify-center text-[14vmin] leading-none"
+              style={{ borderColor: found ? SOLVED_BORDER : slide.color }}
             >
               <AnimatePresence mode="wait">
                 <motion.span
@@ -487,7 +492,10 @@ function MissingSlide({ slide, step }: { slide: Extract<Slide, { kind: "missing"
                   exit={{ scale: 0, rotate: -90 }}
                   transition={{ duration: 0.25 }}
                 >
-                  {hidden ? "❓" : <WordPicture word={word} />}
+                  {hidden ? (
+                    // Emplacement vide : une forme neutre plutôt qu'un pictogramme.
+                    <span aria-hidden="true" className="block w-[12vmin] h-[12vmin] rounded-[2.5vmin] border-[0.6vmin] border-dashed border-ms-control" />
+                  ) : <WordPicture word={word} />}
                 </motion.span>
               </AnimatePresence>
             </motion.div>
@@ -523,8 +531,8 @@ function QuizSlide({ slide, game }: { slide: Extract<Slide, { kind: "quiz" }>; g
               }}
               animate={isWrong ? { x: [0, -10, 10, -6, 6, 0], opacity: 0.3 } : solved && isTarget ? { scale: [1, 1.25, 1.12] } : {}}
               whileHover={solved || isWrong ? undefined : { scale: 1.06 }}
-              className="relative w-[22vmin] h-[22vmin] rounded-[3vmin] bg-[#FFFDF8] border-4 shadow-md flex items-center justify-center text-[14vmin] leading-none"
-              style={{ borderColor: solved && isTarget ? "#6B705C" : slide.color, background: solved && isTarget ? SOLVED_BG : undefined }}
+              className="relative w-[22vmin] h-[22vmin] rounded-[3vmin] bg-ms-surface border-4 shadow-[var(--ms-shadow-student)] flex items-center justify-center text-[14vmin] leading-none"
+              style={{ borderColor: solved && isTarget ? SOLVED_BORDER : slide.color, background: solved && isTarget ? SOLVED_BG : undefined }}
             >
               <WordPicture word={word} />
               {solved && <CountBadge count={game?.counts?.[word.id]} />}
@@ -563,8 +571,8 @@ function ClipQuizSlide({ slide, game }: { slide: Extract<Slide, { kind: "clipQui
               }}
               animate={isWrong ? { x: [0, -10, 10, -6, 6, 0], opacity: 0.3 } : solved && isTarget ? { scale: [1, 1.12, 1.06] } : {}}
               whileHover={solved || isWrong ? undefined : { scale: 1.04 }}
-              className={`relative aspect-video rounded-[3vmin] border-[6px] shadow-md overflow-hidden bg-[#F5EEE8] ${slide.choices.length > 2 ? "w-[min(30vw,52vmin)]" : "w-[min(44vw,62vmin)]"}`}
-              style={{ borderColor: solved && isTarget ? "#6B705C" : slide.color }}
+              className={`relative aspect-video rounded-[3vmin] border-[6px] shadow-md overflow-hidden bg-ms-canvas ${slide.choices.length > 2 ? "w-[min(30vw,52vmin)]" : "w-[min(44vw,62vmin)]"}`}
+              style={{ borderColor: solved && isTarget ? SOLVED_BORDER : slide.color }}
             >
               <video key={choice.clip.src} src={choice.clip.src} autoPlay loop muted playsInline className="w-full h-full object-cover pointer-events-none" />
               {solved && <CountBadge count={game?.counts?.[choice.id]} />}
@@ -605,8 +613,8 @@ function QcmSlide({ slide, game }: { slide: Extract<Slide, { kind: "qcm" }>; gam
               }}
               animate={isWrong ? { x: [0, -10, 10, -6, 6, 0], opacity: 0.3 } : solved && isTarget ? { scale: [1, 1.15, 1.08] } : {}}
               whileHover={solved || isWrong ? undefined : { scale: 1.06 }}
-              className="relative w-[26vmin] min-h-[26vmin] p-[2vmin] rounded-[3vmin] bg-[#FFFDF8] border-4 shadow-md flex flex-col items-center justify-center gap-[1.5vmin]"
-              style={{ borderColor: solved && isTarget ? "#6B705C" : slide.color, background: solved && isTarget ? SOLVED_BG : undefined }}
+              className="relative w-[26vmin] min-h-[26vmin] p-[2vmin] rounded-[3vmin] bg-ms-surface border-4 shadow-[var(--ms-shadow-student)] flex flex-col items-center justify-center gap-[1.5vmin]"
+              style={{ borderColor: solved && isTarget ? SOLVED_BORDER : slide.color, background: solved && isTarget ? SOLVED_BG : undefined }}
             >
               {option.imageUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -618,7 +626,7 @@ function QcmSlide({ slide, game }: { slide: Extract<Slide, { kind: "qcm" }>; gam
                 />
               )}
               {option.text && (
-                <p className="text-[4.5vmin] leading-tight font-black text-[#2D2D2D]" style={wordFont(option.text)}>{option.text}</p>
+                <p className="text-[4.5vmin] leading-tight font-black text-ms-ink" style={wordFont(option.text)}>{option.text}</p>
               )}
               {solved && <CountBadge count={game?.counts?.[option.id]} />}
             </motion.button>
@@ -637,7 +645,7 @@ function BravoSlide() {
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ type: "spring", stiffness: 140, damping: 10 }}
-        className="text-[14vmin] font-black text-[#6B705C]"
+        className="text-[14vmin] font-black text-ms-primary"
         style={ARABIC_FONT}
       >
         أَحْسَنْتُمْ
