@@ -1,0 +1,11 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": ["scripts/*.ts", "docs/redesign/vocab/render-wordart.tsx"],
+  "project": ["src/**/*.{ts,tsx}", "scripts/**/*.ts"],
+  "ignoreDependencies": [
+    "tsx",
+    "tailwindcss"
+  ],
+  "ignoreBinaries": ["ffmpeg"],
+  "ignoreExportsUsedInFile": true
+}

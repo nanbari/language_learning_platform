@@ -4,7 +4,8 @@ import path from "node:path";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    // Les tests de composants (.test.tsx) déclarent `// @vitest-environment jsdom` en tête.
+    include: ["src/**/*.test.{ts,tsx}"],
   },
   resolve: {
     alias: {
