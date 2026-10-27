@@ -20,7 +20,7 @@ function Logo({ size = "md" }: { size?: "md" | "lg" }) {
     <Link href="/" className="inline-flex min-h-11 items-end gap-3 rounded-xl" aria-label="Monte & Souris, accueil">
       <BrandMark className={size === "lg" ? "h-14 w-14" : "h-10 w-10"} />
       <span className="flex flex-col leading-none">
-        <span className="text-xs leading-none text-ms-muted" style={{ fontFamily: "var(--font-caveat), cursive" }}>ASBL</span>
+        <span className="text-xs leading-none text-ms-muted" style={{ fontStyle: "italic" }}>ASBL</span>
         <Wordmark className={`${size === "lg" ? "text-3xl" : "text-xl"} leading-none`} />
       </span>
     </Link>

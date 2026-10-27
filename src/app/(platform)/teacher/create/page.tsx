@@ -11,7 +11,7 @@ import { ApiError } from "@/lib/api/client";
 import { fetchTeacherClasses } from "@/lib/api/classes";
 import type { ClassRow } from "@/lib/classes";
 import type { LettersBlock, SavedDeck } from "@/lib/liveDeck";
-import { LettersPicker } from "@/components/present/LettersPicker";
+import dynamic from "next/dynamic";
 import { Button, ICON_STROKE, InlineNotice, StatusPill } from "@/components/platform/ui";
 import { blockIssue, blockSummary, duplicateOf, kindMeta, kindOf, makeBlock, type ActivityKind, type ContentBlock, type Exercise, type ExerciseBlock } from "@/components/teacher/builder/model";
 import { DragDropEditor, Field, MatchingEditor, QuizEditor, SlideshowEditor, VideoEditor, WordOrderEditor } from "@/components/teacher/builder/BlockEditors";
@@ -40,6 +40,12 @@ type Pane = "plan" | "activite" | "apercu";
 /* ════════════════════════════════════════════
    Main component
 ════════════════════════════════════════════ */
+// Le choix des lettres embarque les tracés de tout l'alphabet : chargé seulement pour un bloc « lettres ».
+const LettersPicker = dynamic(() => import("@/components/present/LettersPicker").then((m) => m.LettersPicker), {
+  ssr: false,
+  loading: () => <div className="ms-skeleton h-40" aria-busy="true" />,
+});
+
 function CreateLessonPageInner() {
   const router      = useRouter();
   const searchParams = useSearchParams();

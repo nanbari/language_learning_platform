@@ -10,26 +10,33 @@ Suite de `evaluation-2026-10-28.md`. Mesures prises sur l'arbre de travail, buil
 - **Tests** : 255 (+26) dont les premiers tests de composants (QCM, diapositives du direct), la durabilité (12), la file d'événements (4), R2 (2).
 - **Docs** : index `docs/README.md`, runbook `docs/ops/runbook.md`.
 
+## Itération 3 (même jour, après l'exécution des trois migrations)
+
+- Migrations vérifiées sur le projet réel : `lessons.version` présent, `exercise_events.event_id` présent,
+  `rate_limit_hit()` répond (true puis false au-delà de la limite ; ligne de sonde supprimée).
+- Performance : encodeur MP3 (≈ 150 Ko) et choix des lettres (tracés de l'alphabet) chargés à la demande dans
+  l'éditeur ; police Caveat retirée (cinq micro-libellés « ASBL » en italique) : **−48 Ko de police sur chaque page**.
+
 ## Notes par axe
 
 | Axe | 28/10 | **29/10** | Preuves |
 |---|---|---|---|
 | Arborescence | 9 | **9,5** | `src/` par responsabilité, imports `@/`, plus aucun fichier > 710 lignes hors données ; `teacher/create/page.tsx` (701) reste le seul candidat à un découpage de plus. |
-| Code mort / dépendances | 10 | **10** | knip 0/0/0 ; 3 dépendances de test ajoutées, utilisées. |
+| Code mort / dépendances | 10 | **10** | knip 0/0/0 ; 3 dépendances de test ajoutées, utilisées ; `@breezystack/lamejs` désormais chargé à la demande. |
 | Qualité statique | 9 | **9** | tsc 0 ; ESLint 0 erreur / 2 avertissements React (IIFE de l'éditeur, reset d'état du mot à ordonner) — à traiter avec un test navigateur. |
 | Tests | 7 | **9** | 33 fichiers / 255 tests : règles, routes (63), composants (6), file hors ligne, R2 ; matrice HTTP 54/54 ; bout en bout Realtime 24/24 sur le vrai projet. Manque : tests navigateur (Playwright) des parcours. |
-| Sécurité | 9 | **9,5** | + limitation de débit, CSP prod sans eval, nettoyage R2. Reste la décision objets R2 publics (URL imprévisible) et la fenêtre Realtime ≤ 1 h. |
-| Durabilité des données | 6 | **9 une fois les 3 migrations passées** (8 tant qu'elles ne le sont pas : le code est prêt et testé, la base n'a pas encore les colonnes) | 409 testé, renvoi sans doublon testé, file persistée testée. |
-| Performance (coquilles, 4G lente + CPU ×4 mobile) | 7 | **8,5** | cours en direct élève 588 → **390 Ko**, LCP 4,1 → **3,2 s** ; présentation enseignant 631 → **411 Ko**, 3,6 → **2,2 s** ; vocabulaire 528 → **420 Ko** ; login 2,6 s ; élève 3,3 s. Reste : l'éditeur (822 Ko, page bureau) et le LCP mobile ~3 s sur 4G lente (polices 142–201 Ko). |
-| Documentation / exploitation | 8 | **9** | index, runbook, migrations documentées avec rollback, scripts reproductibles. Manque un projet Supabase de test. |
+| Sécurité | 9 | **9,5** | + limitation de débit active en base, CSP prod sans eval, nettoyage R2, Data API fermée. Reste la décision objets R2 publics (URL imprévisible) et la fenêtre Realtime ≤ 1 h. |
+| Durabilité des données | 6 | **9** | migrations exécutées et vérifiées ; 409 testé, renvoi sans doublon testé, file persistée testée. |
+| Performance (coquilles, 4G lente + CPU ×4 mobile) | 7 | **9** | login 364 → **315 Ko** (LCP 2,5 s) ; élève 432 → **380 Ko** (3,2 s) ; vocabulaire 528 → **371 Ko** (1,4 s) ; cours en direct élève 588 → **341 Ko** (4,1 → 3,0 s) ; présentation 631 → **364 Ko** (3,6 → 2,2 s) ; éditeur 824 → **751 Ko** (2,4 s). CLS ≤ 0,04. Reste : LCP mobile ~3 s sur 4G lente (Nunito + Fredoka + Noto Naskh = 153 Ko). |
+| Documentation / exploitation | 8 | **9** | index, runbook, migrations documentées avec rollback, scripts reproductibles, fiche marketing vérifiée. Manque un projet Supabase de test. |
 
-**Global : 9/10** dès que les trois migrations sont exécutées (8,7 avant).
+**Global : 9,2/10.** Tous les axes sont à 9 ou plus.
 
-## Prochaine itération (pour viser 9,5–10)
+## Pour aller vers 10
 
-1. Exécuter les trois migrations ; relancer `node scripts/live-e2e.mjs` et deux tests de durabilité en conditions réelles.
-2. Performance mobile : différer `framer-motion` (Confetti, transitions) hors du cours en direct ; éditeur : panneaux et aperçu en import dynamique ; envisager Caveat/Fredoka en sous-ensembles plus petits.
-3. Tests navigateur Playwright des trois parcours (élève fait une leçon, enseignant publie, cours en direct) sur un projet Supabase de test.
-4. Les deux avertissements React restants.
+1. Tests navigateur Playwright des trois parcours (élève fait une leçon, enseignant publie, cours en direct) sur un projet Supabase de test.
+2. Les deux avertissements React restants, avec vérification visuelle.
+3. Dernier découpage de `teacher/create/page.tsx` ; sous-ensembles de polices plus serrés si le LCP mobile doit passer sous 2,5 s.
+4. Décision objets R2 (bucket privé + URLs signées) et acceptation ou réduction de la fenêtre Realtime.
 
 Mesures : `docs/architecture/perf-2026-10-29-shell.json`, `docs/audit/access-matrix-results.final.json`.

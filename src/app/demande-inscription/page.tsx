@@ -86,7 +86,7 @@ export default function EnrollmentPage() {
               </svg>
             </div>
             <div className="flex flex-col leading-none">
-              <p className="text-xs text-left text-[#2D2D2D]/50 leading-none" style={{ fontFamily: "var(--font-caveat), cursive" }}>
+              <p className="text-xs text-left text-[#2D2D2D]/50 leading-none" style={{ fontStyle: "italic" }}>
                 ASBL
               </p>
               <span className="font-black text-xl text-[#2D2D2D] leading-none" style={{ fontFamily: "var(--font-fredoka), sans-serif", fontWeight: 700 }}>

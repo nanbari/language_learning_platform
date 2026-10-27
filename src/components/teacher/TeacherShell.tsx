@@ -34,7 +34,7 @@ function Logo() {
     <Link href="/teacher" className="flex items-end gap-2 rounded-lg min-h-11" aria-label="Monte & Souris, tableau de bord">
       <BrandMark className="w-8 h-8" />
       <span className="flex flex-col leading-none">
-        <span className="text-[10px] text-ms-muted leading-none" style={{ fontFamily: "var(--font-caveat), cursive" }}>ASBL</span>
+        <span className="text-[10px] text-ms-muted leading-none" style={{ fontStyle: "italic" }}>ASBL</span>
         <Wordmark className="leading-none" />
       </span>
     </Link>

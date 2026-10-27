@@ -7,7 +7,6 @@
  * l'API Web Audio, on le ramène en mono 24 kHz (suffisant pour la voix) et on
  * l'encode avec lamejs, à 48 kbps.
  */
-import { Mp3Encoder } from "@breezystack/lamejs";
 
 export const MP3_SAMPLE_RATE = 24_000;
 const MP3_KBPS = 48;
@@ -46,8 +45,13 @@ function floatToInt16(samples: Float32Array): Int16Array {
   return out;
 }
 
-/** Encode des échantillons PCM mono 16 bits (à MP3_SAMPLE_RATE) en MP3. */
-export function encodePcmToMp3(pcm: Int16Array): Uint8Array[] {
+/**
+ * Encode des échantillons PCM mono 16 bits (à MP3_SAMPLE_RATE) en MP3.
+ * L'encodeur (≈ 150 Ko) n'est chargé qu'à ce moment-là : les pages qui
+ * enregistrent ne le paient pas à l'ouverture.
+ */
+export async function encodePcmToMp3(pcm: Int16Array): Promise<Uint8Array[]> {
+  const { Mp3Encoder } = await import("@breezystack/lamejs");
   const encoder = new Mp3Encoder(1, MP3_SAMPLE_RATE, MP3_KBPS);
   // lamejs renvoie en réalité des Int8Array malgré ses typages : on
   // réinterprète les mêmes octets en non signé.
@@ -65,5 +69,5 @@ export function encodePcmToMp3(pcm: Int16Array): Uint8Array[] {
 /** Convertit un enregistrement (WebM, OGG, MP4…) en Blob MP3 mono. */
 export async function transcodeToMp3(blob: Blob): Promise<Blob> {
   const pcm = floatToInt16(await decodeToMono(blob));
-  return new Blob(encodePcmToMp3(pcm) as BlobPart[], { type: "audio/mpeg" });
+  return new Blob((await encodePcmToMp3(pcm)) as BlobPart[], { type: "audio/mpeg" });
 }

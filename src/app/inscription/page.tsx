@@ -68,7 +68,7 @@ export default function SignupPage() {
               </svg>
             </div>
             <div className="flex flex-col leading-none">
-              <p className="text-xs text-left text-[#2D2D2D]/50 leading-none" style={{ fontFamily: "var(--font-caveat), cursive" }}>ASBL</p>
+              <p className="text-xs text-left text-[#2D2D2D]/50 leading-none" style={{ fontStyle: "italic" }}>ASBL</p>
               <span className="font-black text-xl text-[#2D2D2D] leading-none" style={{ fontFamily: "var(--font-fredoka), sans-serif", fontWeight: 700 }}>
                 Monte <span className="text-[#8BA3B1]">&</span> So<span className="text-[#BB908E]">u</span>ri<span className="text-[#999B84]">s</span>
               </span>

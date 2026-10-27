@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Caveat, Fredoka, Nunito } from "next/font/google";
+import { Fredoka, Nunito } from "next/font/google";
 import "./globals.css";
 
 // Une seule graisse : le logo et les titres du site public n'en utilisent pas d'autre.
@@ -17,14 +17,6 @@ const nunito = Nunito({
 });
 
 // Le « ASBL » du logo, et rien d'autre : une graisse, un sous-ensemble.
-const caveat = Caveat({
-  subsets: ["latin"],
-  weight: ["400"],
-  variable: "--font-caveat",
-  display: "swap",
-  preload: false,
-});
-
 export const metadata: Metadata = {
   title: "Monte & Souris | Cours de langue Montessori pour enfants",
   description:
@@ -34,7 +26,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className={`${fredoka.variable} ${nunito.variable} ${caveat.variable}`}>
+    <html lang="fr" className={`${fredoka.variable} ${nunito.variable}`}>
       {/* Toutes les polices passent par next/font (auto-hébergées, préchargées, sans CSS externe
           bloquant). « Fredoka One » est devenue Fredoka 700 ; Noto Naskh Arabic est chargée par
           les layouts qui en ont besoin (élève, enseignant, connexion). */}

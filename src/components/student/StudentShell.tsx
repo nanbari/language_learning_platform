@@ -38,7 +38,7 @@ export default function StudentShell({ children }: { children: ReactNode }) {
           <Link href="/student" className="flex min-h-16 items-end gap-2 rounded-2xl py-3" aria-label="Monte & Souris, mes leçons">
             <BrandMark className="h-9 w-9" />
             <span className="flex flex-col leading-none">
-              <span className="text-[11px] leading-none text-ms-muted" style={{ fontFamily: "var(--font-caveat), cursive" }}>ASBL</span>
+              <span className="text-[11px] leading-none text-ms-muted" style={{ fontStyle: "italic" }}>ASBL</span>
               <Wordmark className="text-lg leading-none" />
             </span>
           </Link>
