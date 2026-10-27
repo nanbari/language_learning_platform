@@ -1,0 +1,617 @@
+{
+ "base": "http://localhost:3001",
+ "ranAt": "2026-10-27T12:01:51.441Z",
+ "results": [
+  {
+   "name": "unauthenticated refused",
+   "actor": "none",
+   "method": "GET",
+   "url": "/api/lessons",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "unauthenticated refused",
+   "actor": "none",
+   "method": "GET",
+   "url": "/api/classes",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "unauthenticated refused",
+   "actor": "none",
+   "method": "GET",
+   "url": "/api/events",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "unauthenticated refused",
+   "actor": "none",
+   "method": "GET",
+   "url": "/api/progress",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "unauthenticated refused",
+   "actor": "none",
+   "method": "GET",
+   "url": "/api/practice/summary",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "unauthenticated refused",
+   "actor": "none",
+   "method": "GET",
+   "url": "/api/teacher/insights",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "unauthenticated refused",
+   "actor": "none",
+   "method": "GET",
+   "url": "/api/letter-sounds",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "unauthenticated refused",
+   "actor": "none",
+   "method": "GET",
+   "url": "/api/vocab-sounds",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "unauthenticated refused",
+   "actor": "none",
+   "method": "GET",
+   "url": "/api/admin/signups",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "unauthenticated refused",
+   "actor": "none",
+   "method": "GET",
+   "url": "/api/admin/staff",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "unauthenticated refused",
+   "actor": "none",
+   "method": "POST",
+   "url": "/api/media",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "unauthenticated refused",
+   "actor": "none",
+   "method": "POST",
+   "url": "/api/live-deck",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "unauthenticated refused",
+   "actor": "none",
+   "method": "POST",
+   "url": "/api/lessons",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "unauthenticated refused",
+   "actor": "none",
+   "method": "POST",
+   "url": "/api/classes",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "unauthenticated refused",
+   "actor": "none",
+   "method": "POST",
+   "url": "/api/events",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "unauthenticated refused",
+   "actor": "none",
+   "method": "PUT",
+   "url": "/api/letter-sounds",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "unauthenticated refused",
+   "actor": "none",
+   "method": "POST",
+   "url": "/api/admin/teachers",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "unauthenticated refused",
+   "actor": "none",
+   "method": "GET",
+   "url": "/api/classes/6e15877d-6a34-4da1-aa87-dcf716741c8f/live/state?room=fda2e38c-ea26-474c-8dcf-fc3558f4a467",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "unauthenticated refused",
+   "actor": "none",
+   "method": "GET",
+   "url": "/api/classes/6e15877d-6a34-4da1-aa87-dcf716741c8f/live/token?room=fda2e38c-ea26-474c-8dcf-fc3558f4a467",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "unauthenticated refused",
+   "actor": "none",
+   "method": "POST",
+   "url": "/api/classes/6e15877d-6a34-4da1-aa87-dcf716741c8f/live/answers?room=fda2e38c-ea26-474c-8dcf-fc3558f4a467",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "unauthenticated refused",
+   "actor": "none",
+   "method": "PUT",
+   "url": "/api/classes/6e15877d-6a34-4da1-aa87-dcf716741c8f/live/state?room=fda2e38c-ea26-474c-8dcf-fc3558f4a467",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "expired session refused",
+   "actor": "expired",
+   "method": "GET",
+   "url": "/api/lessons",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "tampered signature refused",
+   "actor": "tampered",
+   "method": "GET",
+   "url": "/api/lessons",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "page /teacher unauth → login",
+   "actor": "none",
+   "method": "GET",
+   "url": "/teacher",
+   "status": 307,
+   "ok": true,
+   "expect": [
+    302,
+    307,
+    308
+   ],
+   "redirect": "/login?next=%2Fteacher",
+   "leaked": []
+  },
+  {
+   "name": "page /student unauth → login",
+   "actor": "none",
+   "method": "GET",
+   "url": "/student",
+   "status": 307,
+   "ok": true,
+   "expect": [
+    302,
+    307,
+    308
+   ],
+   "redirect": "/login?next=%2Fstudent",
+   "leaked": []
+  },
+  {
+   "name": "page /arabic unauth → login (changed expectation: was public 200)",
+   "actor": "none",
+   "method": "GET",
+   "url": "/arabic",
+   "status": 307,
+   "ok": true,
+   "expect": [
+    302,
+    307,
+    308
+   ],
+   "redirect": "/login?next=%2Farabic",
+   "leaked": []
+  },
+  {
+   "name": "page /arabic/vocabulary unauth → login",
+   "actor": "none",
+   "method": "GET",
+   "url": "/arabic/vocabulary",
+   "status": 307,
+   "ok": true,
+   "expect": [
+    302,
+    307,
+    308
+   ],
+   "redirect": "/login?next=%2Farabic%2Fvocabulary",
+   "leaked": []
+  },
+  {
+   "name": "page /teacher as student → redirected",
+   "actor": "A",
+   "method": "GET",
+   "url": "/teacher",
+   "status": 307,
+   "ok": true,
+   "expect": [
+    302,
+    307,
+    308
+   ],
+   "redirect": "/student",
+   "leaked": []
+  },
+  {
+   "name": "page /teacher/letters as teacher → redirected",
+   "actor": "T",
+   "method": "GET",
+   "url": "/teacher/letters",
+   "status": 307,
+   "ok": true,
+   "expect": [
+    302,
+    307,
+    308
+   ],
+   "redirect": "/teacher",
+   "leaked": []
+  },
+  {
+   "name": "page /login stays public",
+   "actor": "none",
+   "method": "GET",
+   "url": "/login",
+   "status": 200,
+   "ok": true,
+   "expect": 200,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "page /mot-de-passe-oublie stays public",
+   "actor": "none",
+   "method": "GET",
+   "url": "/mot-de-passe-oublie",
+   "status": 200,
+   "ok": true,
+   "expect": 200,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "page /demande-inscription stays public",
+   "actor": "none",
+   "method": "GET",
+   "url": "/demande-inscription",
+   "status": 200,
+   "ok": true,
+   "expect": 200,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "A (no account) events",
+   "actor": "A",
+   "method": "GET",
+   "url": "/api/events",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "A reads B events",
+   "actor": "A",
+   "method": "GET",
+   "url": "/api/events?userId=814e007b-096a-4664-9a3f-aa18c8621c85",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "A reads B progress",
+   "actor": "A",
+   "method": "GET",
+   "url": "/api/progress?userId=814e007b-096a-4664-9a3f-aa18c8621c85",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "A lists lessons",
+   "actor": "A",
+   "method": "GET",
+   "url": "/api/lessons",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "student creates lesson",
+   "actor": "A",
+   "method": "POST",
+   "url": "/api/lessons",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "student starts live",
+   "actor": "A",
+   "method": "POST",
+   "url": "/api/classes/6e15877d-6a34-4da1-aa87-dcf716741c8f/live",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "student live state with room",
+   "actor": "A",
+   "method": "GET",
+   "url": "/api/classes/6e15877d-6a34-4da1-aa87-dcf716741c8f/live/state?room=fda2e38c-ea26-474c-8dcf-fc3558f4a467",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "student live token",
+   "actor": "A",
+   "method": "GET",
+   "url": "/api/classes/6e15877d-6a34-4da1-aa87-dcf716741c8f/live/token?room=fda2e38c-ea26-474c-8dcf-fc3558f4a467",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "student admin staff",
+   "actor": "A",
+   "method": "POST",
+   "url": "/api/admin/staff",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "teacher patches unknown class",
+   "actor": "T",
+   "method": "PATCH",
+   "url": "/api/classes/6e15877d-6a34-4da1-aa87-dcf716741c8f",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "teacher deletes unknown class",
+   "actor": "T",
+   "method": "DELETE",
+   "url": "/api/classes/6e15877d-6a34-4da1-aa87-dcf716741c8f",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "teacher PUT letter sound",
+   "actor": "T",
+   "method": "PUT",
+   "url": "/api/letter-sounds",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "admin (no account) staff list",
+   "actor": "ADMIN",
+   "method": "GET",
+   "url": "/api/admin/staff",
+   "status": 401,
+   "ok": true,
+   "expect": 401,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "health public",
+   "actor": "none",
+   "method": "GET",
+   "url": "/api/health",
+   "status": 200,
+   "ok": true,
+   "expect": 200,
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "health deep: no DB error text",
+   "actor": "none",
+   "method": "GET",
+   "url": "/api/health?deep=1",
+   "status": 200,
+   "ok": true,
+   "expect": [
+    200,
+    503
+   ],
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "signup rejects empty body",
+   "actor": "none",
+   "method": "POST",
+   "url": "/api/signup",
+   "status": 400,
+   "ok": true,
+   "expect": [
+    400,
+    422
+   ],
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "enrollment rejects empty body",
+   "actor": "none",
+   "method": "POST",
+   "url": "/api/enrollment",
+   "status": 400,
+   "ok": true,
+   "expect": [
+    400,
+    422
+   ],
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "password reset rejects empty body",
+   "actor": "none",
+   "method": "POST",
+   "url": "/api/auth/password",
+   "status": 400,
+   "ok": true,
+   "expect": [
+    400,
+    422
+   ],
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "login rejects empty body",
+   "actor": "none",
+   "method": "POST",
+   "url": "/api/auth",
+   "status": 401,
+   "ok": true,
+   "expect": [
+    400,
+    401
+   ],
+   "redirect": "",
+   "leaked": []
+  },
+  {
+   "name": "auth GET without cookie",
+   "actor": "none",
+   "method": "GET",
+   "url": "/api/auth",
+   "status": 200,
+   "ok": true,
+   "expect": 200,
+   "redirect": "",
+   "leaked": []
+  }
+ ]
+}

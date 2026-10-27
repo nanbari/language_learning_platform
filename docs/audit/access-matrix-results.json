@@ -1,0 +1,699 @@
+[
+ {
+  "name": "unauthenticated refused",
+  "actor": "none",
+  "method": "GET",
+  "url": "/api/lessons",
+  "status": 401,
+  "ok": true,
+  "expect": 401,
+  "redirect": ""
+ },
+ {
+  "name": "unauthenticated refused",
+  "actor": "none",
+  "method": "GET",
+  "url": "/api/classes",
+  "status": 401,
+  "ok": true,
+  "expect": 401,
+  "redirect": ""
+ },
+ {
+  "name": "unauthenticated refused",
+  "actor": "none",
+  "method": "GET",
+  "url": "/api/events",
+  "status": 401,
+  "ok": true,
+  "expect": 401,
+  "redirect": ""
+ },
+ {
+  "name": "unauthenticated refused",
+  "actor": "none",
+  "method": "GET",
+  "url": "/api/progress",
+  "status": 401,
+  "ok": true,
+  "expect": 401,
+  "redirect": ""
+ },
+ {
+  "name": "unauthenticated refused",
+  "actor": "none",
+  "method": "GET",
+  "url": "/api/practice/summary",
+  "status": 401,
+  "ok": true,
+  "expect": 401,
+  "redirect": ""
+ },
+ {
+  "name": "unauthenticated refused",
+  "actor": "none",
+  "method": "GET",
+  "url": "/api/teacher/insights",
+  "status": 401,
+  "ok": true,
+  "expect": 401,
+  "redirect": ""
+ },
+ {
+  "name": "unauthenticated refused",
+  "actor": "none",
+  "method": "GET",
+  "url": "/api/letter-sounds",
+  "status": 401,
+  "ok": true,
+  "expect": 401,
+  "redirect": ""
+ },
+ {
+  "name": "unauthenticated refused",
+  "actor": "none",
+  "method": "GET",
+  "url": "/api/vocab-sounds",
+  "status": 401,
+  "ok": true,
+  "expect": 401,
+  "redirect": ""
+ },
+ {
+  "name": "unauthenticated refused",
+  "actor": "none",
+  "method": "GET",
+  "url": "/api/admin/signups",
+  "status": 401,
+  "ok": true,
+  "expect": 401,
+  "redirect": ""
+ },
+ {
+  "name": "unauthenticated refused",
+  "actor": "none",
+  "method": "GET",
+  "url": "/api/admin/staff",
+  "status": 401,
+  "ok": true,
+  "expect": 401,
+  "redirect": ""
+ },
+ {
+  "name": "unauthenticated refused",
+  "actor": "none",
+  "method": "POST",
+  "url": "/api/media",
+  "status": 401,
+  "ok": true,
+  "expect": 401,
+  "redirect": ""
+ },
+ {
+  "name": "unauthenticated refused",
+  "actor": "none",
+  "method": "POST",
+  "url": "/api/live-deck",
+  "status": 401,
+  "ok": true,
+  "expect": 401,
+  "redirect": ""
+ },
+ {
+  "name": "unauthenticated refused",
+  "actor": "none",
+  "method": "POST",
+  "url": "/api/lessons",
+  "status": 401,
+  "ok": true,
+  "expect": 401,
+  "redirect": ""
+ },
+ {
+  "name": "unauthenticated refused",
+  "actor": "none",
+  "method": "POST",
+  "url": "/api/classes",
+  "status": 401,
+  "ok": true,
+  "expect": 401,
+  "redirect": ""
+ },
+ {
+  "name": "unauthenticated refused",
+  "actor": "none",
+  "method": "POST",
+  "url": "/api/events",
+  "status": 401,
+  "ok": true,
+  "expect": 401,
+  "redirect": ""
+ },
+ {
+  "name": "unauthenticated refused",
+  "actor": "none",
+  "method": "PUT",
+  "url": "/api/letter-sounds",
+  "status": 401,
+  "ok": true,
+  "expect": 401,
+  "redirect": ""
+ },
+ {
+  "name": "unauthenticated refused",
+  "actor": "none",
+  "method": "POST",
+  "url": "/api/admin/teachers",
+  "status": 401,
+  "ok": true,
+  "expect": 401,
+  "redirect": ""
+ },
+ {
+  "name": "expired session refused",
+  "actor": "expired",
+  "method": "GET",
+  "url": "/api/lessons",
+  "status": 401,
+  "ok": true,
+  "expect": 401,
+  "redirect": ""
+ },
+ {
+  "name": "tampered signature refused",
+  "actor": "tampered",
+  "method": "GET",
+  "url": "/api/lessons",
+  "status": 401,
+  "ok": true,
+  "expect": 401,
+  "redirect": ""
+ },
+ {
+  "name": "page /teacher unauth → login",
+  "actor": "none",
+  "method": "GET",
+  "url": "/teacher",
+  "status": 307,
+  "ok": true,
+  "expect": [
+   302,
+   307,
+   308
+  ],
+  "redirect": "/login?next=%2Fteacher"
+ },
+ {
+  "name": "page /student unauth → login",
+  "actor": "none",
+  "method": "GET",
+  "url": "/student",
+  "status": 307,
+  "ok": true,
+  "expect": [
+   302,
+   307,
+   308
+  ],
+  "redirect": "/login?next=%2Fstudent"
+ },
+ {
+  "name": "page /teacher as student → redirected",
+  "actor": "A",
+  "method": "GET",
+  "url": "/teacher",
+  "status": 307,
+  "ok": true,
+  "expect": [
+   302,
+   307,
+   308
+  ],
+  "redirect": "/student"
+ },
+ {
+  "name": "page /teacher/letters as teacher → redirected",
+  "actor": "T",
+  "method": "GET",
+  "url": "/teacher/letters",
+  "status": 307,
+  "ok": true,
+  "expect": [
+   302,
+   307,
+   308
+  ],
+  "redirect": "/teacher"
+ },
+ {
+  "name": "page /arabic unauth (NOT in proxy matcher)",
+  "actor": "none",
+  "method": "GET",
+  "url": "/arabic",
+  "status": 200,
+  "ok": true,
+  "expect": 200,
+  "redirect": ""
+ },
+ {
+  "name": "A reads B events",
+  "actor": "A",
+  "method": "GET",
+  "url": "/api/events?userId=8654c012-bd73-4fb6-8dca-a93f512a0b3d",
+  "status": 403,
+  "ok": true,
+  "expect": 403,
+  "redirect": ""
+ },
+ {
+  "name": "A reads B progress",
+  "actor": "A",
+  "method": "GET",
+  "url": "/api/progress?userId=8654c012-bd73-4fb6-8dca-a93f512a0b3d",
+  "status": 403,
+  "ok": true,
+  "expect": 403,
+  "redirect": ""
+ },
+ {
+  "name": "A reads B practice summary",
+  "actor": "A",
+  "method": "GET",
+  "url": "/api/practice/summary?userId=8654c012-bd73-4fb6-8dca-a93f512a0b3d",
+  "status": 403,
+  "ok": true,
+  "expect": 403,
+  "redirect": ""
+ },
+ {
+  "name": "A reads B practice set",
+  "actor": "A",
+  "method": "GET",
+  "url": "/api/practice?userId=8654c012-bd73-4fb6-8dca-a93f512a0b3d&lessonId=935d52dc-5313-4fec-8f0e-fe83178d2e28",
+  "status": 403,
+  "ok": true,
+  "expect": 403,
+  "redirect": ""
+ },
+ {
+  "name": "A reads own events (allowed)",
+  "actor": "A",
+  "method": "GET",
+  "url": "/api/events",
+  "status": 200,
+  "ok": true,
+  "expect": 200,
+  "redirect": ""
+ },
+ {
+  "name": "A reads own progress (allowed)",
+  "actor": "A",
+  "method": "GET",
+  "url": "/api/progress",
+  "status": 200,
+  "ok": true,
+  "expect": 200,
+  "redirect": ""
+ },
+ {
+  "name": "A lists lessons (allowed, filtered to own classes)",
+  "actor": "A",
+  "method": "GET",
+  "url": "/api/lessons",
+  "status": 200,
+  "ok": true,
+  "expect": 200,
+  "redirect": ""
+ },
+ {
+  "name": "A lists live classes (allowed)",
+  "actor": "A",
+  "method": "GET",
+  "url": "/api/classes",
+  "status": 200,
+  "ok": true,
+  "expect": 200,
+  "redirect": ""
+ },
+ {
+  "name": "A posts malformed event batch (refused, no write)",
+  "actor": "A",
+  "method": "POST",
+  "url": "/api/events",
+  "status": 400,
+  "ok": true,
+  "expect": 400,
+  "redirect": ""
+ },
+ {
+  "name": "student creates lesson",
+  "actor": "A",
+  "method": "POST",
+  "url": "/api/lessons",
+  "status": 403,
+  "ok": true,
+  "expect": 403,
+  "redirect": ""
+ },
+ {
+  "name": "student patches lesson",
+  "actor": "A",
+  "method": "PATCH",
+  "url": "/api/lessons",
+  "status": 403,
+  "ok": true,
+  "expect": 403,
+  "redirect": ""
+ },
+ {
+  "name": "student deletes lesson",
+  "actor": "A",
+  "method": "DELETE",
+  "url": "/api/lessons?id=1057de6a-7d80-4e8c-ac22-3d189bff72a9",
+  "status": 403,
+  "ok": true,
+  "expect": 403,
+  "redirect": ""
+ },
+ {
+  "name": "student creates class",
+  "actor": "A",
+  "method": "POST",
+  "url": "/api/classes",
+  "status": 403,
+  "ok": true,
+  "expect": 403,
+  "redirect": ""
+ },
+ {
+  "name": "student starts live",
+  "actor": "A",
+  "method": "POST",
+  "url": "/api/classes/cb74f95e-1139-415a-bfa9-7755ef6628e9/live",
+  "status": 403,
+  "ok": true,
+  "expect": [
+   403,
+   404
+  ],
+  "redirect": ""
+ },
+ {
+  "name": "student uploads media",
+  "actor": "A",
+  "method": "POST",
+  "url": "/api/media",
+  "status": 403,
+  "ok": true,
+  "expect": 403,
+  "redirect": ""
+ },
+ {
+  "name": "student builds live deck",
+  "actor": "A",
+  "method": "POST",
+  "url": "/api/live-deck",
+  "status": 403,
+  "ok": true,
+  "expect": 403,
+  "redirect": ""
+ },
+ {
+  "name": "student reads teacher insights",
+  "actor": "A",
+  "method": "GET",
+  "url": "/api/teacher/insights",
+  "status": 403,
+  "ok": true,
+  "expect": 403,
+  "redirect": ""
+ },
+ {
+  "name": "student lists classes of teachers",
+  "actor": "A",
+  "method": "GET",
+  "url": "/api/classes",
+  "status": 200,
+  "ok": true,
+  "expect": 200,
+  "redirect": ""
+ },
+ {
+  "name": "student PUT letter sound",
+  "actor": "A",
+  "method": "PUT",
+  "url": "/api/letter-sounds",
+  "status": 403,
+  "ok": true,
+  "expect": 403,
+  "redirect": ""
+ },
+ {
+  "name": "student PUT vocab sound",
+  "actor": "A",
+  "method": "PUT",
+  "url": "/api/vocab-sounds",
+  "status": 403,
+  "ok": true,
+  "expect": 403,
+  "redirect": ""
+ },
+ {
+  "name": "student admin signups",
+  "actor": "A",
+  "method": "GET",
+  "url": "/api/admin/signups",
+  "status": 403,
+  "ok": true,
+  "expect": 403,
+  "redirect": ""
+ },
+ {
+  "name": "student admin staff",
+  "actor": "A",
+  "method": "POST",
+  "url": "/api/admin/staff",
+  "status": 403,
+  "ok": true,
+  "expect": 403,
+  "redirect": ""
+ },
+ {
+  "name": "teacher lists another author's lessons",
+  "actor": "T",
+  "method": "GET",
+  "url": "/api/lessons?authorId=7d1a299e-8e16-4131-9d8e-13fef9066cf8",
+  "status": 403,
+  "ok": true,
+  "expect": 403,
+  "redirect": ""
+ },
+ {
+  "name": "teacher patches unknown class",
+  "actor": "T",
+  "method": "PATCH",
+  "url": "/api/classes/cb74f95e-1139-415a-bfa9-7755ef6628e9",
+  "status": 404,
+  "ok": true,
+  "expect": [
+   403,
+   404
+  ],
+  "redirect": ""
+ },
+ {
+  "name": "teacher deletes unknown class",
+  "actor": "T",
+  "method": "DELETE",
+  "url": "/api/classes/cb74f95e-1139-415a-bfa9-7755ef6628e9",
+  "status": 404,
+  "ok": true,
+  "expect": [
+   403,
+   404
+  ],
+  "redirect": ""
+ },
+ {
+  "name": "teacher starts live on unknown class",
+  "actor": "T",
+  "method": "POST",
+  "url": "/api/classes/cb74f95e-1139-415a-bfa9-7755ef6628e9/live",
+  "status": 404,
+  "ok": true,
+  "expect": [
+   403,
+   404
+  ],
+  "redirect": ""
+ },
+ {
+  "name": "teacher creates lesson for unknown class (refused)",
+  "actor": "T",
+  "method": "POST",
+  "url": "/api/lessons",
+  "status": 404,
+  "ok": true,
+  "expect": [
+   400,
+   403,
+   404
+  ],
+  "redirect": ""
+ },
+ {
+  "name": "teacher PUT letter sound (admin only)",
+  "actor": "T",
+  "method": "PUT",
+  "url": "/api/letter-sounds",
+  "status": 403,
+  "ok": true,
+  "expect": 403,
+  "redirect": ""
+ },
+ {
+  "name": "teacher PUT vocab sound with foreign URL (refused)",
+  "actor": "T",
+  "method": "PUT",
+  "url": "/api/vocab-sounds",
+  "status": 400,
+  "ok": true,
+  "expect": 400,
+  "redirect": ""
+ },
+ {
+  "name": "teacher admin signups",
+  "actor": "T",
+  "method": "GET",
+  "url": "/api/admin/signups",
+  "status": 403,
+  "ok": true,
+  "expect": 403,
+  "redirect": ""
+ },
+ {
+  "name": "teacher admin staff",
+  "actor": "T",
+  "method": "GET",
+  "url": "/api/admin/staff",
+  "status": 403,
+  "ok": true,
+  "expect": 403,
+  "redirect": ""
+ },
+ {
+  "name": "teacher creates teacher account",
+  "actor": "T",
+  "method": "POST",
+  "url": "/api/admin/teachers",
+  "status": 403,
+  "ok": true,
+  "expect": 403,
+  "redirect": ""
+ },
+ {
+  "name": "teacher reads insights (allowed)",
+  "actor": "T",
+  "method": "GET",
+  "url": "/api/teacher/insights",
+  "status": 200,
+  "ok": true,
+  "expect": 200,
+  "redirect": ""
+ },
+ {
+  "name": "teacher reads any student's events (allowed by design)",
+  "actor": "T",
+  "method": "GET",
+  "url": "/api/events?userId=f4a0d119-a054-4364-ab16-7a01b2ab9f16",
+  "status": 200,
+  "ok": true,
+  "expect": 200,
+  "redirect": ""
+ },
+ {
+  "name": "teacher posts events (refused: students only)",
+  "actor": "T",
+  "method": "POST",
+  "url": "/api/events",
+  "status": 403,
+  "ok": true,
+  "expect": 403,
+  "redirect": ""
+ },
+ {
+  "name": "teacher media presign with bad type (refused)",
+  "actor": "T",
+  "method": "POST",
+  "url": "/api/media",
+  "status": 400,
+  "ok": true,
+  "expect": 400,
+  "redirect": ""
+ },
+ {
+  "name": "health public",
+  "actor": "none",
+  "method": "GET",
+  "url": "/api/health",
+  "status": 200,
+  "ok": true,
+  "expect": [
+   200,
+   503
+  ],
+  "redirect": ""
+ },
+ {
+  "name": "signup rejects empty body",
+  "actor": "none",
+  "method": "POST",
+  "url": "/api/signup",
+  "status": 400,
+  "ok": true,
+  "expect": [
+   400,
+   422
+  ],
+  "redirect": ""
+ },
+ {
+  "name": "enrollment rejects empty body",
+  "actor": "none",
+  "method": "POST",
+  "url": "/api/enrollment",
+  "status": 400,
+  "ok": true,
+  "expect": [
+   400,
+   422
+  ],
+  "redirect": ""
+ },
+ {
+  "name": "password reset rejects empty body",
+  "actor": "none",
+  "method": "POST",
+  "url": "/api/auth/password",
+  "status": 400,
+  "ok": true,
+  "expect": [
+   400,
+   422
+  ],
+  "redirect": ""
+ },
+ {
+  "name": "login rejects empty body",
+  "actor": "none",
+  "method": "POST",
+  "url": "/api/auth",
+  "status": 401,
+  "ok": true,
+  "expect": [
+   400,
+   401
+  ],
+  "redirect": ""
+ }
+]
