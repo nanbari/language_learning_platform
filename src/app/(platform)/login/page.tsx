@@ -19,7 +19,7 @@ function dashboardFor(u: Pick<SessionUser, "role" | "isAdmin">): string {
 const SIGNUP_FOOTER = (
   <>
     Pas encore de compte élève ?{" "}
-    <Link href="/inscription" className="inline-flex min-h-11 items-center font-semibold text-ms-primary underline-offset-4 hover:underline">Faire une demande</Link>
+    <Link href="/inscription" className="inline-flex min-h-11 items-center font-semibold text-ms-ink underline-offset-4 hover:underline">Faire une demande</Link>
   </>
 );
 
@@ -139,7 +139,7 @@ function LoginForm() {
             onClick={() => setRole(r)}
             aria-pressed={role === r}
             className={`min-h-11 rounded-lg px-3 text-[0.9375rem] font-semibold transition-colors duration-[140ms] ${
-              role === r ? "bg-ms-surface text-ms-primary shadow-[var(--ms-shadow-control)]" : "text-ms-muted hover:text-ms-ink"
+              role === r ? "bg-ms-surface text-ms-ink shadow-[var(--ms-shadow-control)]" : "text-ms-muted hover:text-ms-ink"
             }`}
           >
             {r === "student" ? "Élève" : "Enseignant"}
@@ -148,7 +148,7 @@ function LoginForm() {
       </div>
 
       {params.get("reset") === "ok" && (
-        <div role="status" className="mb-5 flex items-start gap-3 rounded-xl bg-ms-primary-soft px-4 py-3 text-sm leading-5 text-ms-primary">
+        <div role="status" className="mb-5 flex items-start gap-3 rounded-xl bg-ms-primary-soft px-4 py-3 text-sm leading-5 text-ms-ink">
           <CheckCircle2 size={18} strokeWidth={ICON_STROKE} className="mt-px shrink-0" aria-hidden="true" />
           Mot de passe enregistré. Vous pouvez vous connecter.
         </div>
@@ -167,7 +167,7 @@ function LoginForm() {
           id="login-password"
           label="Mot de passe"
           action={
-            <Link href="/mot-de-passe-oublie" className="inline-flex min-h-11 items-center text-sm font-semibold text-ms-primary underline-offset-4 hover:underline">
+            <Link href="/mot-de-passe-oublie" className="inline-flex min-h-11 items-center text-sm font-semibold text-ms-ink underline-offset-4 hover:underline">
               Mot de passe oublié ?
             </Link>
           }

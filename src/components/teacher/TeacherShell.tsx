@@ -25,7 +25,7 @@ const NAV: NavGroup[] = [
     ],
   },
   // Mêmes restrictions que le proxy et les API : réservé aux admins.
-  { label: "Bibliothèque audio", adminOnly: true, items: [{ href: "/teacher/letters", label: "Sons des lettres", icon: Mic }] },
+  { label: "Bibliothèque audio", adminOnly: true, items: [{ href: "/teacher/letters", label: "Enregistrements vocaux", icon: Mic }] },
   { label: "Administration", adminOnly: true, items: [{ href: "/teacher/equipe", label: "Équipe enseignante", icon: UsersRound }] },
 ];
 
@@ -59,7 +59,7 @@ function NavList({ isAdmin, onNavigate }: { isAdmin: boolean; onNavigate?: () =>
                     onClick={onNavigate}
                     aria-current={current ? "page" : undefined}
                     className={`flex items-center gap-3 min-h-11 px-3 rounded-xl text-[0.9375rem] leading-[1.375rem] font-semibold transition-colors duration-[140ms] ${
-                      current ? "bg-ms-primary-soft text-ms-primary" : "text-ms-ink hover:bg-ms-surface-muted"
+                      current ? "bg-ms-primary-soft text-ms-ink" : "text-ms-ink hover:bg-ms-surface-muted"
                     }`}
                   >
                     <Icon size={20} strokeWidth={ICON_STROKE} aria-hidden="true" />

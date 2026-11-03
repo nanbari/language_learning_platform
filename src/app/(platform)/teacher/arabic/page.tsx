@@ -230,7 +230,7 @@ export default function TeacherArabicPage() {
 
   const themeIndex = VOCAB_THEMES.findIndex((t) => t.id === activeTheme.id);
   const tabClass =
-    "ms-button data-[state=active]:!bg-ms-primary-soft data-[state=active]:!text-ms-primary data-[state=active]:!border-ms-primary";
+    "ms-button data-[state=active]:!bg-ms-primary-soft data-[state=active]:!text-ms-ink data-[state=active]:!border-ms-primary";
 
   return (
     <TeacherShell name={user?.name || "Enseignant"} isAdmin={isAdmin} onLogout={handleLogout}>

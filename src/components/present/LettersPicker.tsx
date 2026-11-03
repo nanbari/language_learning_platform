@@ -49,7 +49,7 @@ export function LettersPicker({ value, onChange }: { value: LettersChoice; onCha
               aria-checked={level === option}
               onClick={() => changeLevel(option)}
               className={`min-h-11 rounded-xl border px-4 text-sm font-semibold transition-colors duration-[140ms] ${
-                level === option ? "border-ms-primary bg-ms-primary-soft text-ms-primary" : "border-ms-control bg-ms-surface hover:bg-ms-surface-muted"
+                level === option ? "border-ms-primary bg-ms-primary-soft text-ms-ink" : "border-ms-control bg-ms-surface hover:bg-ms-surface-muted"
               }`}
             >
               {label}

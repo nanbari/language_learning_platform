@@ -257,7 +257,7 @@ export function LivePlayer({ deck, classId, code, className, lessonTitle, onQuit
                 <ul className="mt-2 flex flex-wrap gap-1.5">
                   {summary.found.map((name) => (
                     <li key={name} className="inline-flex items-center gap-1 rounded-full bg-ms-surface px-2.5 py-1 text-sm font-semibold">
-                      <Check size={14} strokeWidth={2.5} aria-hidden="true" className="text-ms-primary" />
+                      <Check size={14} strokeWidth={2.5} aria-hidden="true" className="text-ms-ink" />
                       {name}
                     </li>
                   ))}
@@ -276,7 +276,7 @@ export function LivePlayer({ deck, classId, code, className, lessonTitle, onQuit
           <Button variant="secondary" onClick={prev} disabled={isFirst} className="shrink-0" aria-label="Activité précédente">
             <ChevronLeft size={20} strokeWidth={ICON_STROKE} aria-hidden="true" /> <span className="hidden sm:inline">Précédent</span>
           </Button>
-          <Button variant="primary" onClick={next} disabled={isLast} className="min-w-0 flex-1 lg:flex-none lg:min-w-32">
+          <Button variant="primary" accent="slate" onClick={next} disabled={isLast} className="min-w-0 flex-1 lg:flex-none lg:min-w-32">
             Suivant <ChevronRight size={20} strokeWidth={ICON_STROKE} aria-hidden="true" />
           </Button>
         </div>

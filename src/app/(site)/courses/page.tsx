@@ -26,7 +26,7 @@ export default function CoursesPage() {
       <section className="bg-[#F5EEE8] py-16 px-4">
         <div className="max-w-4xl mx-auto text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/70" style={{ color: "#BB908E" }}><BookOpen size={30} strokeWidth={1.75} aria-hidden="true" /></div>
-          <h1 className="text-4xl font-black text-[#2D2D2D] mb-4" style={{ fontFamily: "var(--font-fredoka), sans-serif", fontWeight: 700 }}>Nos cours</h1>
+          <h1 className="text-4xl font-black text-[#2D2D2D] mb-4">Nos cours</h1>
           <p className="text-[#2D2D2D]/50 text-lg">Apprendre une langue autrement, en ligne, à partir de 4 ans</p>
         </div>
       </section>
@@ -40,7 +40,7 @@ export default function CoursesPage() {
                 <div className="rounded-3xl p-8" style={{ background: p.bg, border: `2px solid ${p.color}30` }}>
                   <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/70" style={{ color: p.color }}><Flower2 size={28} strokeWidth={1.75} aria-hidden="true" /></div>
                   <div className="inline-block text-xs font-bold rounded-full px-3 py-1 mb-3 text-white" style={{ background: p.color }}>{p.age}</div>
-                  <h2 className="text-2xl font-black text-[#2D2D2D] mb-3" style={{ fontFamily: "var(--font-fredoka), sans-serif", fontWeight: 700 }}>{p.name}</h2>
+                  <h2 className="text-2xl font-black text-[#2D2D2D] mb-3">{p.name}</h2>
                   <p className="text-[#2D2D2D]/60 leading-relaxed mb-4">{p.desc}</p>
                   <div className="flex flex-wrap gap-2">
                     {p.subjects.map((s) => (
@@ -72,7 +72,7 @@ export default function CoursesPage() {
       {/* FAQ */}
       <section className="py-16 px-4 bg-[#F5EEE8]">
         <div className="max-w-3xl mx-auto">
-          <h2 className="text-3xl font-black text-center text-[#2D2D2D] mb-10" style={{ fontFamily: "var(--font-fredoka), sans-serif", fontWeight: 700 }}>Questions fréquentes</h2>
+          <h2 className="text-3xl font-black text-center text-[#2D2D2D] mb-10">Questions fréquentes</h2>
           <div className="space-y-4">
             {faqs.map(({ q, a }) => (
               <div key={q} className="bg-[#FFFDF8] rounded-2xl p-6 shadow-sm border border-[#EDE5D8]">

@@ -23,15 +23,21 @@
   --ms-line: #DAD3C7;
   --ms-control-border: #858878;
 
-  /* Action hierarchy */
-  --ms-primary: #59634C;
-  --ms-primary-hover: #4D5741;
-  --ms-primary-pressed: #414B36;
-  --ms-primary-soft: #E9EDDF;
-  --ms-on-primary: #FFFDF8;
+  /* Trois couleurs du logo, telles quelles, toujours avec un texte foncé :
+     - --ms-primary (bleu ardoise, 5,4:1) : sélection, onglets, progression,
+       survol des tuiles ;
+     - --ms-action (sauge, 5,0:1) : les boutons principaux ; data-accent="slate"
+       ou "blush" leur donne une autre couleur du logo selon le rôle ;
+     - le rose marque aussi les réussites (voir .ms-answer-tile).
+     Survol et pression : la même couleur assombrie par mélange, pas une
+     nouvelle teinte. Les textes autrefois en vert sont en encre : les
+     pastels du logo ne tiennent pas le contraste sur fond crème. */
+  --ms-primary: #8BA3B1;
+  --ms-primary-soft: #E6EDF1;
+  --ms-on-primary: #2A2B27;
+  --ms-action: #999B84;
 
   /* Retained brand support: not interchangeable action colours */
-  --ms-brand-moss: #6B705C;
   --ms-sage: #999B84;
   --ms-blush: #BB908E;
   --ms-petal: #CCB9B5;
@@ -168,7 +174,7 @@
   a, button, input, select, textarea, summary, [tabindex]
 ):focus-visible {
   box-shadow: 0 0 0 3px var(--ms-surface);
-  outline: 3px solid var(--ms-primary);
+  outline: 3px solid var(--ms-ink);
   outline-offset: 3px;
 }
 
@@ -212,8 +218,20 @@
 }
 
 [data-ms-app] .ms-button[data-variant="primary"] {
-  background: var(--ms-primary);
+  --ms-btn: var(--ms-action);
+  background: var(--ms-btn);
   color: var(--ms-on-primary);
+}
+
+/* Un rôle, une couleur du logo : sauge par défaut (enregistrer, valider,
+   se connecter), bleu pour le cours en direct, rose pour créer une leçon
+   ou une classe. */
+[data-ms-app] .ms-button[data-variant="primary"][data-accent="slate"] {
+  --ms-btn: var(--ms-slate);
+}
+
+[data-ms-app] .ms-button[data-variant="primary"][data-accent="blush"] {
+  --ms-btn: var(--ms-blush);
 }
 
 [data-ms-app] .ms-button[data-variant="secondary"] {
@@ -224,7 +242,7 @@
 
 [data-ms-app] .ms-button[data-variant="quiet"] {
   background: transparent;
-  color: var(--ms-primary);
+  color: var(--ms-ink);
 }
 
 [data-ms-app] .ms-button[data-variant="danger"] {
@@ -235,7 +253,7 @@
 
 @media (hover: hover) {
   [data-ms-app] .ms-button[data-variant="primary"]:not(:disabled):not([aria-disabled="true"]):hover {
-    background: var(--ms-primary-hover);
+    background: color-mix(in srgb, var(--ms-btn) 90%, var(--ms-ink));
   }
 
   [data-ms-app] .ms-button:is(
@@ -255,7 +273,7 @@
 }
 
 [data-ms-app] .ms-button[data-variant="primary"]:not(:disabled):not([aria-disabled="true"]):active {
-  background: var(--ms-primary-pressed);
+  background: color-mix(in srgb, var(--ms-btn) 80%, var(--ms-ink));
 }
 
 [data-ms-app] .ms-button:is(:disabled, [aria-disabled="true"]) {
@@ -322,7 +340,7 @@
 
 [data-ms-app] .ms-status[data-state="success"] {
   background: var(--ms-primary-soft);
-  color: var(--ms-primary);
+  color: var(--ms-ink);
 }
 
 [data-ms-app] .ms-status[data-state="review"] {
@@ -425,8 +443,9 @@
 }
 
 [data-ms-app] .ms-answer-tile[data-state="found"] {
-  border-color: var(--ms-primary);
-  background: var(--ms-primary-soft);
+  /* Réussite : le rose du logo, distinct du bleu des actions. */
+  border-color: var(--ms-blush);
+  background: var(--ms-blush-soft);
   cursor: default;
   transition-duration: var(--ms-duration-success);
 }
@@ -441,6 +460,22 @@
 
 [data-ms-app] .ms-answer-tile[data-state="tried"] .ms-answer-glyph {
   opacity: 0.45;
+}
+
+/* Échec : la réponse essayée tremble, comme dans les jeux de lettres du
+   cours en direct, à la place d'un message. .ms-shake sert aux zones qui ne
+   sont pas des tuiles (la phrase à remettre en ordre). */
+@keyframes ms-shake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-10px); }
+  40%      { transform: translateX(10px); }
+  60%      { transform: translateX(-6px); }
+  80%      { transform: translateX(6px); }
+}
+
+[data-ms-app] .ms-answer-tile[data-state="tried"],
+[data-ms-app] .ms-shake {
+  animation: ms-shake 0.4s ease-in-out;
 }
 
 [data-ms-app] .ms-answer-tile[data-state="rest"]:disabled {
@@ -491,6 +526,7 @@
 @media (prefers-reduced-motion: reduce) {
   [data-ms-app] .ms-button,
   [data-ms-app] .ms-answer-tile,
+  [data-ms-app] .ms-shake,
   [data-ms-app] [data-ms-motion] {
     transition: none;
     animation: none;

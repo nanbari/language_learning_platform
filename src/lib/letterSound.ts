@@ -2,7 +2,7 @@ import type { ArabicLetter } from "@/data/arabicAlphabet";
 import { playSound, stopSound } from "@/lib/soundPlayer";
 
 /**
- * Sons enregistrés par un admin sur la plateforme (page « Sons des lettres ») :
+ * Sons enregistrés par un admin sur la plateforme (page « Enregistrements vocaux ») :
  *
  * - Son d'une lettre, joué dans « choisir le son », par ordre de préférence :
  *   1. l'enregistrement fait sur la plateforme,

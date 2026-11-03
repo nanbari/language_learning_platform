@@ -11,7 +11,6 @@ import type { LiveClass } from "@/lib/classes";
 import type { LessonReviewSummary } from "@/lib/weakSpots";
 import { countActivities, lessonCover } from "@/lib/lessonActivities";
 import { LetterGlyph } from "@/components/present/LetterTracing";
-import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";
 import { LessonImage } from "@/components/platform/LessonImage";
 import StudentShell, { STUDENT_ICON } from "@/components/student/StudentShell";
 import { accentAt, type Accent } from "@/components/student/accents";
@@ -29,59 +28,6 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n > 1 ? man
  */
 interface Played { lastAt: string }
 
-/**
- * La trace de l'élève, tirée de ses événements d'exercice : les lettres dont
- * il a réussi un jeu (l'identifiant d'un jeu de lettres contient le numéro
- * de la lettre, voir letterGameId), les exercices réussis, les leçons jouées.
- * Rien n'est interprété : pas de niveau, pas de maîtrise, pas de classement.
- */
-interface Trace { letterIds: number[]; successes: number; lessons: number }
-
-const GAME_ID = /^[^:]+:(pickSound|findLetter|findInWord|completeWord|write):(\d+)/;
-
-function traceFrom(rows: { lesson_id: string; block_id: string; event_type: string; correct: boolean | null }[]): Trace {
-  const letters = new Set<number>();
-  const lessons = new Set<string>();
-  let successes = 0;
-  for (const r of rows) {
-    lessons.add(r.lesson_id);
-    if (r.event_type !== "complete" || r.correct === false) continue;
-    successes += 1;
-    const m = GAME_ID.exec(r.block_id);
-    if (m) letters.add(Number(m[2]));
-  }
-  return { letterIds: [...letters].sort((a, b) => a - b), successes, lessons: lessons.size };
-}
-
-/** Ce que l'enfant a déjà fait, en objets : ses lettres, ses réussites. Absent tant qu'il n'a rien fait. */
-function Atelier({ trace }: { trace: Trace }) {
-  if (trace.successes === 0 && trace.letterIds.length === 0) return null;
-  const letters = trace.letterIds.map((id) => ARABIC_ALPHABET.find((l) => l.id === id)).filter((l): l is NonNullable<typeof l> => !!l);
-  return (
-    <section aria-labelledby="atelier" className="flex flex-col gap-4 rounded-3xl border border-ms-line bg-ms-surface p-5 sm:flex-row sm:items-center sm:gap-8 sm:p-6">
-      <div className="min-w-0 sm:w-56 sm:shrink-0">
-        <h2 id="atelier" className="text-2xl font-extrabold leading-8">Ton atelier</h2>
-        <p className="mt-1 text-ms-muted tabular-nums">
-          {plural(trace.lessons, "leçon jouée", "leçons jouées")} · {plural(trace.successes, "exercice réussi", "exercices réussis")}
-        </p>
-      </div>
-      {letters.length > 0 && (
-        <div className="min-w-0 flex-1">
-          <p className="text-base font-bold">{letters.length > 1 ? "Les lettres que tu as retrouvées" : "La lettre que tu as retrouvée"}</p>
-          <ul className="mt-2 flex flex-wrap gap-2" aria-label="Lettres réussies">
-            {letters.map((l) => (
-              <li key={l.id} lang="ar" dir="rtl" className="flex h-16 w-16 items-center justify-center rounded-2xl bg-ms-sage-soft text-ms-sage-ink" title={l.nameTranslit}>
-                <LetterGlyph char={l.isolated} className="h-11 w-11" />
-                <span className="sr-only">{l.nameTranslit}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </section>
-  );
-}
-
 function Cover({ lesson, accent, className, priority }: { lesson: ApiLesson; accent: Accent; className: string; priority: boolean }) {
   const cover = lessonCover(lesson.blocks);
   return (
@@ -91,11 +37,11 @@ function Cover({ lesson, accent, className, priority }: { lesson: ApiLesson; acc
           sizes="(min-width: 1024px) 20rem, (min-width: 640px) 45vw, 7rem" />
       )}
       {cover.kind === "letter" && (
-        <span lang="ar" dir="rtl" style={{ color: accent.deep }} className="flex h-full w-full items-center justify-center p-3">
+        <span lang="ar" dir="rtl" style={{ color: accent.pastel }} className="flex h-full w-full items-center justify-center p-3">
           <LetterGlyph char={cover.letter.isolated} className="h-full max-h-36 w-auto" />
         </span>
       )}
-      {cover.kind === "none" && <BookOpen size={48} strokeWidth={1.5} aria-hidden="true" style={{ color: accent.deep }} />}
+      {cover.kind === "none" && <BookOpen size={48} strokeWidth={1.5} aria-hidden="true" style={{ color: accent.pastel }} />}
     </div>
   );
 }
@@ -126,7 +72,7 @@ function LessonTile({ lesson, accent, played, toReview, priority = false }: {
             {played && <> · déjà jouée</>}
           </span>
           <span className="mt-auto flex items-center gap-4 pt-1">
-            <span className="inline-flex min-h-12 items-center gap-1 text-lg font-bold text-ms-primary">
+            <span className="inline-flex min-h-12 items-center gap-1 text-lg font-bold text-ms-ink">
               {action} <ChevronRight size={24} strokeWidth={2} aria-hidden="true" className="transition-transform duration-[140ms] group-hover:translate-x-0.5" />
             </span>
             {/* Place réservée au lien « Réviser » (à droite dès 640 px ; en dessous sur téléphone). */}
@@ -170,7 +116,7 @@ function Arrival({ firstName, lives }: { firstName?: string; lives: LiveClass[] 
             <h2 id="direct" className="text-2xl font-extrabold leading-8">Le cours a commencé</h2>
             <p className="text-ms-muted">{lives!.map((l) => (l.teacherName ? `${l.name}, avec ${l.teacherName}` : l.name)).join(" · ")}</p>
           </div>
-          <Link href="/student/live" data-variant="primary" className="ms-button">Rejoindre le cours</Link>
+          <Link href="/student/live" data-variant="primary" data-accent="slate" className="ms-button">Rejoindre le cours</Link>
         </section>
       ) : (
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-ms-muted">
@@ -194,7 +140,6 @@ export default function StudentPage() {
   const [toReview, setToReview] = useState<LessonReviewSummary[]>([]);
   // Leçons déjà jouées, d'après les événements d'exercice de l'élève.
   const [played, setPlayed] = useState<Map<string, Played>>(new Map());
-  const [trace, setTrace] = useState<Trace>({ letterIds: [], successes: 0, lessons: 0 });
   const [lives, setLives] = useState<LiveClass[] | null>(null);
 
   const load = useCallback(() => {
@@ -207,7 +152,6 @@ export default function StudentPage() {
         if (!prev || r.created_at > prev.lastAt) map.set(r.lesson_id, { lastAt: r.created_at });
       }
       setPlayed(map);
-      setTrace(traceFrom(rows));
     }).catch(() => setPlayed(new Map()));
   }, []);
 
@@ -232,7 +176,6 @@ export default function StudentPage() {
     <StudentShell>
       <div className="flex flex-col gap-8 sm:gap-10">
         <Arrival firstName={firstName} lives={lives} />
-        <Atelier trace={trace} />
 
         <section aria-labelledby="mes-lecons" aria-busy={lessons === null} className="flex flex-col gap-4">
           <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">

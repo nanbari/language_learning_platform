@@ -226,13 +226,13 @@ export default function LetterSoundsPage() {
   const lettersCount = letterEntries.filter((e) => e.hasAudio).length;
   const questionsCount = questionEntries.filter((e) => e.hasAudio).length;
   const tabClass =
-    "ms-button data-[state=active]:!bg-ms-primary-soft data-[state=active]:!text-ms-primary data-[state=active]:!border-ms-primary";
+    "ms-button data-[state=active]:!bg-ms-primary-soft data-[state=active]:!text-ms-ink data-[state=active]:!border-ms-primary";
 
   return (
     <TeacherShell name={user?.name || "Enseignant"} isAdmin={isAdmin} onLogout={handleLogout}>
       <div className="space-y-6">
         <header>
-          <h1 className="text-[1.75rem] leading-9 lg:text-[2rem] lg:leading-10 font-semibold tracking-[-0.02em]">Sons des lettres</h1>
+          <h1 className="text-[1.75rem] leading-9 lg:text-[2rem] lg:leading-10 font-semibold tracking-[-0.02em]">Enregistrements vocaux</h1>
           <p className="mt-1 text-ms-muted max-w-[65ch]">
             Enregistrez le son de chaque lettre et les questions des exercices. Ces sons sont communs à toute la plateforme.
           </p>

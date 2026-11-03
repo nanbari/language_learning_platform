@@ -94,7 +94,7 @@ export default function EnrollmentPage() {
               </span>
             </div>
           </Link>
-          <h1 className="text-2xl sm:text-3xl text-[#2D2D2D]" style={{ fontFamily: "var(--font-fredoka), sans-serif", fontWeight: 700 }}>
+          <h1 className="text-2xl sm:text-3xl text-[#2D2D2D]">
             Demande d&apos;inscription aux cours d&apos;arabe
           </h1>
           <p className="text-[#2D2D2D]/60 text-sm mt-2 leading-relaxed">

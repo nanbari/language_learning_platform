@@ -39,8 +39,6 @@
   --color-ms-line:            var(--ms-line);
   --color-ms-control:         var(--ms-control-border);
   --color-ms-primary:         var(--ms-primary);
-  --color-ms-primary-hover:   var(--ms-primary-hover);
-  --color-ms-primary-pressed: var(--ms-primary-pressed);
   --color-ms-primary-soft:    var(--ms-primary-soft);
   --color-ms-on-primary:      var(--ms-on-primary);
   --color-ms-info:            var(--ms-info);
@@ -77,6 +75,23 @@ body {
 
 h1, h2, h3 {
   text-wrap: balance;
+}
+
+/* Titres de tout le site, plateforme comprise : la police du logo (Fredoka,
+   graisse 700, la seule chargée). Seuls les titres en arabe gardent leur
+   police. Dans @layer base pour que les utilitaires Tailwind restent
+   prioritaires. */
+@layer base {
+  :where(h1, h2, h3, h4):not([lang="ar"]) {
+    font-family: var(--font-display);
+    font-weight: 700;
+  }
+  /* Fredoka n'a pas de glyphes arabes : dans la plateforme, les mots arabes
+     d'un titre français retombent sur Noto Naskh Arabic plutôt que sur la
+     police système. */
+  [data-ms-area] :where(h1, h2, h3, h4):not([lang="ar"]) {
+    font-family: var(--font-fredoka), var(--font-noto-naskh-arabic, var(--ms-font-arabic)), system-ui, sans-serif;
+  }
 }
 
 @keyframes bounce-in {

@@ -251,7 +251,7 @@ function Setup({ onStart }: { onStart: (session: LiveSessionInfo) => void }) {
                 <EmptyState
                   title="Aucun diaporama enregistré"
                   text="Ouvrez une leçon dans l'éditeur, puis cliquez sur « Créer le diaporama » dans ses informations."
-                  action={<ButtonLink href="/teacher/create" variant="primary">Créer une leçon</ButtonLink>}
+                  action={<ButtonLink href="/teacher/create" variant="primary" accent="blush">Créer une leçon</ButtonLink>}
                 />
               </div>
             ) : (
@@ -274,7 +274,7 @@ function Setup({ onStart }: { onStart: (session: LiveSessionInfo) => void }) {
                         </>
                       ) : undefined}
                       footer={stale ? (
-                        <Link href={`/teacher/create?edit=${l.id}`} className="inline-flex min-h-11 items-center text-sm font-semibold text-ms-primary underline-offset-4 hover:underline">
+                        <Link href={`/teacher/create?edit=${l.id}`} className="inline-flex min-h-11 items-center text-sm font-semibold text-ms-ink underline-offset-4 hover:underline">
                           Mettre à jour dans l&apos;éditeur
                         </Link>
                       ) : undefined}
@@ -292,7 +292,7 @@ function Setup({ onStart }: { onStart: (session: LiveSessionInfo) => void }) {
                   </time>
                   {lesson.liveStale === true && " ; la leçon a changé depuis"}
                 </span>
-                <Link href={`/teacher/create?edit=${lesson.id}`} className="inline-flex min-h-11 items-center font-semibold text-ms-primary underline-offset-4 hover:underline">
+                <Link href={`/teacher/create?edit=${lesson.id}`} className="inline-flex min-h-11 items-center font-semibold text-ms-ink underline-offset-4 hover:underline">
                   Modifier la leçon
                 </Link>
               </p>
@@ -320,7 +320,7 @@ function Setup({ onStart }: { onStart: (session: LiveSessionInfo) => void }) {
                 <EmptyState
                   title="Votre première classe"
                   text="Créez une classe pour y regrouper vos élèves."
-                  action={<ButtonLink href="/teacher/classes" variant="primary">Créer une classe</ButtonLink>}
+                  action={<ButtonLink href="/teacher/classes" variant="primary" accent="blush">Créer une classe</ButtonLink>}
                 />
               </div>
             ) : (
@@ -343,7 +343,7 @@ function Setup({ onStart }: { onStart: (session: LiveSessionInfo) => void }) {
         <div className="space-y-3">
           {startError && <InlineNotice tone="error">{startError}</InlineNotice>}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <Button variant="primary" onClick={() => void start()} disabled={!lesson || !cls || starting} aria-describedby="lancer-aide">
+            <Button variant="primary" accent="slate" onClick={() => void start()} disabled={!lesson || !cls || starting} aria-describedby="lancer-aide">
               <Play size={18} strokeWidth={ICON_STROKE} aria-hidden="true" />
               {starting ? "Lancement…" : "Lancer le cours"}
             </Button>

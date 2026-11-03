@@ -277,7 +277,7 @@ export function QuizEditor({ blockId, quiz, onChange, recorder, onRecord, onDele
               <button key={value} type="button" role="radio" aria-checked={on}
                 onClick={() => onChange({ ...quiz, answerMode: value })}
                 className={`flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-semibold transition-colors duration-[140ms] ${
-                  on ? "border-ms-primary bg-ms-primary-soft text-ms-primary" : "border-ms-control bg-ms-surface hover:bg-ms-surface-muted"
+                  on ? "border-ms-primary bg-ms-primary-soft text-ms-ink" : "border-ms-control bg-ms-surface hover:bg-ms-surface-muted"
                 }`}>
                 <Icon size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> {label}
               </button>
@@ -295,7 +295,7 @@ export function QuizEditor({ blockId, quiz, onChange, recorder, onRecord, onDele
             const isCorrect = quiz.correctId === opt.id;
             return (
               <div key={opt.id} className={`flex min-w-0 flex-col gap-3 rounded-2xl border p-3 transition-colors duration-[140ms] ${
-                isCorrect ? "border-ms-primary bg-ms-primary-soft" : "border-ms-line bg-ms-surface"
+                isCorrect ? "border-ms-blush bg-ms-blush-soft" : "border-ms-line bg-ms-surface"
               }`}>
                 <p className="text-sm font-semibold">Réponse {oi + 1}</p>
                 {showImage && (

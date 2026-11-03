@@ -376,13 +376,13 @@ function CreateLessonPageInner() {
           hint={classes && classes.length === 0 ? undefined : className ? (
             <>
               Visible par les élèves de {className} dès l&apos;enregistrement.{" "}
-              <Link href={`/teacher/classes#${classId}`} className="font-semibold text-ms-primary underline-offset-4 hover:underline">Ouvrir la classe</Link>
+              <Link href={`/teacher/classes#${classId}`} className="font-semibold text-ms-ink underline-offset-4 hover:underline">Ouvrir la classe</Link>
             </>
           ) : "Seuls les élèves de la classe choisie verront la leçon, dès son enregistrement."}>
           {classes && classes.length === 0 ? (
             <p className="rounded-xl bg-ms-surface-muted px-4 py-3 text-sm">
               Aucune classe pour l&apos;instant.{" "}
-              <Link href="/teacher/classes" className="font-semibold text-ms-primary underline underline-offset-4">Créez une classe</Link>{" "}
+              <Link href="/teacher/classes" className="font-semibold text-ms-ink underline underline-offset-4">Créez une classe</Link>{" "}
               pour lui proposer cette leçon.
             </p>
           ) : (
@@ -578,7 +578,7 @@ function CreateLessonPageInner() {
               {title.trim() || (editId ? "Leçon sans titre" : "Nouvelle leçon")}
             </h1>
             <p aria-live="polite" className={`flex items-center gap-1.5 text-sm leading-5 ${
-              status.tone === "danger" ? "text-ms-danger" : status.tone === "review" ? "text-ms-review" : status.tone === "success" ? "text-ms-primary" : "text-ms-muted"
+              status.tone === "danger" ? "text-ms-danger" : status.tone === "review" ? "text-ms-review" : status.tone === "success" ? "text-ms-ink" : "text-ms-muted"
             }`}>
               {status.tone === "success" && <Check size={16} strokeWidth={2} aria-hidden="true" />}
               {status.tone === "review" && <span aria-hidden="true" className="h-2 w-2 rounded-full bg-ms-review" />}
@@ -602,7 +602,7 @@ function CreateLessonPageInner() {
             {([["plan", "Plan"], ["activite", "Activité"], ["apercu", "Aperçu"]] as const).map(([key, label]) => (
               <button key={key} type="button" role="tab" aria-selected={pane === key} onClick={() => setPane(key)}
                 className={`min-h-11 rounded-xl text-sm font-semibold transition-colors duration-[140ms] ${
-                  pane === key ? "bg-ms-primary-soft text-ms-primary" : "text-ms-muted hover:bg-ms-surface-muted"
+                  pane === key ? "bg-ms-primary-soft text-ms-ink" : "text-ms-muted hover:bg-ms-surface-muted"
                 }`}>
                 {label}
               </button>

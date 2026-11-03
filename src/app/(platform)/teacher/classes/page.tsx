@@ -45,7 +45,7 @@ function NewClassForm({ open, onOpenChange, onCreated }: {
 
   if (!open) {
     return (
-      <Button variant="primary" onClick={() => onOpenChange(true)}>
+      <Button variant="primary" accent="blush" onClick={() => onOpenChange(true)}>
         <Plus size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Créer une classe
       </Button>
     );
@@ -64,7 +64,7 @@ function NewClassForm({ open, onOpenChange, onCreated }: {
       </div>
       {error && <InlineNotice tone="error">{error}</InlineNotice>}
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" variant="primary" disabled={busy || !name.trim()}>{busy ? "Création…" : "Créer la classe"}</Button>
+        <Button type="submit" variant="primary" accent="blush" disabled={busy || !name.trim()}>{busy ? "Création…" : "Créer la classe"}</Button>
         <Button variant="secondary" onClick={() => { onOpenChange(false); setError(null); }}>Annuler</Button>
       </div>
     </form>
@@ -148,7 +148,7 @@ export default function TeacherClassesPage() {
             <EmptyState
               title="Votre première classe"
               text="Créez une classe pour y regrouper vos élèves."
-              action={!formOpen ? <Button variant="primary" onClick={() => setFormOpen(true)}>Créer une classe</Button> : undefined}
+              action={!formOpen ? <Button variant="primary" accent="blush" onClick={() => setFormOpen(true)}>Créer une classe</Button> : undefined}
             />
           )}
           {classes && classes.length > 0 && (

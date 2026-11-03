@@ -20,7 +20,7 @@ export default function ContactPage() {
       <section className="bg-[#F5EEE8] py-16 px-4">
         <div className="max-w-4xl mx-auto text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/70" style={{ color: "#8BA3B1" }}><Mail size={30} strokeWidth={1.75} aria-hidden="true" /></div>
-          <h1 className="text-4xl font-black text-[#2D2D2D] mb-4" style={{ fontFamily: "var(--font-fredoka), sans-serif", fontWeight: 700 }}>Me contacter</h1>
+          <h1 className="text-4xl font-black text-[#2D2D2D] mb-4">Me contacter</h1>
           <p className="text-[#2D2D2D]/50 text-lg">Une question, un besoin, une inscription ? Je réponds sous 48h.</p>
         </div>
       </section>
@@ -29,7 +29,7 @@ export default function ContactPage() {
         <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12">
           {/* Info */}
           <div>
-            <h2 className="text-2xl font-black text-[#2D2D2D] mb-6" style={{ fontFamily: "var(--font-fredoka), sans-serif", fontWeight: 700 }}>Mes coordonnées</h2>
+            <h2 className="text-2xl font-black text-[#2D2D2D] mb-6">Mes coordonnées</h2>
             <div className="space-y-4 mb-8">
               {[
                 { icon: MapPin, color: "#BB908E", label: "Cours",          val: "En ligne, en visio" },
@@ -56,7 +56,7 @@ export default function ContactPage() {
 
           {/* Formulaire */}
           <div>
-            <h2 className="text-2xl font-black text-[#2D2D2D] mb-6" style={{ fontFamily: "var(--font-fredoka), sans-serif", fontWeight: 700 }}>Envoyer un message</h2>
+            <h2 className="text-2xl font-black text-[#2D2D2D] mb-6">Envoyer un message</h2>
             {sent ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <div className="w-20 h-20 rounded-full flex items-center justify-center mb-4 animate-bounce-in" style={{ background: "#6B705C" + "20" }}>

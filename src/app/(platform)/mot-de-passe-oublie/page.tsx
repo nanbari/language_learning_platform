@@ -42,7 +42,7 @@ export default function ForgotPasswordPage() {
     <AuthShell title="Mot de passe oublié" subtitle="Recevez un lien pour choisir un nouveau mot de passe">
       {sent ? (
         <div role="status" className="flex flex-col items-center gap-4 text-center">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-ms-primary-soft text-ms-primary">
+          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-ms-primary-soft text-ms-ink">
             <MailCheck size={24} strokeWidth={1.75} aria-hidden="true" />
           </span>
           <h2 className="text-xl font-semibold leading-7">Vérifiez votre boîte mail</h2>

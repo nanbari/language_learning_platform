@@ -158,7 +158,7 @@ export function SoundUnlock({ className = "" }: { className?: string }) {
   const blocked = useSyncExternalStore(subscribeBlocked, () => blockedTiles, () => 0);
   if (blocked <= 0) return null;
   return (
-    <button type="button" data-variant="primary" className={`ms-button ${className}`}>
+    <button type="button" data-variant="primary" data-accent="slate" className={`ms-button ${className}`}>
       <Volume2 size={20} strokeWidth={STROKE} aria-hidden="true" /> Activer le son
     </button>
   );

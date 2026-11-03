@@ -2,7 +2,7 @@
 import { motion } from "framer-motion";
 
 // Teintes de la charte graphique.
-const CONFETTI_COLORS = ["#BB908E", "#CCB9B5", "#8BA3B1", "#6B705C", "#999B84", "#7B868E"];
+const CONFETTI_COLORS = ["#BB908E", "#CCB9B5", "#8BA3B1", "#999B84", "#7B868E"];
 
 /**
  * Pluie de confettis d'une réussite — cours en direct comme exercices de la

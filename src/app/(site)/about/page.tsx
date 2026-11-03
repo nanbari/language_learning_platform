@@ -30,7 +30,7 @@ export default function AboutPage() {
       <section className="bg-[#F5EEE8] py-16 px-4">
         <div className="max-w-4xl mx-auto text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/70" style={{ color: "#6B705C" }}><Sprout size={30} strokeWidth={1.75} aria-hidden="true" /></div>
-          <h1 className="text-4xl font-black text-[#2D2D2D] mb-4" style={{ fontFamily: "var(--font-fredoka), sans-serif", fontWeight: 700 }}>
+          <h1 className="text-4xl font-black text-[#2D2D2D] mb-4">
             Notre approche
           </h1>
           <p className="text-[#2D2D2D]/55 text-lg max-w-2xl mx-auto leading-relaxed">
@@ -44,7 +44,7 @@ export default function AboutPage() {
         <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 items-center">
           <div>
             <div className="inline-block rounded-full px-4 py-1 text-sm font-semibold mb-4 text-white" style={{ background: "#CCB9B5" }}>Ma mission</div>
-            <h2 className="text-3xl font-black text-[#2D2D2D] mb-4" style={{ fontFamily: "var(--font-fredoka), sans-serif", fontWeight: 700 }}>
+            <h2 className="text-3xl font-black text-[#2D2D2D] mb-4">
               Rendre la langue accessible à chaque enfant
             </h2>
             <p className="text-[#2D2D2D]/55 leading-relaxed mb-4">
@@ -75,7 +75,7 @@ export default function AboutPage() {
       {/* Parcours de l'élève */}
       <section className="py-16 px-4 bg-[#F5EEE8]">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-black text-center text-[#2D2D2D] mb-3" style={{ fontFamily: "var(--font-fredoka), sans-serif", fontWeight: 700 }}>Comment ça se passe</h2>
+          <h2 className="text-3xl font-black text-center text-[#2D2D2D] mb-3">Comment ça se passe</h2>
           <p className="text-center text-[#2D2D2D]/50 mb-10">Un accompagnement en quatre temps, du premier contact au suivi régulier.</p>
           <div className="space-y-6">
             {steps.map(({ title, desc, color }) => (

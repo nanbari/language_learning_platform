@@ -645,7 +645,7 @@ function BravoSlide() {
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ type: "spring", stiffness: 140, damping: 10 }}
-        className="text-[14vmin] font-black text-ms-primary"
+        className="text-[14vmin] font-black text-ms-ink"
         style={ARABIC_FONT}
       >
         أَحْسَنْتُمْ

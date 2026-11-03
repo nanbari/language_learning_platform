@@ -43,7 +43,7 @@ function SessionPanel({ classes, lessons }: { classes: ClassRow[] | null; lesson
         {classes === null ? "…" : plural(classes.length, "classe")} · {lessons === null ? "…" : plural(lessons.length, "leçon")}
       </p>
       <div className="mt-auto flex flex-wrap gap-2">
-        <ButtonLink href="/teacher/present" variant="primary">
+        <ButtonLink href="/teacher/present" variant="primary" accent="slate">
           <Presentation size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Préparer une séance
         </ButtonLink>
         <ButtonLink href="/teacher/classes" variant="secondary">
@@ -159,7 +159,7 @@ function TeacherPageInner() {
             <h1 className="text-[1.75rem] leading-9 lg:text-[2rem] lg:leading-10 font-semibold tracking-[-0.02em]">Tableau de bord</h1>
             {firstName && <p className="mt-1 text-ms-muted">Bonjour, {firstName}</p>}
           </div>
-          <ButtonLink href="/teacher/create" variant="primary">
+          <ButtonLink href="/teacher/create" variant="primary" accent="blush">
             <Plus size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Créer une leçon
           </ButtonLink>
         </header>
@@ -187,7 +187,7 @@ function TeacherPageInner() {
               <EmptyState
                 title="Préparez votre première leçon"
                 text="Ajoutez une activité, puis associez la leçon à une classe."
-                action={<ButtonLink href="/teacher/create" variant="primary">Créer une leçon</ButtonLink>}
+                action={<ButtonLink href="/teacher/create" variant="primary" accent="blush">Créer une leçon</ButtonLink>}
               />
             )}
             {lessons && lessons.length > 0 && (

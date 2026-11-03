@@ -26,7 +26,7 @@ const LetterExercise = dynamic(() => import("@/components/lesson/LetterExercise"
   loading: () => <div className="ms-skeleton h-72 w-full rounded-3xl" aria-busy="true" aria-label="Chargement de l'exercice" />,
 });
 import { STUDENT_ICON } from "@/components/student/StudentShell";
-import { ACCENT_DEEP_HEX, accentAt, type Accent } from "@/components/student/accents";
+import { ACCENT_PASTEL_HEX, accentAt, accentButton, type Accent } from "@/components/student/accents";
 
 type Phase =
   | { kind: "loading" }
@@ -55,7 +55,7 @@ function StateTile({ icon: Icon, accent, tone = "accent" }: { icon: LucideIcon; 
   return (
     <span
       className={`flex h-24 w-24 items-center justify-center rounded-[1.75rem] ${tone === "error" ? "bg-ms-danger-soft text-ms-danger" : ""}`}
-      style={tone === "error" ? undefined : { background: accent.soft, color: accent.deep }}
+      style={tone === "error" ? undefined : { background: accent.soft, color: "var(--ms-ink)" }}
     >
       <Icon size={48} strokeWidth={tone === "error" ? 1.75 : 2} aria-hidden="true" />
     </span>
@@ -111,12 +111,12 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
   const title = lesson && lesson !== "loading" ? lesson.title : "";
   // Les exercices attendent une couleur littérale qui porte du texte blanc : la teinte profonde.
-  const color = ACCENT_DEEP_HEX[accent.name];
+  const color = ACCENT_PASTEL_HEX[accent.name];
 
   const nav = (
     <div className="sticky top-0 z-40 border-b border-ms-line bg-ms-surface">
       <div className="mx-auto flex min-h-20 max-w-[66rem] items-center gap-3 px-4 sm:px-6">
-        <Link href="/student" data-variant="quiet" className="ms-button -ms-3 shrink-0" style={{ color: accent.deep }}>
+        <Link href="/student" data-variant="quiet" className="ms-button -ms-3 shrink-0" style={{ color: "var(--ms-ink)" }}>
           <ArrowLeft size={STUDENT_ICON} strokeWidth={1.75} aria-hidden="true" /> Mes leçons
         </Link>
         <p className="min-w-0 flex-1 truncate text-end text-lg font-extrabold">
@@ -164,7 +164,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         <button type="button" onClick={generate} data-variant="secondary" className="ms-button flex-1">
           <RefreshCw size={STUDENT_ICON} strokeWidth={1.75} aria-hidden="true" /> Réessayer
         </button>
-        <Link href="/student" data-variant="primary" className="ms-button flex-1" style={{ background: accent.deep }}>
+        <Link href="/student" data-variant="primary" className="ms-button flex-1" style={accentButton(accent)}>
           Retour à mes leçons
         </Link>
       </div>
@@ -184,7 +184,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
           )}
         </p>
       </div>
-      <button type="button" onClick={generate} data-variant="primary" className="ms-button w-full" style={{ background: accent.deep }}>
+      <button type="button" onClick={generate} data-variant="primary" className="ms-button w-full" style={accentButton(accent)}>
         Commencer la révision
       </button>
     </>);
@@ -211,7 +211,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         <Link href={`/student/lesson/${id}`} data-variant="secondary" className="ms-button flex-1">
           Rejouer la leçon
         </Link>
-        <Link href="/student" data-variant="primary" className="ms-button flex-1" style={{ background: accent.deep }}>
+        <Link href="/student" data-variant="primary" className="ms-button flex-1" style={accentButton(accent)}>
           Choisir une autre leçon
         </Link>
       </div>
@@ -229,7 +229,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         <Link href={`/student/lesson/${id}`} data-variant="secondary" className="ms-button flex-1">
           Rejouer la leçon
         </Link>
-        <Link href="/student" data-variant="primary" className="ms-button flex-1" style={{ background: accent.deep }}>
+        <Link href="/student" data-variant="primary" className="ms-button flex-1" style={accentButton(accent)}>
           Retour à mes leçons
         </Link>
       </div>
@@ -245,7 +245,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         <p className="mt-1 text-xl font-semibold text-ms-muted [overflow-wrap:anywhere]">{title}</p>
       </div>
       {/* Ce que l'élève vient de faire, en vrai : le nombre d'exercices rejoués. */}
-      <p className="rounded-2xl px-5 py-3 text-lg font-bold tabular-nums" style={{ background: accent.soft, color: accent.deep }}>
+      <p className="rounded-2xl px-5 py-3 text-lg font-bold tabular-nums" style={{ background: accent.soft, color: "var(--ms-ink)" }}>
         {count} exercice{count > 1 ? "s" : ""} rejoué{count > 1 ? "s" : ""}
       </p>
       <p className="text-ms-muted">Tu peux revenir quand tu veux.</p>
@@ -253,7 +253,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
         <button type="button" onClick={generate} data-variant="secondary" className="ms-button flex-1">
           <RefreshCw size={STUDENT_ICON} strokeWidth={1.75} aria-hidden="true" /> Encore une fois
         </button>
-        <Link href="/student" data-variant="primary" className="ms-button flex-1" style={{ background: accent.deep }}>
+        <Link href="/student" data-variant="primary" className="ms-button flex-1" style={accentButton(accent)}>
           Choisir une autre leçon
         </Link>
       </div>
@@ -318,7 +318,7 @@ export default function PracticePage({ params }: { params: Promise<{ id: string 
 
           {ex.type !== "quiz" && ex.type !== "wordorder" && ex.type !== "letterGame" && (
             <div className="flex justify-center">
-              <button type="button" onClick={advance} data-variant="primary" className="ms-button min-w-48" style={{ background: accent.deep }}>
+              <button type="button" onClick={advance} data-variant="primary" className="ms-button min-w-48" style={accentButton(accent)}>
                 Continuer
               </button>
             </div>

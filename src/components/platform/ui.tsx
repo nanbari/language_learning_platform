@@ -10,13 +10,14 @@ import { AlertCircle, Info } from "lucide-react";
 export const ICON_STROKE = 1.75;
 
 type Variant = "primary" | "secondary" | "quiet" | "danger";
+type Accent = "slate" | "blush";
 
-export function Button({ variant = "secondary", className = "", ...props }: ComponentProps<"button"> & { variant?: Variant }) {
-  return <button type="button" {...props} data-variant={variant} className={`ms-button ${className}`} />;
+export function Button({ variant = "secondary", accent, className = "", ...props }: ComponentProps<"button"> & { variant?: Variant; accent?: Accent }) {
+  return <button type="button" {...props} data-variant={variant} data-accent={accent} className={`ms-button ${className}`} />;
 }
 
-export function ButtonLink({ variant = "secondary", className = "", ...props }: ComponentProps<typeof Link> & { variant?: Variant }) {
-  return <Link {...props} data-variant={variant} className={`ms-button ${className}`} />;
+export function ButtonLink({ variant = "secondary", accent, className = "", ...props }: ComponentProps<typeof Link> & { variant?: Variant; accent?: Accent }) {
+  return <Link {...props} data-variant={variant} data-accent={accent} className={`ms-button ${className}`} />;
 }
 
 export type PillState = "success" | "neutral" | "review" | "info" | "outline" | "error";

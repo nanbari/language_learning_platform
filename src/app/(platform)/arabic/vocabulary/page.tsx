@@ -7,7 +7,8 @@ import StudentShell, { STUDENT_ICON } from "@/components/student/StudentShell";
 import { ThemeArt } from "@/components/student/ThemeArt";
 import { VocabPicture } from "@/components/student/VocabPicture";
 import { INSTRUCTION_ID, loadVocabSounds, playVocabSound, type VocabSounds } from "@/lib/vocabSound";
-import { accentAt } from "@/components/student/accents";
+import { accentAt, accentButton } from "@/components/student/accents";
+import { LazyConfetti } from "@/components/LazyConfetti";
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -75,7 +76,7 @@ export default function VocabularyPage() {
     return (
       <StudentShell>
         <div className="flex flex-col gap-8">
-          <Link href="/arabic" data-variant="quiet" className="ms-button -ms-3 self-start text-ms-primary">
+          <Link href="/arabic" data-variant="quiet" className="ms-button -ms-3 self-start text-ms-ink">
             <ArrowLeft size={STUDENT_ICON} strokeWidth={1.75} aria-hidden="true" /> Apprends l&apos;arabe
           </Link>
 
@@ -126,7 +127,7 @@ export default function VocabularyPage() {
     <StudentShell>
       <div className="mx-auto flex w-full max-w-[52rem] flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <button type="button" onClick={() => setPhase("themes")} data-variant="quiet" className="ms-button -ms-3 text-ms-primary">
+          <button type="button" onClick={() => setPhase("themes")} data-variant="quiet" className="ms-button -ms-3 text-ms-ink">
             <ArrowLeft size={STUDENT_ICON} strokeWidth={1.75} aria-hidden="true" /> Thèmes
           </button>
           <div className="flex min-w-0 items-center gap-3">
@@ -147,7 +148,7 @@ export default function VocabularyPage() {
           </h1>
           <p className="text-lg font-semibold text-ms-muted">Où est {target.french}&nbsp;?</p>
           {hasAudio && (
-            <button type="button" onClick={playAudio} data-variant="primary" className="ms-button min-w-44" style={{ background: accent.deep }}>
+            <button type="button" onClick={playAudio} data-variant="primary" className="ms-button min-w-44" style={accentButton(accent)}>
               <Volume2 size={STUDENT_ICON} strokeWidth={1.75} aria-hidden="true" /> Écouter
             </button>
           )}
@@ -185,7 +186,7 @@ export default function VocabularyPage() {
                   <span lang="ar" dir="rtl" className="ms-arabic ms-answer-glyph text-xl">{word.arabic}</span>
                 )}
                 {state === "found" && (
-                  <span className="absolute end-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-ms-primary text-ms-on-primary">
+                  <span className="absolute end-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-ms-blush text-ms-ink">
                     <Check size={22} strokeWidth={2.5} aria-hidden="true" />
                   </span>
                 )}
@@ -199,12 +200,10 @@ export default function VocabularyPage() {
           {selected && (
             <>
               {isCorrect ? (
-                <p className="flex items-center justify-center gap-3 text-xl font-bold leading-7">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-ms-primary-soft text-ms-primary">
-                    <Check size={22} strokeWidth={2.5} aria-hidden="true" />
-                  </span>
-                  <span className="text-ms-primary">Tu as trouvé.</span>
-                </p>
+                <>
+                  <LazyConfetti />
+                  <p className="sr-only">Tu as trouvé.</p>
+                </>
               ) : (
                 <div>
                   <p className="text-xl font-bold leading-7 text-ms-muted">Voici la bonne image.</p>
@@ -214,7 +213,7 @@ export default function VocabularyPage() {
                   </p>
                 </div>
               )}
-              <button type="button" onClick={next} data-variant="primary" className="ms-button min-w-60" style={{ background: accent.deep }}>
+              <button type="button" onClick={next} data-variant="primary" className="ms-button min-w-60" style={accentButton(accent)}>
                 Question suivante <ChevronRight size={STUDENT_ICON} strokeWidth={1.75} aria-hidden="true" />
               </button>
             </>

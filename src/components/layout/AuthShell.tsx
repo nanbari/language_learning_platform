@@ -29,9 +29,9 @@ function Logo({ size = "md" }: { size?: "md" | "lg" }) {
 
 /** Ce que la plateforme réunit : une ligne par espace, l'icône en simple repère, sans vignette. */
 const FEATURES: { icon: LucideIcon; text: string }[] = [
-  { icon: BookOpen, text: "Des leçons à suivre à son rythme" },
-  { icon: Radio, text: "Les cours en direct avec l'enseignant" },
-  { icon: LineChart, text: "Le suivi des progrès de chaque élève" },
+  { icon: BookOpen, text: "Des leçons à suivre à mon rythme" },
+  { icon: Radio, text: "Des cours en direct avec l'enseignant" },
+  { icon: LineChart, text: "Un parcours qui s'adapte à mes progrès" },
 ];
 
 function BrandPanel() {
@@ -39,14 +39,11 @@ function BrandPanel() {
     <aside className="hidden min-w-0 flex-col justify-between gap-12 border-e border-ms-line bg-ms-blush-soft p-12 lg:flex xl:p-16">
       <Logo size="lg" />
       <div className="max-w-[28rem]">
-        <p className="text-[2rem] font-semibold leading-10 tracking-[-0.02em]">
-          Apprendre l&apos;arabe, pas à pas.
-        </p>
-        <p className="mt-3 text-ms-muted">L&apos;espace d&apos;apprentissage des élèves et des enseignants de Monte &amp; Souris.</p>
+        <p className="font-display text-[2rem] font-bold leading-10 tracking-[-0.02em]">Mon espace d&apos;apprentissage</p>
         <ul className="mt-10 flex flex-col gap-4">
           {FEATURES.map(({ icon: Icon, text }) => (
             <li key={text} className="flex items-center gap-3 text-lg leading-7">
-              <Icon size={22} strokeWidth={ICON_STROKE} aria-hidden="true" className="shrink-0 text-ms-primary" />
+              <Icon size={22} strokeWidth={ICON_STROKE} aria-hidden="true" className="shrink-0 text-ms-ink" />
               <span className="font-medium">{text}</span>
             </li>
           ))}
@@ -58,7 +55,7 @@ function BrandPanel() {
 }
 
 const DEFAULT_FOOTER = (
-  <Link href="/login" className="inline-flex min-h-11 items-center font-semibold text-ms-primary underline-offset-4 hover:underline">Retour à la connexion</Link>
+  <Link href="/login" className="inline-flex min-h-11 items-center font-semibold text-ms-ink underline-offset-4 hover:underline">Retour à la connexion</Link>
 );
 
 export function AuthShell({ title, subtitle, children, footer = DEFAULT_FOOTER }: {

@@ -1,10 +1,11 @@
 "use client";
 import { useState } from "react";
 import { Check, Volume2 } from "lucide-react";
+import { LazyConfetti } from "@/components/LazyConfetti";
 import type { ArabicLetter } from "@/data/arabicAlphabet";
 import { LetterGlyph } from "@/components/present/LetterTracing";
 import { STUDENT_ICON } from "@/components/student/StudentShell";
-import type { Accent } from "@/components/student/accents";
+import { accentButton, type Accent } from "@/components/student/accents";
 
 /**
  * « Retrouve la lettre », joué seul (leçon ou révision) : l'élève entend la
@@ -14,7 +15,7 @@ import type { Accent } from "@/components/student/accents";
  * Mêmes règles que le jeu du cours en direct (Slides, LetterChoices) : une
  * lettre déjà essayée ne se rejoue pas, la bonne réponse clôt le jeu, chaque
  * essai part dans `onPick`. Seule la présentation change : consigne en
- * français, bouton d'écoute bien visible, retour calme, sans confettis.
+ * français, bouton d'écoute bien visible, confettis à la réussite.
  */
 export function FindLetterStage({ target, choices, accent, onListen, onPick }: {
   target: ArabicLetter;
@@ -50,7 +51,7 @@ export function FindLetterStage({ target, choices, accent, onListen, onPick }: {
           onClick={() => { setListened(true); onListen(); }}
           data-variant="primary"
           className="ms-button min-w-44"
-          style={{ background: accent.deep }}
+          style={accentButton(accent)}
         >
           <Volume2 size={STUDENT_ICON} strokeWidth={1.75} aria-hidden="true" />
           {listened ? "Réécouter" : "Écouter"}
@@ -83,7 +84,7 @@ export function FindLetterStage({ target, choices, accent, onListen, onPick }: {
                 <LetterGlyph char={letter.isolated} className="aspect-square w-full max-w-36" />
               </span>
               {isFound && (
-                <span className="absolute end-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-ms-primary text-ms-on-primary">
+                <span className="absolute end-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-ms-blush text-ms-ink">
                   <Check size={22} strokeWidth={2.5} aria-hidden="true" />
                 </span>
               )}
@@ -93,17 +94,15 @@ export function FindLetterStage({ target, choices, accent, onListen, onPick }: {
       </div>
 
       {/* Zone réservée : le message ne fait pas sauter la page. */}
-      <p aria-live="polite" className="flex min-h-16 items-center justify-center gap-2 text-center text-xl font-bold leading-7">
+      <div aria-live="polite" className="flex min-h-16 items-center justify-center text-center text-xl font-bold leading-7">
         {feedback?.tone === "found" && (
           <>
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-ms-primary-soft text-ms-primary">
-              <Check size={22} strokeWidth={2.5} aria-hidden="true" />
-            </span>
-            <span className="text-ms-primary">{feedback.text}</span>
+            <LazyConfetti />
+            <span className="sr-only">{feedback.text}</span>
           </>
         )}
-        {feedback?.tone === "retry" && <span className="text-ms-muted">{feedback.text}</span>}
-      </p>
+        {feedback?.tone === "retry" && <span className="sr-only">{feedback.text}</span>}
+      </div>
     </div>
   );
 }

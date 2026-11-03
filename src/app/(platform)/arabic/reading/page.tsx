@@ -54,7 +54,7 @@ export default function AlphabetPage() {
   return (
     <StudentShell>
       <div className="flex flex-col gap-8">
-        <Link href="/arabic" data-variant="quiet" className="ms-button -ms-3 self-start text-ms-primary">
+        <Link href="/arabic" data-variant="quiet" className="ms-button -ms-3 self-start text-ms-ink">
           <ArrowLeft size={STUDENT_ICON} strokeWidth={1.75} aria-hidden="true" /> Apprends l&apos;arabe
         </Link>
 

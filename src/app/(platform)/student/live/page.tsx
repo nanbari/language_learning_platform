@@ -95,7 +95,7 @@ function LiveList({ onJoin }: { onJoin: (live: LiveClass) => void }) {
                     type="button"
                     onClick={() => onJoin(live)}
                     aria-describedby={`cours-${live.id}`}
-                    data-variant="primary"
+                    data-variant="primary" data-accent="slate"
                     className="ms-button"
                     style={{ background: "var(--ms-slate-ink)" }}
                   >

@@ -31,7 +31,7 @@ const LetterExercise = dynamic(() => import("@/components/lesson/LetterExercise"
 });
 import { letterPlayDeck } from "@/lib/lessonActivities";
 import { STUDENT_ICON } from "@/components/student/StudentShell";
-import { ACCENT_DEEP_HEX, type Accent } from "@/components/student/accents";
+import { ACCENT_PASTEL_HEX, accentButton, type Accent } from "@/components/student/accents";
 import { playSound, stopSound } from "@/lib/soundPlayer";
 
 export type LessonBlock = ContentBlock | LettersBlock;
@@ -198,7 +198,7 @@ function LettersRenderer({ block, accent, lessonId, preview, onDone }: {
         key={index}
         slide={deck[index]}
         previous={deck[index - 1]}
-        color={ACCENT_DEEP_HEX[accent.name]}
+        color={ACCENT_PASTEL_HEX[accent.name]}
         accent={accent}
         lessonId={lessonId}
         eventId={!preview && isLetterGameSlide(deck[index]) ? letterGameId(block.id, deck[index]) : null}
@@ -245,8 +245,8 @@ export function LessonPlayer({ lesson, accent, home, homeLabel, backLabel, previ
     return () => { cancelled = true; };
   }, [completed, preview, lesson.id]);
 
-  // Les exercices attendent une couleur littérale qui porte du texte blanc : la teinte profonde.
-  const color = ACCENT_DEEP_HEX[accent.name];
+  // Les exercices attendent une couleur littérale : celle du logo, avec un texte foncé dessus.
+  const color = ACCENT_PASTEL_HEX[accent.name];
   const currentBlock = blocks[blockIndex] ?? null;
 
   const exerciseBlocks = blocks.filter((b) => b.type === "exercise");
@@ -262,11 +262,11 @@ export function LessonPlayer({ lesson, accent, home, homeLabel, backLabel, previ
     <div className="bg-ms-surface border-b border-ms-line sticky top-0 z-40">
       <div className="mx-auto flex min-h-20 max-w-[66rem] items-center gap-3 px-4 sm:px-6">
         {preview ? (
-          <span className="inline-flex shrink-0 items-center gap-2 text-base font-bold" style={{ color: accent.deep }}>
+          <span className="inline-flex shrink-0 items-center gap-2 text-base font-bold" style={{ color: "var(--ms-ink)" }}>
             <Eye size={STUDENT_ICON} strokeWidth={1.75} aria-hidden="true" /> Aperçu
           </span>
         ) : (
-          <Link href={home} data-variant="quiet" className="ms-button shrink-0 -ms-3" style={{ color: accent.deep }}>
+          <Link href={home} data-variant="quiet" className="ms-button shrink-0 -ms-3" style={{ color: "var(--ms-ink)" }}>
             <ArrowLeft size={STUDENT_ICON} strokeWidth={1.75} aria-hidden="true" /> {homeLabel}
           </Link>
         )}
@@ -286,7 +286,7 @@ export function LessonPlayer({ lesson, accent, home, homeLabel, backLabel, previ
     body = (
       <main className="flex-1 flex items-center justify-center px-4 py-10">
         <div className="w-full max-w-md flex flex-col items-center gap-6 text-center">
-          <span className="flex h-24 w-24 items-center justify-center rounded-[1.75rem]" style={{ background: accent.soft, color: accent.deep }}>
+          <span className="flex h-24 w-24 items-center justify-center rounded-[1.75rem]" style={{ background: accent.soft, color: "var(--ms-ink)" }}>
             <Check size={48} strokeWidth={2} aria-hidden="true" />
           </span>
           <div>
@@ -298,7 +298,7 @@ export function LessonPlayer({ lesson, accent, home, homeLabel, backLabel, previ
             <p aria-live="polite" className="text-lg font-bold">
               {resultsFailed ? <span className="font-semibold text-ms-muted">Tes résultats ne sont pas disponibles pour le moment.</span>
                 : toReview === null ? <span className="font-semibold text-ms-muted">Un instant…</span>
-                : toReview === 0 ? <span className="text-ms-primary">Tu as tout réussi.</span>
+                : toReview === 0 ? <span className="text-ms-ink">Tu as tout réussi.</span>
                 : <span className="text-ms-blush-ink">{toReview} exercice{toReview > 1 ? "s" : ""} à revoir.</span>}
             </p>
           )}
@@ -310,11 +310,11 @@ export function LessonPlayer({ lesson, accent, home, homeLabel, backLabel, previ
           <p className="text-ms-muted">{preview ? "Fin de l'aperçu." : "Tu peux rejouer cette leçon ou en choisir une autre."}</p>
           <div className="flex w-full flex-col gap-3 sm:flex-row">
             <button type="button" onClick={restart} data-variant={preview ? "primary" : "secondary"} className="ms-button flex-1"
-              style={preview ? { background: accent.deep } : undefined}>
+              style={preview ? accentButton(accent) : undefined}>
               Rejouer
             </button>
             {!preview && (
-              <Link href={home} data-variant="primary" className="ms-button flex-1" style={{ background: accent.deep }}>
+              <Link href={home} data-variant="primary" className="ms-button flex-1" style={accentButton(accent)}>
                 {home === "/student" ? "Choisir une autre leçon" : backLabel}
               </Link>
             )}
@@ -371,7 +371,7 @@ export function LessonPlayer({ lesson, accent, home, homeLabel, backLabel, previ
         {ex.type !== "wordorder" && (
           <div className="text-center mb-6">
             <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-base font-bold mb-3"
-              style={{ background: accent.soft, color: accent.deep }}>
+              style={{ background: accent.soft, color: "var(--ms-ink)" }}>
               {ex.type === "quiz" ? <><CircleHelp size={20} strokeWidth={1.75} aria-hidden="true" /> Quiz</>
                 : ex.type === "matching" ? <><Link2 size={20} strokeWidth={1.75} aria-hidden="true" /> Appariement</>
                 : <><LayoutGrid size={20} strokeWidth={1.75} aria-hidden="true" /> Tri</>}

@@ -93,7 +93,7 @@ export default function RequestInbox() {
       <Category
         title="Inscriptions des familles"
         items={enrollments}
-        help={<>Envoyées depuis le formulaire <Link href="/demande-inscription" className="font-semibold text-ms-primary underline underline-offset-2">demande d&apos;inscription</Link>. Recontactez la famille, puis marquez la demande comme traitée.</>}
+        help={<>Envoyées depuis le formulaire <Link href="/demande-inscription" className="font-semibold text-ms-ink underline underline-offset-2">demande d&apos;inscription</Link>. Recontactez la famille, puis marquez la demande comme traitée.</>}
       >
         {enrollments === "error" && <InlineNotice tone="error">Les demandes d&apos;inscription n&apos;ont pas pu être chargées. Rechargez la page.</InlineNotice>}
         {Array.isArray(enrollments) && enrollments.length > 0 && (
@@ -106,10 +106,10 @@ export default function RequestInbox() {
                   </p>
                   <p className="text-ms-muted">{r.parent_name} · {relativeDay(r.created_at)}</p>
                   <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                    <a href={`mailto:${r.email}`} className="inline-flex min-h-11 items-center gap-1.5 [overflow-wrap:anywhere] text-ms-primary underline-offset-2 hover:underline">
+                    <a href={`mailto:${r.email}`} className="inline-flex min-h-11 items-center gap-1.5 [overflow-wrap:anywhere] text-ms-ink underline-offset-2 hover:underline">
                       <Mail size={16} strokeWidth={ICON_STROKE} aria-hidden="true" /> {r.email}
                     </a>
-                    <a href={`tel:${r.phone.replace(/[^\d+]/g, "")}`} className="inline-flex min-h-11 items-center gap-1.5 text-ms-primary underline-offset-2 hover:underline">
+                    <a href={`tel:${r.phone.replace(/[^\d+]/g, "")}`} className="inline-flex min-h-11 items-center gap-1.5 text-ms-ink underline-offset-2 hover:underline">
                       <Phone size={16} strokeWidth={ICON_STROKE} aria-hidden="true" /> {r.phone}
                     </a>
                   </p>

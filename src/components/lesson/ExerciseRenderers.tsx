@@ -7,8 +7,8 @@
  * lessonId / blockId reçus, quelle que soit la page qui l’affiche.
  *
  * Présentation de l'espace élève (data-ms-area="student") : cibles de
- * 64 px, retour calme (« Tu as trouvé. » / « Tu peux réessayer. »), sans
- * confettis ni tremblement. `color` est une teinte profonde qui porte du
+ * 64 px, retour sans message : confettis à la réussite, tremblement de la
+ * réponse essayée à l'échec (comme les jeux de lettres du cours en direct). `color` est une teinte profonde qui porte du
  * texte blanc (voir accents.ts).
  */
 import { useState, useEffect, useCallback, type ReactNode } from "react";
@@ -16,6 +16,7 @@ import { ArrowLeftRight, Check, ChevronRight, ImageOff, Volume2 } from "lucide-r
 import { useExerciseTracker } from "@/hooks/useExerciseTracker";
 import { LessonImage } from "@/components/platform/LessonImage";
 import { playSound, stopSound } from "@/lib/soundPlayer";
+import { LazyConfetti } from "@/components/LazyConfetti";
 
 /* ── Types ── */
 export interface QuizOption { id: string; text: string; imageDataUrl?: string; }
@@ -51,20 +52,20 @@ const ARABIC_RE = /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/;
 const isArabic = (text: string) => ARABIC_RE.test(text);
 const ARABIC_TEXT = "ms-arabic text-[1.75rem]";
 
-/** Message de retour, dans une zone réservée pour que la page ne saute pas. */
+/** Retour de l'exercice, dans une zone réservée pour que la page ne saute pas.
+    Rien de visible : confettis à la réussite, tremblement à l'échec (voir
+    .ms-shake) ; le texte reste pour les lecteurs d'écran. */
 function Feedback({ state, retryText }: { state: "none" | "found" | "retry"; retryText: string }) {
   return (
-    <p aria-live="polite" className="flex min-h-16 items-center justify-center gap-3 text-center text-xl font-bold leading-7">
+    <div aria-live="polite" className="flex min-h-16 items-center justify-center text-center text-xl font-bold leading-7">
       {state === "found" && (
         <>
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ms-primary-soft text-ms-primary">
-            <Check size={22} strokeWidth={2.5} aria-hidden="true" />
-          </span>
-          <span className="text-ms-primary">Tu as trouvé.</span>
+          <LazyConfetti />
+          <span className="sr-only">Tu as trouvé.</span>
         </>
       )}
-      {state === "retry" && <span className="text-ms-muted">{retryText}</span>}
-    </p>
+      {state === "retry" && <span className="sr-only">{retryText}</span>}
+    </div>
   );
 }
 
@@ -72,7 +73,7 @@ function Feedback({ state, retryText }: { state: "none" | "found" | "retry"; ret
 function ListenButton({ onClick, label, ariaLabel, color }: { onClick: () => void; label: string; ariaLabel: string; color?: string }) {
   return (
     <button type="button" onClick={onClick} aria-label={ariaLabel} data-variant={color ? "primary" : "secondary"}
-      className="ms-button min-w-44 shrink-0" style={color ? { background: color } : undefined}>
+      className="ms-button min-w-44 shrink-0" style={color ? { background: color, color: "var(--ms-ink)" } : undefined}>
       <Volume2 size={ICON} strokeWidth={STROKE} aria-hidden="true" />
       {label}
     </button>
@@ -85,7 +86,7 @@ function PrimaryAction({ color, disabled, onClick, children }: {
 }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled} data-variant="primary"
-      className="ms-button w-full" style={disabled ? undefined : { background: color }}>
+      className="ms-button w-full" style={disabled ? undefined : { background: color, color: "var(--ms-ink)" }}>
       {children}
     </button>
   );
@@ -189,7 +190,7 @@ export function QuizRenderer({ ex, color, onNext, idx, total, lessonId, blockId 
                   </span>
                 )}
                 {state === "found" && (
-                  <span className="absolute end-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-ms-primary text-ms-on-primary">
+                  <span className="absolute end-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-ms-blush text-ms-ink">
                     <Check size={22} strokeWidth={2.5} aria-hidden="true" />
                   </span>
                 )}
@@ -203,7 +204,7 @@ export function QuizRenderer({ ex, color, onNext, idx, total, lessonId, blockId 
           {ex.options.map((opt) => {
             const state = stateOf(opt.id);
             const cls =
-              state === "found" ? "border-ms-primary bg-ms-primary-soft"
+              state === "found" ? "border-ms-blush bg-ms-blush-soft"
               : state === "tried" ? "border-dashed border-ms-line bg-ms-surface-muted text-ms-muted"
               : "border-ms-control bg-ms-surface [@media(hover:hover)]:hover:border-ms-primary";
             return (
@@ -211,7 +212,7 @@ export function QuizRenderer({ ex, color, onNext, idx, total, lessonId, blockId 
                 data-state={state} aria-label={labelOf(opt)}
                 className={`flex min-h-16 w-full items-center gap-4 rounded-[1.25rem] border-2 px-5 py-3 text-start text-lg font-bold leading-7 transition-colors duration-[140ms] disabled:cursor-default ${cls}`}>
                 <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                  state === "found" ? "bg-ms-primary text-ms-on-primary" : "border-2 border-ms-control"
+                  state === "found" ? "bg-ms-blush text-ms-ink" : "border-2 border-ms-control"
                 }`} aria-hidden="true">
                   {state === "found" && <Check size={22} strokeWidth={2.5} />}
                 </span>
@@ -349,8 +350,8 @@ export function WordOrderRenderer({ ex, color, onNext, lessonId, blockId }: {
         aria-label="Ta phrase"
         dir={isRTL ? "rtl" : "ltr"}
         className={`flex min-h-24 flex-wrap items-center gap-3 rounded-[1.25rem] border-2 p-3 transition-colors duration-[180ms] sm:p-4 ${
-          feedback === "correct" ? "border-ms-primary bg-ms-primary-soft" : "border-dashed border-ms-control bg-ms-canvas"
-        }`}
+          feedback === "correct" ? "border-ms-blush bg-ms-blush-soft" : "border-dashed border-ms-control bg-ms-canvas"
+        } ${feedback === "wrong" ? "ms-shake" : ""}`}
       >
         {chosen.length === 0 ? (
           <span dir="ltr" className="mx-auto text-ms-muted">Touche les mots ci-dessous.</span>
@@ -360,7 +361,7 @@ export function WordOrderRenderer({ ex, color, onNext, lessonId, blockId }: {
               disabled={feedback === "correct"}
               {...wordLang}
               aria-label={`${c.word}, retirer`}
-              className={`min-h-16 min-w-16 rounded-2xl px-5 py-2 text-ms-on-primary disabled:cursor-default ${wordClass}`}
+              className={`min-h-16 min-w-16 rounded-2xl px-5 py-2 text-ms-ink disabled:cursor-default ${wordClass}`}
               style={{ background: color }}>
               {c.word}
             </button>

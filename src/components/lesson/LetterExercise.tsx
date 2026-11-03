@@ -92,7 +92,7 @@ export function LetterExercise({ slide, previous, color, accent = accentAt(0), l
           {canReplay && (
             <button onClick={() => announce(slide)}
               title={listenOnly ? "Réécouter le son" : "Réécouter la question"}
-              className={`${listenOnly ? "w-16 h-16" : "w-11 h-11"} shrink-0 rounded-full flex items-center justify-center text-white shadow hover:scale-105 transition-all`}
+              className={`${listenOnly ? "w-16 h-16" : "w-11 h-11"} shrink-0 rounded-full flex items-center justify-center text-ms-ink shadow hover:scale-105 transition-all`}
               style={{ background: color }}>
               <Volume2 size={listenOnly ? 28 : 20} />
             </button>
