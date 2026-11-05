@@ -39,8 +39,37 @@ function LevelDetails({ r }: { r: EnrollmentRow }) {
 /** null = chargement ; "error" = échec du chargement (à ne pas confondre avec une liste vide). */
 type Loaded<T> = T[] | null | "error";
 
-function Category({ title, help, items, children }: {
-  title: string; help: React.ReactNode; items: Loaded<unknown>; children: React.ReactNode;
+/** Une demande d'inscription : l'enfant, ce que la famille a dit de son niveau, les coordonnées. */
+function EnrollmentItem({ r, children }: { r: EnrollmentRow; children?: React.ReactNode }) {
+  return (
+    <li className="flex flex-col gap-3 p-3 sm:flex-row sm:items-start">
+      <div className="min-w-0 flex-1 text-sm">
+        <p className="font-semibold">
+          {r.child_name}, {r.child_age} ans <span className="font-normal text-ms-muted">· {LEVEL_LABELS[r.level].title}</span>
+        </p>
+        <LevelDetails r={r} />
+        <p className="text-ms-muted">
+          {r.parent_name} · {relativeDay(r.created_at)}
+          {r.handled_at && <> · traitée {relativeDay(r.handled_at).toLowerCase()}</>}
+        </p>
+        <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+          <a href={`mailto:${r.email}`} className="inline-flex min-h-11 items-center gap-1.5 [overflow-wrap:anywhere] text-ms-ink underline-offset-2 hover:underline">
+            <Mail size={16} strokeWidth={ICON_STROKE} aria-hidden="true" /> {r.email}
+          </a>
+          <a href={`tel:${r.phone.replace(/[^\d+]/g, "")}`} className="inline-flex min-h-11 items-center gap-1.5 text-ms-ink underline-offset-2 hover:underline">
+            <Phone size={16} strokeWidth={ICON_STROKE} aria-hidden="true" /> {r.phone}
+          </a>
+        </p>
+      </div>
+      {children}
+    </li>
+  );
+}
+
+function Category({ title, help, items, done = false, children }: {
+  title: string; help: React.ReactNode; items: Loaded<unknown>;
+  /** Liste d'archives : le compteur ne parle pas d'attente. */
+  done?: boolean; children: React.ReactNode;
 }) {
   const count = Array.isArray(items) ? items.length : 0;
   return (
@@ -51,7 +80,7 @@ function Category({ title, help, items, children }: {
         {items === null && <span className="text-sm text-ms-muted">Chargement…</span>}
         {items === "error" && <StatusPill state="error">Non chargé</StatusPill>}
         {Array.isArray(items) && (count > 0
-          ? <StatusPill state="review">{count} en attente</StatusPill>
+          ? (done ? <span className="text-sm text-ms-muted">{count}</span> : <StatusPill state="review">{count} en attente</StatusPill>)
           : <span className="text-sm text-ms-muted">Aucune</span>)}
       </summary>
       <div className="px-4 pb-4 sm:px-5">
@@ -69,12 +98,16 @@ function Category({ title, help, items, children }: {
  */
 export default function RequestInbox() {
   const [enrollments, setEnrollments] = useState<Loaded<EnrollmentRow>>(null);
+  // Demandes déjà traitées : l'historique des familles reste sous la main.
+  const [handled, setHandled] = useState<Loaded<EnrollmentRow>>(null);
   const [signups, setSignups] = useState<Loaded<SignupRequestRow>>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: "info" | "error"; text: string } | null>(null);
 
   useEffect(() => {
-    fetchEnrollments().then(setEnrollments).catch(() => setEnrollments("error"));
+    fetchEnrollments()
+      .then((r) => { setEnrollments(r.pending); setHandled(r.handled); })
+      .catch(() => { setEnrollments("error"); setHandled("error"); });
     fetchSignupRequests().then((r) => setSignups(r.pending)).catch(() => setSignups("error"));
   }, []);
 
@@ -93,7 +126,8 @@ export default function RequestInbox() {
   const handleEnrollment = (id: string) => run(id, async () => {
     const done = await markEnrollmentHandled(id);
     setEnrollments((prev) => (Array.isArray(prev) ? prev.filter((r) => r.id !== id) : prev));
-    return `Demande de ${done.parent_name} pour ${done.child_name} marquée comme traitée.`;
+    setHandled((prev) => (Array.isArray(prev) ? [done, ...prev] : [done]));
+    return `Demande de ${done.parent_name} pour ${done.child_name} marquée comme traitée. Elle reste consultable dans « Demandes traitées ».`;
   });
 
   const decide = (id: string, action: "approve" | "reject") => run(id, async () => {
@@ -126,27 +160,26 @@ export default function RequestInbox() {
         {Array.isArray(enrollments) && enrollments.length > 0 && (
           <ul className="divide-y divide-ms-line rounded-xl border border-ms-line">
             {enrollments.map((r) => (
-              <li key={r.id} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-start">
-                <div className="min-w-0 flex-1 text-sm">
-                  <p className="font-semibold">
-                    {r.child_name}, {r.child_age} ans <span className="font-normal text-ms-muted">· {LEVEL_LABELS[r.level].title}</span>
-                  </p>
-                  <LevelDetails r={r} />
-                  <p className="text-ms-muted">{r.parent_name} · {relativeDay(r.created_at)}</p>
-                  <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                    <a href={`mailto:${r.email}`} className="inline-flex min-h-11 items-center gap-1.5 [overflow-wrap:anywhere] text-ms-ink underline-offset-2 hover:underline">
-                      <Mail size={16} strokeWidth={ICON_STROKE} aria-hidden="true" /> {r.email}
-                    </a>
-                    <a href={`tel:${r.phone.replace(/[^\d+]/g, "")}`} className="inline-flex min-h-11 items-center gap-1.5 text-ms-ink underline-offset-2 hover:underline">
-                      <Phone size={16} strokeWidth={ICON_STROKE} aria-hidden="true" /> {r.phone}
-                    </a>
-                  </p>
-                </div>
+              <EnrollmentItem key={r.id} r={r}>
                 <Button variant="primary" onClick={() => handleEnrollment(r.id)} disabled={busy === r.id}>
                   <Check size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> {busy === r.id ? "Enregistrement…" : "Marquer traitée"}
                 </Button>
-              </li>
+              </EnrollmentItem>
             ))}
+          </ul>
+        )}
+      </Category>
+
+      <Category
+        title="Demandes traitées"
+        items={handled}
+        done
+        help="Les familles déjà recontactées, les plus récentes d'abord : niveau, lettres connues, vocabulaire et coordonnées restent consultables."
+      >
+        {handled === "error" && <InlineNotice tone="error">Les demandes traitées n&apos;ont pas pu être chargées. Rechargez la page.</InlineNotice>}
+        {Array.isArray(handled) && handled.length > 0 && (
+          <ul className="divide-y divide-ms-line rounded-xl border border-ms-line">
+            {handled.map((r) => <EnrollmentItem key={r.id} r={r} />)}
           </ul>
         )}
       </Category>

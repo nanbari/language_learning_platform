@@ -13,10 +13,9 @@ export async function submitEnrollment(input: EnrollmentInput & { website: strin
   }));
 }
 
-/** Demandes à traiter (admin). */
-export async function fetchEnrollments(): Promise<EnrollmentRow[]> {
-  const { pending } = await jsonOrThrow<{ pending: EnrollmentRow[] }>(await fetch("/api/admin/enrollments", { cache: "no-store" }));
-  return pending;
+/** Demandes à traiter et demandes déjà traitées (admin). */
+export async function fetchEnrollments(): Promise<{ pending: EnrollmentRow[]; handled: EnrollmentRow[] }> {
+  return jsonOrThrow<{ pending: EnrollmentRow[]; handled: EnrollmentRow[] }>(await fetch("/api/admin/enrollments", { cache: "no-store" }));
 }
 
 /** Marque une demande comme traitée (admin). */
