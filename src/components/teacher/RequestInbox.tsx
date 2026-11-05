@@ -5,9 +5,36 @@ import { Check, ChevronDown, Inbox, Mail, Phone, X } from "lucide-react";
 import { fetchSignupRequests, reviewSignupRequest } from "@/lib/api/signup";
 import type { SignupRequestRow } from "@/lib/signup";
 import { fetchEnrollments, markEnrollmentHandled } from "@/lib/api/enrollment";
-import { LEVEL_LABELS, type EnrollmentRow } from "@/lib/enrollment";
+import {
+  LEVEL_LABELS, LETTER_KNOWLEDGE_LABELS, VOCABULARY_LABELS, VOCABULARY_DOMAIN_LABELS, type EnrollmentRow,
+} from "@/lib/enrollment";
+import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";
 import { Button, ICON_STROKE, InlineNotice, StatusPill } from "@/components/platform/ui";
 import { relativeDay } from "@/components/teacher/ProgressWorkspace";
+
+/** Lettres connues d'une demande, en glyphes isolés, dans l'ordre de l'alphabet. */
+function knownLetterGlyphs(ids: number[]): string {
+  return ARABIC_ALPHABET.filter((l) => ids.includes(l.id)).map((l) => l.isolated).join(" ");
+}
+
+/** Ce que la famille a dit du niveau (lettres, vocabulaire) ; vide pour les demandes d'avant novembre 2026. */
+function LevelDetails({ r }: { r: EnrollmentRow }) {
+  if (!r.letters && !r.vocabulary) return null;
+  const letters = r.letters === "some" && r.known_letters && r.known_letters.length > 0
+    ? <>{LETTER_KNOWLEDGE_LABELS.some} : <span lang="ar" dir="rtl" className="text-base text-ms-ink">{knownLetterGlyphs(r.known_letters)}</span></>
+    : r.letters ? LETTER_KNOWLEDGE_LABELS[r.letters].toLowerCase() : null;
+  const domains = [
+    ...(r.vocabulary_domains ?? []).map((d) => VOCABULARY_DOMAIN_LABELS[d] ?? d),
+    ...(r.vocabulary_other ? [r.vocabulary_other] : []),
+  ];
+  return (
+    <p className="mt-1 text-ms-muted">
+      {letters && <>Lettres : {letters}</>}
+      {letters && r.vocabulary && " · "}
+      {r.vocabulary && <>Vocabulaire : {VOCABULARY_LABELS[r.vocabulary].toLowerCase()}{domains.length > 0 && <> ({domains.join(", ")})</>}</>}
+    </p>
+  );
+}
 
 /** null = chargement ; "error" = échec du chargement (à ne pas confondre avec une liste vide). */
 type Loaded<T> = T[] | null | "error";
@@ -104,6 +131,7 @@ export default function RequestInbox() {
                   <p className="font-semibold">
                     {r.child_name}, {r.child_age} ans <span className="font-normal text-ms-muted">· {LEVEL_LABELS[r.level].title}</span>
                   </p>
+                  <LevelDetails r={r} />
                   <p className="text-ms-muted">{r.parent_name} · {relativeDay(r.created_at)}</p>
                   <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
                     <a href={`mailto:${r.email}`} className="inline-flex min-h-11 items-center gap-1.5 [overflow-wrap:anywhere] text-ms-ink underline-offset-2 hover:underline">

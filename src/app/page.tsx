@@ -47,7 +47,7 @@ const course: Course = {
   desc: "Des leçons adaptées au niveau de chaque enfant, avec une enseignante certifiée Montessori et formée à la neurodiversité (TDAH, dyslexie, autisme).",
   where: { icon: Laptop, text: "En visio, une séance de 50 minutes par semaine" },
   group: "6 élèves maximum",
-  price: "35 €/mois, sans engagement",
+  price: "Un cours d’essai, puis 35 €/mois",
   image: {
     // TODO photo réelle : enfant en cours en visio, 1200x800
     src: "https://picsum.photos/seed/monte-souris-materiel/1200/800",
@@ -198,7 +198,7 @@ export default function HomePage() {
                 Un cours, pensé pour chaque enfant.
               </h2>
               <p className="mt-4 text-lg leading-relaxed text-ms-ink/70">
-                Début des cours le dimanche 15 novembre 2026. Sans engagement : vous pouvez arrêter à la fin de n’importe quel mois.
+                Début des cours le mercredi 6 janvier 2027. Un cours d’essai d’abord, puis 35 € par mois jusqu’au dimanche 4 juillet 2027.
               </p>
             </Reveal>
 
@@ -308,7 +308,7 @@ export default function HomePage() {
                 </li>
                 <li className="flex items-start gap-3 py-4">
                   <CalendarDays size={20} strokeWidth={ICON} className="mt-0.5 shrink-0 text-ms-moss" />
-                  <span>Début des cours le dimanche 15 novembre 2026.</span>
+                  <span>Début des cours le mercredi 6 janvier 2027.</span>
                 </li>
                 <li className="flex items-start gap-3 py-4">
                   <Phone size={20} strokeWidth={ICON} className="mt-0.5 shrink-0 text-ms-moss" />

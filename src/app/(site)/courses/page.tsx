@@ -8,7 +8,7 @@ const programs = [
     teachers: "Cours collectif",
     capacity: "6 élèves max",
     desc: "Des cours en direct, en visio, avec des leçons adaptées au niveau de chaque enfant. L'enseignante est certifiée Montessori et formée à la neurodiversité (TDAH, dyslexie, autisme). Entre deux cours, une plateforme adaptative permet de réviser seul.",
-    subjects: ["Pédagogie Montessori", "Cours en direct", "Plateforme de révision", "Sans engagement", "Début le 15 novembre 2026"],
+    subjects: ["Pédagogie Montessori", "Cours en direct", "Plateforme de révision", "Cours d'essai", "Début le 6 janvier 2027"],
     price: "35 €/mois",
   },
 ];
@@ -17,7 +17,7 @@ const faqs = [
   { q: "Comment s'inscrire ?", a: "Remplissez le formulaire de demande d'inscription. Je vous recontacte ensuite pour proposer à votre enfant un groupe de son niveau." },
   { q: "Faut-il un niveau particulier ?", a: "Non. Les groupes sont formés selon le niveau des enfants : débutants complets ou enfants qui savent déjà lire un peu." },
   { q: "De quoi mon enfant a-t-il besoin ?", a: "Un ordinateur ou une tablette avec une connexion internet, une caméra et un micro. Le cours se rejoint d'un clic depuis l'espace élève." },
-  { q: "Est-ce que je m'engage pour l'année ?", a: "Non. Le cours coûte 35 € par mois, sans engagement : vous pouvez arrêter à la fin de n'importe quel mois." },
+  { q: "Y a-t-il un cours d'essai ?", a: "Oui. Votre enfant suit d'abord un cours d'essai ; ensuite, l'inscription est de 35 € par mois, du mercredi 6 janvier au dimanche 4 juillet 2027." },
 ];
 
 export default function CoursesPage() {

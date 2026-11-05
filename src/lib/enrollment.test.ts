@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { MAX_CHILDREN, parseEnrollmentHandled, parseEnrollmentInput } from "@/lib/enrollment";
 
-const ADAM = { name: " Adam ", age: 7, level: "beginner" };
+const ADAM = { name: " Adam ", age: 7, level: "beginner", letters: "none", vocabulary: "none" };
+const NOTHING = { letters: "none", knownLetters: [], vocabulary: "none", vocabularyDomains: [], vocabularyOther: null };
 const VALID = {
   parentName: "  Léa   Martin ",
   email: " Lea.Martin@Example.BE ",
@@ -18,18 +19,48 @@ describe("parseEnrollmentInput", () => {
         parentName: "Léa Martin",
         email: "lea.martin@example.be",
         phone: "+32 470 12 34 56",
-        children: [{ name: "Adam", age: 7, level: "beginner" }],
+        children: [{ name: "Adam", age: 7, level: "beginner", ...NOTHING }],
         consent: true,
       },
     });
   });
 
   it("accepte plusieurs enfants, l'âge en texte venant de la liste déroulante", () => {
-    const r = parseEnrollmentInput({ ...VALID, children: [ADAM, { name: "Inès", age: "12", level: "reader" }] });
+    const r = parseEnrollmentInput({ ...VALID, children: [ADAM, { ...ADAM, name: "Inès", age: "12", level: "reader" }] });
     expect(r.ok && r.value.children).toEqual([
-      { name: "Adam", age: 7, level: "beginner" },
-      { name: "Inès", age: 12, level: "reader" },
+      { name: "Adam", age: 7, level: "beginner", ...NOTHING },
+      { name: "Inès", age: 12, level: "reader", ...NOTHING },
     ]);
+  });
+
+  it("garde les lettres connues (dédoublonnées, dans l'ordre de l'alphabet) seulement pour « quelques-unes »", () => {
+    const some = parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, letters: "some", knownLetters: [3, 1, 3] }] });
+    expect(some.ok && some.value.children[0]).toMatchObject({ letters: "some", knownLetters: [1, 3] });
+    const all = parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, letters: "all", knownLetters: [1, 2] }] });
+    expect(all.ok && all.value.children[0]).toMatchObject({ letters: "all", knownLetters: [] });
+  });
+
+  it("refuse « quelques lettres » sans lettre cochée, une lettre inconnue ou une réponse manquante", () => {
+    expect(parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, letters: "some", knownLetters: [] }] }).ok).toBe(false);
+    expect(parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, letters: "some", knownLetters: [99] }] }).ok).toBe(false);
+    expect(parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, letters: "some", knownLetters: ["1"] }] }).ok).toBe(false);
+    expect(parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, letters: undefined }] }).ok).toBe(false);
+  });
+
+  it("garde les domaines de vocabulaire et le texte libre seulement s'il y a du vocabulaire", () => {
+    const some = parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, vocabulary: "some", vocabularyDomains: ["food", "family", "food"], vocabularyOther: "  les  jours " }] });
+    expect(some.ok && some.value.children[0]).toMatchObject({ vocabulary: "some", vocabularyDomains: ["family", "food"], vocabularyOther: "les jours" });
+    const otherOnly = parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, vocabulary: "lots", vocabularyDomains: [], vocabularyOther: "les fruits" }] });
+    expect(otherOnly.ok && otherOnly.value.children[0]).toMatchObject({ vocabulary: "lots", vocabularyDomains: [], vocabularyOther: "les fruits" });
+    const none = parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, vocabulary: "none", vocabularyDomains: ["food"], vocabularyOther: "x" }] });
+    expect(none.ok && none.value.children[0]).toMatchObject({ vocabulary: "none", vocabularyDomains: [], vocabularyOther: null });
+  });
+
+  it("refuse du vocabulaire sans domaine ni texte, un domaine inconnu ou un texte trop long", () => {
+    expect(parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, vocabulary: "some", vocabularyDomains: [], vocabularyOther: "  " }] }).ok).toBe(false);
+    expect(parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, vocabulary: "some", vocabularyDomains: ["magie"] }] }).ok).toBe(false);
+    expect(parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, vocabulary: "some", vocabularyDomains: ["food"], vocabularyOther: "x".repeat(201) }] }).ok).toBe(false);
+    expect(parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, vocabulary: "énorme" }] }).ok).toBe(false);
   });
 
   it("exige entre un et MAX_CHILDREN enfants", () => {

@@ -11,6 +11,7 @@
  * dans les routes serveur.
  */
 import { normaliseEmail } from "@/lib/signup";
+import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";
 
 export const MIN_CHILD_AGE = 4;
 export const MAX_CHILD_AGE = 12;
@@ -24,9 +25,49 @@ export const ENROLLMENT_LEVELS = ["beginner", "reader"] as const;
 export type EnrollmentLevel = (typeof ENROLLMENT_LEVELS)[number];
 
 export const LEVEL_LABELS: Record<EnrollmentLevel, { title: string; hint: string }> = {
-  beginner: { title: "Débutant", hint: "Ne connaît pas encore l'alphabet arabe" },
-  reader: { title: "Lecteur", hint: "Sait lire l'arabe, même lentement" },
+  beginner: { title: "Débutant", hint: "Ne sait pas encore lire l'arabe, même s'il connaît des lettres" },
+  reader: { title: "Lecteur", hint: "Sait lire des mots en arabe, même lentement" },
 };
+
+// Précisions sur le niveau (ajoutées en novembre 2026) : lettres déjà
+// connues et vocabulaire acquis, pour composer les groupes avant le premier cours.
+export const LETTER_KNOWLEDGE = ["none", "some", "all"] as const;
+export type LetterKnowledge = (typeof LETTER_KNOWLEDGE)[number];
+export const LETTER_KNOWLEDGE_LABELS: Record<LetterKnowledge, string> = {
+  none: "Aucune",
+  some: "Quelques-unes",
+  all: "Toutes les lettres",
+};
+
+export const VOCABULARY_LEVELS = ["none", "some", "lots"] as const;
+export type VocabularyLevel = (typeof VOCABULARY_LEVELS)[number];
+export const VOCABULARY_LABELS: Record<VocabularyLevel, string> = {
+  none: "Aucun",
+  some: "Un peu",
+  lots: "Beaucoup",
+};
+
+export const VOCABULARY_DOMAINS = [
+  "greetings", "family", "colors", "numbers", "animals", "food", "body", "house", "school", "clothes", "nature",
+] as const;
+export type VocabularyDomain = (typeof VOCABULARY_DOMAINS)[number];
+export const VOCABULARY_DOMAIN_LABELS: Record<VocabularyDomain, string> = {
+  greetings: "Salutations et politesse",
+  family: "Famille",
+  colors: "Couleurs",
+  numbers: "Nombres",
+  animals: "Animaux",
+  food: "Nourriture",
+  body: "Corps",
+  house: "Maison",
+  school: "École",
+  clothes: "Vêtements",
+  nature: "Nature",
+};
+/** Autres domaines de vocabulaire, en texte libre. */
+export const MAX_VOCABULARY_OTHER = 200;
+
+const LETTER_IDS = new Set(ARABIC_ALPHABET.map((l) => l.id));
 
 type EnrollmentStatus = "new" | "handled";
 
@@ -34,6 +75,14 @@ interface ChildInput {
   name: string;
   age: number;
   level: EnrollmentLevel;
+  letters: LetterKnowledge;
+  /** Identifiants (ARABIC_ALPHABET) des lettres connues, quand `letters` vaut "some" ; sinon vide. */
+  knownLetters: number[];
+  vocabulary: VocabularyLevel;
+  /** Domaines connus, quand `vocabulary` n'est pas "none" ; sinon vide. */
+  vocabularyDomains: VocabularyDomain[];
+  /** Autres domaines, en texte libre ; null si rien. */
+  vocabularyOther: string | null;
 }
 
 export interface EnrollmentInput {
@@ -53,6 +102,12 @@ export interface EnrollmentRow {
   child_name: string;
   child_age: number;
   level: EnrollmentLevel;
+  /** null : demande antérieure à ces questions (novembre 2026). */
+  letters: LetterKnowledge | null;
+  known_letters: number[] | null;
+  vocabulary: VocabularyLevel | null;
+  vocabulary_domains: VocabularyDomain[] | null;
+  vocabulary_other: string | null;
   status: EnrollmentStatus;
   created_at: string;
   handled_at: string | null;
@@ -119,7 +174,32 @@ function parseChild(input: unknown): { ok: true; value: ChildInput } | { ok: fal
 
   if (!ENROLLMENT_LEVELS.includes(raw.level as EnrollmentLevel)) return { ok: false, error: "choisissez le niveau" };
 
-  return { ok: true, value: { name, age, level: raw.level as EnrollmentLevel } };
+  if (!LETTER_KNOWLEDGE.includes(raw.letters as LetterKnowledge)) return { ok: false, error: "indiquez s'il connaît des lettres" };
+  const letters = raw.letters as LetterKnowledge;
+  let knownLetters: number[] = [];
+  if (letters === "some") {
+    if (!Array.isArray(raw.knownLetters)) return { ok: false, error: "cochez les lettres qu'il connaît" };
+    if (!raw.knownLetters.every((id) => typeof id === "number" && LETTER_IDS.has(id))) return { ok: false, error: "lettre inconnue" };
+    knownLetters = [...new Set(raw.knownLetters as number[])].sort((a, b) => a - b);
+    if (knownLetters.length === 0) return { ok: false, error: "cochez les lettres qu'il connaît" };
+  }
+
+  if (!VOCABULARY_LEVELS.includes(raw.vocabulary as VocabularyLevel)) return { ok: false, error: "indiquez s'il a du vocabulaire" };
+  const vocabulary = raw.vocabulary as VocabularyLevel;
+  let vocabularyDomains: VocabularyDomain[] = [];
+  let vocabularyOther: string | null = null;
+  if (vocabulary !== "none") {
+    if (!Array.isArray(raw.vocabularyDomains)) return { ok: false, error: "indiquez les domaines de vocabulaire" };
+    if (!raw.vocabularyDomains.every((d) => VOCABULARY_DOMAINS.includes(d as VocabularyDomain))) return { ok: false, error: "domaine inconnu" };
+    vocabularyDomains = VOCABULARY_DOMAINS.filter((d) => (raw.vocabularyDomains as string[]).includes(d));
+    const other = raw.vocabularyOther == null ? "" : cleanText(raw.vocabularyOther);
+    if (other === null) return { ok: false, error: "autres domaines invalides" };
+    if (other.length > MAX_VOCABULARY_OTHER) return { ok: false, error: `les autres domaines doivent faire au plus ${MAX_VOCABULARY_OTHER} caractères` };
+    vocabularyOther = other || null;
+    if (vocabularyDomains.length === 0 && !vocabularyOther) return { ok: false, error: "indiquez les domaines de vocabulaire" };
+  }
+
+  return { ok: true, value: { name, age, level: raw.level as EnrollmentLevel, letters, knownLetters, vocabulary, vocabularyDomains, vocabularyOther } };
 }
 
 /** Valide le corps « marquer comme traitée » envoyé par l'admin. */

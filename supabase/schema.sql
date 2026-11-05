@@ -174,6 +174,12 @@ create table public.enrollment_requests (
   child_name text not null,
   child_age smallint not null check (child_age between 4 and 12),
   level text not null check (level in ('beginner', 'reader')),
+  -- Précisions sur le niveau (novembre 2026) ; null pour les demandes antérieures.
+  letters text check (letters in ('none', 'some', 'all')),
+  known_letters smallint[],
+  vocabulary text check (vocabulary in ('none', 'some', 'lots')),
+  vocabulary_domains text[],
+  vocabulary_other text check (char_length(vocabulary_other) <= 200),
   consent_at timestamptz not null,
   status text not null default 'new' check (status in ('new', 'handled')),
   created_at timestamptz not null default now(),
