@@ -29,7 +29,7 @@ describe("parseEnrollmentInput", () => {
     const r = parseEnrollmentInput({ ...VALID, children: [ADAM, { ...ADAM, name: "Inès", age: "12", level: "reader" }] });
     expect(r.ok && r.value.children).toEqual([
       { name: "Adam", age: 7, level: "beginner", ...NOTHING },
-      { name: "Inès", age: 12, level: "reader", ...NOTHING },
+      { name: "Inès", age: 12, level: "reader", ...NOTHING, letters: "all" },
     ]);
   });
 
@@ -38,6 +38,13 @@ describe("parseEnrollmentInput", () => {
     expect(some.ok && some.value.children[0]).toMatchObject({ letters: "some", knownLetters: [1, 3] });
     const all = parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, letters: "all", knownLetters: [1, 2] }] });
     expect(all.ok && all.value.children[0]).toMatchObject({ letters: "all", knownLetters: [] });
+  });
+
+  it("un lecteur connaît toutes les lettres : la réponse envoyée est ignorée", () => {
+    const r = parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, level: "reader", letters: undefined, knownLetters: [1] }] });
+    expect(r.ok && r.value.children[0]).toMatchObject({ level: "reader", letters: "all", knownLetters: [] });
+    const some = parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, level: "reader", letters: "some", knownLetters: [1] }] });
+    expect(some.ok && some.value.children[0]).toMatchObject({ letters: "all", knownLetters: [] });
   });
 
   it("refuse « quelques lettres » sans lettre cochée, une lettre inconnue ou une réponse manquante", () => {

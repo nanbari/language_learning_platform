@@ -75,6 +75,7 @@ interface ChildInput {
   name: string;
   age: number;
   level: EnrollmentLevel;
+  /** Toujours "all" pour un lecteur (question non posée). */
   letters: LetterKnowledge;
   /** Identifiants (ARABIC_ALPHABET) des lettres connues, quand `letters` vaut "some" ; sinon vide. */
   knownLetters: number[];
@@ -174,6 +175,9 @@ function parseChild(input: unknown): { ok: true; value: ChildInput } | { ok: fal
 
   if (!ENROLLMENT_LEVELS.includes(raw.level as EnrollmentLevel)) return { ok: false, error: "choisissez le niveau" };
 
+  const level = raw.level as EnrollmentLevel;
+  // Un lecteur connaît forcément les lettres : la question ne lui est pas posée.
+  if (level === "reader") raw.letters = "all";
   if (!LETTER_KNOWLEDGE.includes(raw.letters as LetterKnowledge)) return { ok: false, error: "indiquez s'il connaît des lettres" };
   const letters = raw.letters as LetterKnowledge;
   let knownLetters: number[] = [];
@@ -199,7 +203,7 @@ function parseChild(input: unknown): { ok: true; value: ChildInput } | { ok: fal
     if (vocabularyDomains.length === 0 && !vocabularyOther) return { ok: false, error: "indiquez les domaines de vocabulaire" };
   }
 
-  return { ok: true, value: { name, age, level: raw.level as EnrollmentLevel, letters, knownLetters, vocabulary, vocabularyDomains, vocabularyOther } };
+  return { ok: true, value: { name, age, level, letters, knownLetters, vocabulary, vocabularyDomains, vocabularyOther } };
 }
 
 /** Valide le corps « marquer comme traitée » envoyé par l'admin. */

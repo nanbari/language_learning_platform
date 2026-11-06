@@ -66,8 +66,10 @@ export default function EnrollmentPage() {
     }
     for (const [i, c] of children.entries()) {
       const who = children.length > 1 ? `Enfant ${i + 1} : ` : "";
-      if (!c.letters) return setError(`${who}indiquez s'il connaît des lettres.`);
-      if (c.letters === "some" && c.knownLetters.length === 0) return setError(`${who}cochez les lettres qu'il connaît.`);
+      if (c.level !== "reader") {
+        if (!c.letters) return setError(`${who}indiquez s'il connaît des lettres.`);
+        if (c.letters === "some" && c.knownLetters.length === 0) return setError(`${who}cochez les lettres qu'il connaît.`);
+      }
       if (!c.vocabulary) return setError(`${who}indiquez s'il a du vocabulaire.`);
       if (c.vocabulary !== "none" && c.vocabularyDomains.length === 0 && !c.vocabularyOther.trim()) {
         return setError(`${who}indiquez dans quels domaines il a du vocabulaire.`);
@@ -80,8 +82,8 @@ export default function EnrollmentPage() {
         parentName, email, phone, consent: true, website,
         children: children.map((c) => ({
           name: c.name, age: Number(c.age), level: c.level as EnrollmentLevel,
-          letters: c.letters as LetterKnowledge,
-          knownLetters: c.letters === "some" ? c.knownLetters : [],
+          letters: c.level === "reader" ? "all" : c.letters as LetterKnowledge,
+          knownLetters: c.level !== "reader" && c.letters === "some" ? c.knownLetters : [],
           vocabulary: c.vocabulary as VocabularyLevel,
           vocabularyDomains: c.vocabulary === "none" ? [] : c.vocabularyDomains,
           vocabularyOther: c.vocabulary === "none" ? null : c.vocabularyOther.trim() || null,
@@ -234,7 +236,8 @@ export default function EnrollmentPage() {
                       </div>
                     </div>
 
-                    <div>
+                    {/* Un lecteur connaît les lettres : la question n'est posée qu'aux débutants. */}
+                    {child.level !== "reader" && <div>
                       <p className={label}>Reconnaît-il des lettres isolées de l&apos;alphabet arabe ?</p>
                       <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Lettres connues">
                         {LETTER_KNOWLEDGE.map((k) => (
@@ -266,7 +269,7 @@ export default function EnrollmentPage() {
                           </div>
                         </div>
                       )}
-                    </div>
+                    </div>}
 
                     <div>
                       <p className={label}>A-t-il du vocabulaire en arabe ?</p>
