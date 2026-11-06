@@ -37,4 +37,10 @@ describe("proxy — pages privées (AUTH-01)", () => {
     expect(await where("/arabic/reading", admin)).toBeNull();
     expect(await where("/teacher/letters", admin)).toBeNull();
   });
+
+  it("l'éditeur de leçons est réservé aux admins (règle : seuls les admins créent des leçons)", async () => {
+    expect(await where("/teacher/create", teacher)).toBe("/teacher");
+    expect(await where("/teacher/create?edit=x", teacher)).toBe("/teacher");
+    expect(await where("/teacher/create", admin)).toBeNull();
+  });
 });

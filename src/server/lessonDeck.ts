@@ -13,6 +13,9 @@ import { charterColor } from "@/lib/presentation";
 import { buildLessonDeck, lessonParts, type SavedDeck } from "@/lib/liveDeck";
 
 type Block = { id?: string; type?: string; recap?: boolean };
+
+/** Refus explicable à l'utilisateur (leçon absente, contenu insuffisant), par opposition à une panne. */
+export class DeckError extends Error {}
 type Exercises = { blocks?: Block[]; live?: SavedDeck };
 
 /** À augmenter quand la construction du diaporama change : les diaporamas déjà enregistrés seront refaits. */
@@ -43,7 +46,7 @@ export function isDeckStale(title: string, blocks: Block[], rank: number, live: 
 export async function saveLessonDeck(lessonId: string): Promise<{ deck: SavedDeck; changed: boolean }> {
   const db = supabaseAdmin();
   const { data, error } = await db.from("lessons").select("id, title, exercises").eq("id", lessonId).single();
-  if (error || !data) throw new Error(`Leçon ${lessonId} introuvable`);
+  if (error || !data) throw new DeckError("Leçon introuvable");
   // Même couleur qu'en séance jusqu'ici : celle du rang de la leçon dans la liste.
   const { data: ids } = await db.from("lessons").select("id").order("created_at", { ascending: false });
   const rank = Math.max(0, (ids ?? []).findIndex((l) => l.id === data.id));
@@ -51,7 +54,7 @@ export async function saveLessonDeck(lessonId: string): Promise<{ deck: SavedDec
   const color = charterColor(rank);
 
   const parts = lessonParts(data.title, exercises.blocks ?? [], color);
-  if (parts.length === 0) throw new Error("La leçon n'a ni lettres ni assez de vocabulaire pour un diaporama");
+  if (parts.length === 0) throw new DeckError("La leçon n'a ni lettres ni assez de vocabulaire pour un diaporama");
   const key = fingerprint(parts);
   if (exercises.live?.key === key) return { deck: exercises.live, changed: false };
 

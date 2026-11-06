@@ -6,6 +6,8 @@ import { COOKIE_NAME, verifySession, isStaff } from "@/server/auth";
  *
  *  /teacher/*   → enseignants et admins
  *  /teacher/letters (sons des lettres) → admins seulement
+ *  /teacher/create (éditeur de leçons) → admins seulement (règle de
+ *                 l'association : seuls les admins créent des leçons)
  *  /student/*   → élèves et admins (aperçu des leçons)
  *  /arabic/*    → comme /student : les exercices d'arabe (et les voix
  *                 enregistrées par les enseignants) font partie de la
@@ -39,7 +41,7 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL("/student", req.url));
   }
 
-  if (pathname.startsWith("/teacher/letters") && session && !session.isAdmin) {
+  if ((pathname.startsWith("/teacher/letters") || pathname.startsWith("/teacher/create")) && session && !session.isAdmin) {
     return NextResponse.redirect(new URL("/teacher", req.url));
   }
 

@@ -58,7 +58,7 @@ function SessionPanel({ classes, lessons }: { classes: ClassRow[] | null; lesson
  * Une leçon : ses activités, sa classe (lien vers l'espace de la classe), l'état
  * de son diaporama, et ses actions. La suppression demande une confirmation.
  */
-function LessonRowItem({ lesson, className, onDelete }: { lesson: ApiLesson; className: string | undefined; onDelete: () => Promise<void> }) {
+function LessonRowItem({ lesson, className, canEdit, onDelete }: { lesson: ApiLesson; className: string | undefined; canEdit: boolean; onDelete: () => Promise<void> }) {
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const activities = lesson.blocks.length;
@@ -92,7 +92,11 @@ function LessonRowItem({ lesson, className, onDelete }: { lesson: ApiLesson; cla
           <DeckStatusPill lesson={lesson} />
         </p>
       </div>
-      {confirming ? (
+      {!canEdit ? (
+        <div className="flex flex-wrap gap-2">
+          <ButtonLink href={`/student/lesson/${lesson.id}`} variant="quiet">Voir comme un élève</ButtonLink>
+        </div>
+      ) : confirming ? (
         <div className="flex flex-wrap items-center gap-2" role="group" aria-label={`Supprimer « ${lesson.title} »`}>
           <span className="text-sm font-semibold">Supprimer cette leçon ?</span>
           <Button variant="danger" disabled={deleting} onClick={async () => { setDeleting(true); await onDelete(); }}>
@@ -159,9 +163,11 @@ function TeacherPageInner() {
             <h1 className="text-[1.75rem] leading-9 lg:text-[2rem] lg:leading-10 font-semibold tracking-[-0.02em]">Tableau de bord</h1>
             {firstName && <p className="mt-1 text-ms-muted">Bonjour, {firstName}</p>}
           </div>
-          <ButtonLink href="/teacher/create" variant="primary" accent="blush">
-            <Plus size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Créer une leçon
-          </ButtonLink>
+          {isAdmin && (
+            <ButtonLink href="/teacher/create" variant="primary" accent="blush">
+              <Plus size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Créer une leçon
+            </ButtonLink>
+          )}
         </header>
 
         {showPublished && <InlineNotice>Leçon publiée.</InlineNotice>}
@@ -171,29 +177,29 @@ function TeacherPageInner() {
           {isAdmin && <RequestInbox />}
         </div>
 
-        <ProgressWorkspace insights={insights} error={insightsError} classes={classes ?? []} />
+        <ProgressWorkspace insights={insights} error={insightsError} classes={classes ?? []} canEdit={isAdmin} />
 
         <section aria-labelledby="lecons-h" id="lecons" className="scroll-mt-24 space-y-4">
           <SectionHeader
             id="lecons-h"
-            title="Mes leçons"
+            title={isAdmin ? "Mes leçons" : "Leçons"}
             description={lessons && lessons.length > 0 ? plural(lessons.length, "leçon") : undefined}
-            actions={<ButtonLink href="/teacher/create" variant="secondary"><Plus size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Créer une leçon</ButtonLink>}
+            actions={isAdmin ? <ButtonLink href="/teacher/create" variant="secondary"><Plus size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Créer une leçon</ButtonLink> : undefined}
           />
           <div className="ms-panel overflow-hidden">
             {lessons === null && <SkeletonRows rows={3} label="Chargement des leçons" />}
             {lessonsError && <div className="p-4"><InlineNotice tone="error">Vos leçons n&apos;ont pas pu être chargées. Rechargez la page.</InlineNotice></div>}
             {lessons && !lessonsError && lessons.length === 0 && (
               <EmptyState
-                title="Préparez votre première leçon"
-                text="Ajoutez une activité, puis associez la leçon à une classe."
-                action={<ButtonLink href="/teacher/create" variant="primary" accent="blush">Créer une leçon</ButtonLink>}
+                title={isAdmin ? "Préparez votre première leçon" : "Aucune leçon pour le moment"}
+                text={isAdmin ? "Ajoutez une activité, puis associez la leçon à une classe." : "Les leçons sont préparées par l'administration."}
+                action={isAdmin ? <ButtonLink href="/teacher/create" variant="primary" accent="blush">Créer une leçon</ButtonLink> : undefined}
               />
             )}
             {lessons && lessons.length > 0 && (
               <ul className="divide-y divide-ms-line">
                 {lessons.map((lesson) => (
-                  <LessonRowItem key={lesson.id} lesson={lesson}
+                  <LessonRowItem key={lesson.id} lesson={lesson} canEdit={isAdmin}
                     className={lesson.classId ? classNames.get(lesson.classId) : undefined}
                     onDelete={() => deleteLesson(lesson.id)} />
                 ))}

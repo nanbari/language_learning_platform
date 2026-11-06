@@ -8,6 +8,12 @@ import { isMissingColumn, serverError, warnOnce } from "@/server/errors";
 import { collectMediaUrls, deleteObjects } from "@/server/r2";
 
 /**
+ * Règle de l'association (novembre 2026) : seuls les administrateurs créent,
+ * modifient et suppriment des leçons ; les enseignants les lisent. La
+ * condition `author_id` des écritures est conservée par principe.
+ */
+
+/**
  * Valide la classe à laquelle la leçon est proposée : l'enseignant doit la
  * gérer (n'importe laquelle pour un admin). Renvoie la réponse d'erreur sinon.
  */
@@ -53,8 +59,8 @@ export async function POST(req: NextRequest) {
   const auth = await currentUser(req);
   if ("error" in auth) return auth.error;
   const session = auth.user;
-  if (!isStaff(session)) {
-    return NextResponse.json({ error: "Seuls les enseignants peuvent créer des leçons" }, { status: 403 });
+  if (!session.isAdmin) {
+    return NextResponse.json({ error: "Réservé aux administrateurs" }, { status: 403 });
   }
 
   const body = await req.json();
@@ -78,8 +84,8 @@ export async function PATCH(req: NextRequest) {
   const auth = await currentUser(req);
   if ("error" in auth) return auth.error;
   const session = auth.user;
-  if (!isStaff(session)) {
-    return NextResponse.json({ error: "Interdit" }, { status: 403 });
+  if (!session.isAdmin) {
+    return NextResponse.json({ error: "Réservé aux administrateurs" }, { status: 403 });
   }
 
   const body = await req.json();
@@ -130,8 +136,8 @@ export async function DELETE(req: NextRequest) {
   const auth = await currentUser(req);
   if ("error" in auth) return auth.error;
   const session = auth.user;
-  if (!isStaff(session)) {
-    return NextResponse.json({ error: "Interdit" }, { status: 403 });
+  if (!session.isAdmin) {
+    return NextResponse.json({ error: "Réservé aux administrateurs" }, { status: 403 });
   }
 
   const { id } = await req.json().catch(() => ({}) as { id?: string });

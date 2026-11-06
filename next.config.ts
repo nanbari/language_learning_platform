@@ -53,12 +53,15 @@ const nextConfig: NextConfig = {
   images: {
     // Photos provisoires de la page d'accueil, à remplacer par les vraies photos dans /public.
     // Et les médias des leçons sur R2 : next/image les redimensionne à la taille affichée
-    // (les originaux font 2 à 3 Mo). Le domaine public du bucket vient de l'environnement ;
-    // les buckets *.r2.dev sont acceptés en plus, pour les environnements sans variable.
+    // (les originaux font 2 à 3 Mo). Seul le domaine public de NOTRE bucket est accepté :
+    // l'optimiseur d'images va chercher lui-même les fichiers, un joker *.r2.dev lui
+    // ferait ouvrir le bucket de n'importe qui (audit du 6 novembre 2026). Le joker ne
+    // reste qu'en secours, pour un environnement sans la variable.
     remotePatterns: [
       new URL("https://picsum.photos/**"),
-      new URL("https://*.r2.dev/**"),
-      ...(process.env.R2_PUBLIC_BASE_URL ? [new URL(`${process.env.R2_PUBLIC_BASE_URL.replace(/\/$/, "")}/**`)] : []),
+      ...(process.env.R2_PUBLIC_BASE_URL
+        ? [new URL(`${process.env.R2_PUBLIC_BASE_URL.replace(/\/$/, "")}/**`)]
+        : [new URL("https://*.r2.dev/**")]),
     ],
     formats: ["image/avif", "image/webp"],
     // Les photos ne changent jamais sous la même clé R2 : un cache d'un mois côté CDN.

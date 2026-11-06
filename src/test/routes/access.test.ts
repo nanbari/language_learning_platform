@@ -8,7 +8,8 @@ vi.mock("@/server/supabase", () => fakeSupabaseModule());
 import { GET as eventsGet, POST as eventsPost } from "@/app/api/events/route";
 import { GET as progressGet } from "@/app/api/progress/route";
 import { GET as summaryGet } from "@/app/api/practice/summary/route";
-import { GET as lessonsGet, PATCH as lessonsPatch } from "@/app/api/lessons/route";
+import { GET as lessonsGet, POST as lessonsPost, PATCH as lessonsPatch, DELETE as lessonsDelete } from "@/app/api/lessons/route";
+import { POST as liveDeckPost } from "@/app/api/live-deck/route";
 import { GET as classesGet, POST as classesPost } from "@/app/api/classes/route";
 import { PATCH as classPatch, DELETE as classDelete } from "@/app/api/classes/[id]/route";
 import { GET as staffGet, POST as staffPost } from "@/app/api/admin/staff/route";
@@ -173,5 +174,28 @@ describe("pannes de base sans divulgation (AUTH-14)", () => {
     expect(await json(res)).toMatchObject({ status: "degraded" });
     await assertAbsent(res, ["relation", "lessons", "42P01", "db"]);
     expect((await (await healthGet(await request("GET", "/api/health"))).json())).toEqual({ status: "ok" });
+  });
+});
+
+describe("écritures de leçons : administrateurs seulement (AUTH-15)", () => {
+  it("un enseignant, même auteur, ne crée, ne modifie, ne supprime pas et ne régénère pas le diaporama", async () => {
+    const before = db.snapshot();
+    const create = await lessonsPost(await request("POST", "/api/lessons", { as: T, body: { title: "X", class_id: CLASS, exercises: { blocks: [] } } }));
+    expect(create.status).toBe(403);
+    expect((await lessonsPatch(await request("PATCH", "/api/lessons", { as: T, body: { id: LESSON, title: "Changé" } }))).status).toBe(403);
+    expect((await lessonsDelete(await request("DELETE", "/api/lessons", { as: T, body: { id: LESSON } }))).status).toBe(403);
+    const deck = await liveDeckPost(await request("POST", "/api/live-deck", { as: T, body: { lessonId: OTHER_LESSON } }));
+    expect(deck.status).toBe(403);
+    expect((await liveDeckPost(await request("POST", "/api/live-deck", { as: A, body: { lessonId: LESSON } }))).status).toBe(403);
+    expect(db.snapshot()).toEqual(before);
+  });
+
+  it("un admin : leçon inconnue → 404 sans détail, leçon sans contenu → 422", async () => {
+    const unknown = await liveDeckPost(await request("POST", "/api/live-deck", { as: ADMIN, body: { lessonId: uuid(999) } }));
+    expect(unknown.status).toBe(404);
+    await assertAbsent(unknown, ["relation", "lessons", "PGRST"]);
+    expect((await liveDeckPost(await request("POST", "/api/live-deck", { as: ADMIN, body: { lessonId: "pas-un-uuid" } }))).status).toBe(404);
+    const empty = await liveDeckPost(await request("POST", "/api/live-deck", { as: ADMIN, body: { lessonId: LESSON } }));
+    expect(empty.status).toBe(422);
   });
 });

@@ -205,7 +205,7 @@ function SummaryList({ students, onSelect }: { students: StudentProgress[]; onSe
 /* ─── Détail de l'élève sélectionné ────────────────────────────────── */
 
 /** Leçon suivie : ses chiffres, et les deux chemins vers son contenu (voir comme un élève, modifier). */
-function LessonHeader({ lesson }: { lesson: StudentLesson }) {
+function LessonHeader({ lesson, canEdit }: { lesson: StudentLesson; canEdit: boolean }) {
   return (
     <div className="flex flex-col gap-2 text-sm lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-5">
       <div className="flex min-w-0 flex-wrap items-center gap-x-5 gap-y-2">
@@ -222,9 +222,11 @@ function LessonHeader({ lesson }: { lesson: StudentLesson }) {
         <ButtonLink href={`/student/lesson/${lesson.lessonId}`} variant="quiet" aria-label={`Voir « ${lesson.lessonTitle} » comme un élève`}>
           <Eye size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Voir comme un élève
         </ButtonLink>
-        <ButtonLink href={`/teacher/create?edit=${lesson.lessonId}`} variant="quiet" aria-label={`Modifier la leçon « ${lesson.lessonTitle} »`}>
-          <Pencil size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Modifier la leçon
-        </ButtonLink>
+        {canEdit && (
+          <ButtonLink href={`/teacher/create?edit=${lesson.lessonId}`} variant="quiet" aria-label={`Modifier la leçon « ${lesson.lessonTitle} »`}>
+            <Pencil size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Modifier la leçon
+          </ButtonLink>
+        )}
       </div>
     </div>
   );
@@ -291,8 +293,8 @@ function ExerciseList({ lesson }: { lesson: StudentLesson }) {
   );
 }
 
-function StudentDetail({ student, onBack, headingRef }: {
-  student: StudentProgress; onBack: () => void; headingRef: React.RefObject<HTMLHeadingElement | null>;
+function StudentDetail({ student, onBack, headingRef, canEdit }: {
+  student: StudentProgress; onBack: () => void; headingRef: React.RefObject<HTMLHeadingElement | null>; canEdit: boolean;
 }) {
   const [lessonId, setLessonId] = useState<string>("all");
   const selectId = useId();
@@ -322,7 +324,7 @@ function StudentDetail({ student, onBack, headingRef }: {
       </div>
       {lessons.map((lesson) => (
         <div key={lesson.lessonId} className="border-b border-ms-line last:border-b-0">
-          <div className="bg-ms-canvas/50 px-4 py-3 sm:px-5"><LessonHeader lesson={lesson} /></div>
+          <div className="bg-ms-canvas/50 px-4 py-3 sm:px-5"><LessonHeader lesson={lesson} canEdit={canEdit} /></div>
           <ExerciseTable lesson={lesson} />
           <ExerciseList lesson={lesson} />
         </div>
@@ -335,8 +337,10 @@ function StudentDetail({ student, onBack, headingRef }: {
 
 export interface ClassOption { id: string; name: string; studentIds: string[] }
 
-export default function ProgressWorkspace({ insights, error, classes }: {
+export default function ProgressWorkspace({ insights, error, classes, canEdit = false }: {
   insights: TeacherInsights | null; error: string | null; classes: ClassOption[];
+  /** Lien « Modifier la leçon » (admins : seuls à pouvoir modifier une leçon). */
+  canEdit?: boolean;
 }) {
   // `/teacher?classe=<id>#progression` (depuis l'espace d'une classe) préselectionne
   // la classe ; le filtre reste modifiable à la main ensuite.
@@ -442,7 +446,7 @@ export default function ProgressWorkspace({ insights, error, classes }: {
       )}
 
       {selected && (
-        <StudentDetail
+        <StudentDetail canEdit={canEdit}
           key={selected.userId}
           student={selected}
           headingRef={detailHeading}

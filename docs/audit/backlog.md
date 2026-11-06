@@ -25,3 +25,23 @@ shipped in the working tree; none blocks them. Product decisions marked ⚑ need
 3. **Account lifecycle** — `users.disabled_at` now exists and is enforced, but there is no admin UI to set it, no deletion flow and no retention rule for `exercise_events`. Decide retention (e.g. school year) before any purge job is written.
 4. **Lesson sharing between teachers** — read-all/edit-own is the current rule; copying a lesson is not possible. Decide before touching `PATCH /api/lessons` for B3-1.
 5. **Realtime residual window** (≤ 15 min for an already-connected participant after removal from a class) — accept, or shorten the token TTL (cost: more token refreshes), or add a server-side "kick" (`pokeLive("kick:<userId>")`, cooperative only).
+
+## Point du 6 novembre 2026 (voir `2026-11-06-production-audit.md`)
+
+Lot 2 et lot 3 : **B2-1** (limitation de débit en base, `rate_limit_hit`), **B3-1** (`lessons.version`), **B3-2**
+(`exercise_events.event_id`) et **B3-3** (`vocab_sounds`) sont implémentés et les migrations sont appliquées en
+production. **B2-2** (CSP à nonce) reste ouvert : `'unsafe-eval'` a disparu en production, `'unsafe-inline'` demeure.
+
+Nouveaux éléments, par priorité :
+
+| # | Élément | Statut |
+|---|---|---|
+| A1 | Mise à jour de `next` 16.2.6 → 16.4.5 et restriction de `remotePatterns` | **fait le 6 nov.** (à déployer ; vérifier `R2_PUBLIC_BASE_URL` sur Netlify) |
+| A2 | Écritures de leçons (`/api/lessons` POST/PATCH/DELETE, `/api/live-deck`, page `/teacher/create`) réservées aux admins | **fait le 6 nov.** |
+| A3 | Suppression d'objets R2 « par URL » : `DELETE /api/lessons` est désormais admin seulement ; reste `vocab-sounds` PUT/DELETE ouvert à tout enseignant | à corriger (suivi des téléversements à décider) |
+| A4–A5 | Liste blanche sur `PATCH /api/lessons` ; `POST /api/events` rapproché des classes de l'élève | petites corrections |
+| A6–A7 | Jeton Realtime de repli = session GoTrue ; rôle lu dans `user_metadata` à la création du profil | `SUPABASE_JWT_SECRET` sur Netlify, puis correction |
+| A8, A13 | Énumération d'e-mails sur `/api/signup` ; dernier admin rétrogradable | décisions ⚑ |
+| Ops | Sauvegardes Supabase (plan gratuit = aucune), `NEXT_PUBLIC_SITE_URL`, liste des URL de redirection, matrice en CI | opérateur |
+
+Les décisions ⚑ 1 à 5 ci-dessus restent ouvertes.

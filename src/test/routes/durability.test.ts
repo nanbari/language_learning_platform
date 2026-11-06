@@ -17,7 +17,9 @@ import { PUT as vocabPut } from "@/app/api/vocab-sounds/route";
 
 const db = fakeDb();
 const A = makeUser(1, "student", false, "Amina");
-const T = makeUser(10, "teacher", false, "Mme Tahar");
+// Admin : seuls les administrateurs écrivent des leçons (règle de novembre 2026).
+const T = makeUser(10, "teacher", true, "Mme Tahar");
+const U = makeUser(11, "teacher", false, "M. Uzun");
 const CLASS = uuid(100);
 const LESSON = uuid(200);
 const BASE = "https://pub-test.r2.dev";
@@ -25,7 +27,7 @@ const BASE = "https://pub-test.r2.dev";
 beforeEach(() => {
   db.reset(); r2.deleted.length = 0;
   process.env.R2_PUBLIC_BASE_URL = BASE;
-  db.seed("users", [A, T].map((u) => profileRow(u)));
+  db.seed("users", [A, T, U].map((u) => profileRow(u)));
   db.seed("classes", [{ id: CLASS, name: "Les abeilles", teacher_id: T.id, live_room: null, live_started_at: null, created_at: "2026-01-01" }]);
   db.seed("class_members", [{ class_id: CLASS, student_id: A.id }]);
   db.seed("lessons", [{ id: LESSON, title: "Les fruits", author_id: T.id, class_id: CLASS, version: 3, created_at: "2026-01-03",
@@ -67,10 +69,19 @@ describe("PATCH /api/lessons — enregistrement atomique (DATA-04)", () => {
     expect(db.rows("lessons")[0]!.title).toBe("Sans version");
   });
 
-  it("leçon d'un autre enseignant : 404, jamais 409", async () => {
-    const U = makeUser(11, "teacher", false, "M. Uzun");
-    db.seed("users", [profileRow(U)]);
-    expect((await patch({ id: LESSON, title: "x", version: 3 }, U)).status).toBe(404);
+  it("enseignant non admin : refusé avant tout contrôle de version (403, jamais 409)", async () => {
+    expect((await patch({ id: LESSON, title: "x", version: 3 }, U)).status).toBe(403);
+    expect(db.rows("lessons")[0]!.version).toBe(3);
+  });
+});
+
+describe("écritures de leçons réservées aux admins (AUTH-15)", () => {
+  it("un enseignant non admin ne modifie ni ne supprime une leçon", async () => {
+    const before = db.snapshot();
+    expect((await patch({ id: LESSON, title: "Piraté" }, U)).status).toBe(403);
+    expect((await lessonsDelete(await request("DELETE", "/api/lessons", { as: U, body: { id: LESSON } }))).status).toBe(403);
+    expect(db.snapshot()).toEqual(before);
+    expect(r2.deleted).toEqual([]);
   });
 });
 
