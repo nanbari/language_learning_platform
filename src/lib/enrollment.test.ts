@@ -54,11 +54,14 @@ describe("parseEnrollmentInput", () => {
     expect(parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, letters: undefined }] }).ok).toBe(false);
   });
 
-  it("garde les domaines de vocabulaire et le texte libre seulement s'il y a du vocabulaire", () => {
+  it("garde les domaines de vocabulaire et le texte libre seulement pour « un peu » de vocabulaire", () => {
     const some = parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, vocabulary: "some", vocabularyDomains: ["food", "family", "food"], vocabularyOther: "  les  jours " }] });
     expect(some.ok && some.value.children[0]).toMatchObject({ vocabulary: "some", vocabularyDomains: ["family", "food"], vocabularyOther: "les jours" });
-    const otherOnly = parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, vocabulary: "lots", vocabularyDomains: [], vocabularyOther: "les fruits" }] });
-    expect(otherOnly.ok && otherOnly.value.children[0]).toMatchObject({ vocabulary: "lots", vocabularyDomains: [], vocabularyOther: "les fruits" });
+    const otherOnly = parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, vocabulary: "some", vocabularyDomains: [], vocabularyOther: "les fruits" }] });
+    expect(otherOnly.ok && otherOnly.value.children[0]).toMatchObject({ vocabulary: "some", vocabularyDomains: [], vocabularyOther: "les fruits" });
+    // « Beaucoup » : la question des domaines n'est pas posée, rien n'est gardé.
+    const lots = parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, vocabulary: "lots", vocabularyDomains: ["food"], vocabularyOther: "x" }] });
+    expect(lots.ok && lots.value.children[0]).toMatchObject({ vocabulary: "lots", vocabularyDomains: [], vocabularyOther: null });
     const none = parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, vocabulary: "none", vocabularyDomains: ["food"], vocabularyOther: "x" }] });
     expect(none.ok && none.value.children[0]).toMatchObject({ vocabulary: "none", vocabularyDomains: [], vocabularyOther: null });
   });

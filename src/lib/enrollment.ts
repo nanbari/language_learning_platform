@@ -80,7 +80,7 @@ interface ChildInput {
   /** Identifiants (ARABIC_ALPHABET) des lettres connues, quand `letters` vaut "some" ; sinon vide. */
   knownLetters: number[];
   vocabulary: VocabularyLevel;
-  /** Domaines connus, quand `vocabulary` n'est pas "none" ; sinon vide. */
+  /** Domaines connus, quand `vocabulary` vaut "some" (question non posée pour "none" et "lots") ; sinon vide. */
   vocabularyDomains: VocabularyDomain[];
   /** Autres domaines, en texte libre ; null si rien. */
   vocabularyOther: string | null;
@@ -192,7 +192,8 @@ function parseChild(input: unknown): { ok: true; value: ChildInput } | { ok: fal
   const vocabulary = raw.vocabulary as VocabularyLevel;
   let vocabularyDomains: VocabularyDomain[] = [];
   let vocabularyOther: string | null = null;
-  if (vocabulary !== "none") {
+  // Les domaines ne sont demandés qu'avec « un peu » de vocabulaire.
+  if (vocabulary === "some") {
     if (!Array.isArray(raw.vocabularyDomains)) return { ok: false, error: "indiquez les domaines de vocabulaire" };
     if (!raw.vocabularyDomains.every((d) => VOCABULARY_DOMAINS.includes(d as VocabularyDomain))) return { ok: false, error: "domaine inconnu" };
     vocabularyDomains = VOCABULARY_DOMAINS.filter((d) => (raw.vocabularyDomains as string[]).includes(d));

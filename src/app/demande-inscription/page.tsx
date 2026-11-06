@@ -71,7 +71,7 @@ export default function EnrollmentPage() {
         if (c.letters === "some" && c.knownLetters.length === 0) return setError(`${who}cochez les lettres qu'il connaît.`);
       }
       if (!c.vocabulary) return setError(`${who}indiquez s'il a du vocabulaire.`);
-      if (c.vocabulary !== "none" && c.vocabularyDomains.length === 0 && !c.vocabularyOther.trim()) {
+      if (c.vocabulary === "some" && c.vocabularyDomains.length === 0 && !c.vocabularyOther.trim()) {
         return setError(`${who}indiquez dans quels domaines il a du vocabulaire.`);
       }
     }
@@ -85,8 +85,8 @@ export default function EnrollmentPage() {
           letters: c.level === "reader" ? "all" : c.letters as LetterKnowledge,
           knownLetters: c.level !== "reader" && c.letters === "some" ? c.knownLetters : [],
           vocabulary: c.vocabulary as VocabularyLevel,
-          vocabularyDomains: c.vocabulary === "none" ? [] : c.vocabularyDomains,
-          vocabularyOther: c.vocabulary === "none" ? null : c.vocabularyOther.trim() || null,
+          vocabularyDomains: c.vocabulary === "some" ? c.vocabularyDomains : [],
+          vocabularyOther: c.vocabulary === "some" ? c.vocabularyOther.trim() || null : null,
         })),
       });
       setSent(true);
@@ -282,7 +282,8 @@ export default function EnrollmentPage() {
                           </label>
                         ))}
                       </div>
-                      {child.vocabulary && child.vocabulary !== "none" && (
+                      {/* Les domaines ne sont demandés que pour « un peu » : « beaucoup » se suffit. */}
+                      {child.vocabulary === "some" && (
                         <div className="mt-3">
                           <p className={hint}>Dans quels domaines ?</p>
                           <div className="flex flex-wrap gap-2" role="group" aria-label="Domaines de vocabulaire">
