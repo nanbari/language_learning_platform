@@ -4,7 +4,7 @@ import { parseEnrollmentHandled, type EnrollmentRow } from "@/lib/enrollment";
 import { requireAdmin } from "@/server/session";
 import { serverError } from "@/server/errors";
 
-const COLUMNS = "id, parent_name, email, phone, child_name, child_age, level, letters, known_letters, vocabulary, vocabulary_domains, vocabulary_other, status, created_at, handled_at";
+const COLUMNS = "id, parent_name, email, phone, child_name, child_age, level, letters, known_letters, letter_forms, known_letter_forms, vocabulary, vocabulary_domains, vocabulary_other, status, created_at, handled_at";
 
 /** Demandes traitées renvoyées (les plus récentes) : l'historique reste consultable sans alourdir la page. */
 const HANDLED_LIMIT = 300;

@@ -79,6 +79,14 @@ interface ChildInput {
   letters: LetterKnowledge;
   /** Identifiants (ARABIC_ALPHABET) des lettres connues, quand `letters` vaut "some" ; sinon vide. */
   knownLetters: number[];
+  /**
+   * Lettres reconnues dans leurs formes attachées (début, milieu, fin) : demandé
+   * seulement au débutant qui connaît toutes les lettres isolées ; null sinon
+   * (un lecteur les connaît, la question ne lui est pas posée).
+   */
+  letterForms: LetterKnowledge | null;
+  /** Identifiants des lettres dont il reconnaît les formes attachées, quand `letterForms` vaut "some" ; sinon vide. */
+  knownLetterForms: number[];
   vocabulary: VocabularyLevel;
   /** Domaines connus, quand `vocabulary` vaut "some" (question non posée pour "none" et "lots") ; sinon vide. */
   vocabularyDomains: VocabularyDomain[];
@@ -106,6 +114,8 @@ export interface EnrollmentRow {
   /** null : demande antérieure à ces questions (novembre 2026). */
   letters: LetterKnowledge | null;
   known_letters: number[] | null;
+  letter_forms: LetterKnowledge | null;
+  known_letter_forms: number[] | null;
   vocabulary: VocabularyLevel | null;
   vocabulary_domains: VocabularyDomain[] | null;
   vocabulary_other: string | null;
@@ -180,12 +190,21 @@ function parseChild(input: unknown): { ok: true; value: ChildInput } | { ok: fal
   if (level === "reader") raw.letters = "all";
   if (!LETTER_KNOWLEDGE.includes(raw.letters as LetterKnowledge)) return { ok: false, error: "indiquez s'il connaît des lettres" };
   const letters = raw.letters as LetterKnowledge;
-  let knownLetters: number[] = [];
-  if (letters === "some") {
-    if (!Array.isArray(raw.knownLetters)) return { ok: false, error: "cochez les lettres qu'il connaît" };
-    if (!raw.knownLetters.every((id) => typeof id === "number" && LETTER_IDS.has(id))) return { ok: false, error: "lettre inconnue" };
-    knownLetters = [...new Set(raw.knownLetters as number[])].sort((a, b) => a - b);
-    if (knownLetters.length === 0) return { ok: false, error: "cochez les lettres qu'il connaît" };
+  const known = parseKnownLetters(raw.knownLetters, letters);
+  if (!known.ok) return known;
+  const knownLetters = known.value;
+
+  // Formes attachées : seulement pour un débutant qui connaît toutes les lettres isolées.
+  let letterForms: LetterKnowledge | null = null;
+  let knownLetterForms: number[] = [];
+  if (level === "beginner" && letters === "all") {
+    if (!LETTER_KNOWLEDGE.includes(raw.letterForms as LetterKnowledge)) {
+      return { ok: false, error: "indiquez s'il connaît des lettres attachées (début, milieu, fin)" };
+    }
+    letterForms = raw.letterForms as LetterKnowledge;
+    const forms = parseKnownLetters(raw.knownLetterForms, letterForms);
+    if (!forms.ok) return forms;
+    knownLetterForms = forms.value;
   }
 
   if (!VOCABULARY_LEVELS.includes(raw.vocabulary as VocabularyLevel)) return { ok: false, error: "indiquez s'il a du vocabulaire" };
@@ -204,7 +223,17 @@ function parseChild(input: unknown): { ok: true; value: ChildInput } | { ok: fal
     if (vocabularyDomains.length === 0 && !vocabularyOther) return { ok: false, error: "indiquez les domaines de vocabulaire" };
   }
 
-  return { ok: true, value: { name, age, level, letters, knownLetters, vocabulary, vocabularyDomains, vocabularyOther } };
+  return { ok: true, value: { name, age, level, letters, knownLetters, letterForms, knownLetterForms, vocabulary, vocabularyDomains, vocabularyOther } };
+}
+
+/** Lettres cochées (dédoublonnées, dans l'ordre de l'alphabet) ; requises et non vides seulement pour « quelques-unes ». */
+function parseKnownLetters(raw: unknown, knowledge: LetterKnowledge): { ok: true; value: number[] } | { ok: false; error: string } {
+  if (knowledge !== "some") return { ok: true, value: [] };
+  if (!Array.isArray(raw)) return { ok: false, error: "cochez les lettres qu'il connaît" };
+  if (!raw.every((id) => typeof id === "number" && LETTER_IDS.has(id))) return { ok: false, error: "lettre inconnue" };
+  const ids = [...new Set(raw as number[])].sort((a, b) => a - b);
+  if (ids.length === 0) return { ok: false, error: "cochez les lettres qu'il connaît" };
+  return { ok: true, value: ids };
 }
 
 /** Valide le corps « marquer comme traitée » envoyé par l'admin. */

@@ -24,10 +24,11 @@ const AGES = Array.from({ length: MAX_CHILD_AGE - MIN_CHILD_AGE + 1 }, (_, i) =>
 interface ChildDraft {
   key: number; name: string; age: string; level: EnrollmentLevel | null;
   letters: LetterKnowledge | null; knownLetters: number[];
+  letterForms: LetterKnowledge | null; knownLetterForms: number[];
   vocabulary: VocabularyLevel | null; vocabularyDomains: VocabularyDomain[]; vocabularyOther: string;
 }
 const emptyChild = (key: number): ChildDraft =>
-  ({ key, name: "", age: "", level: null, letters: null, knownLetters: [], vocabulary: null, vocabularyDomains: [], vocabularyOther: "" });
+  ({ key, name: "", age: "", level: null, letters: null, knownLetters: [], letterForms: null, knownLetterForms: [], vocabulary: null, vocabularyDomains: [], vocabularyOther: "" });
 
 /** Ajoute ou retire une valeur d'une liste (cases à cocher). */
 function toggle<T>(list: T[], value: T, on: boolean): T[] {
@@ -69,6 +70,10 @@ export default function EnrollmentPage() {
       if (c.level !== "reader") {
         if (!c.letters) return setError(`${who}indiquez s'il connaît des lettres.`);
         if (c.letters === "some" && c.knownLetters.length === 0) return setError(`${who}cochez les lettres qu'il connaît.`);
+        if (c.letters === "all") {
+          if (!c.letterForms) return setError(`${who}indiquez s'il connaît des lettres attachées (début, milieu, fin).`);
+          if (c.letterForms === "some" && c.knownLetterForms.length === 0) return setError(`${who}cochez les lettres attachées qu'il connaît.`);
+        }
       }
       if (!c.vocabulary) return setError(`${who}indiquez s'il a du vocabulaire.`);
       if (c.vocabulary === "some" && c.vocabularyDomains.length === 0 && !c.vocabularyOther.trim()) {
@@ -84,6 +89,8 @@ export default function EnrollmentPage() {
           name: c.name, age: Number(c.age), level: c.level as EnrollmentLevel,
           letters: c.level === "reader" ? "all" : c.letters as LetterKnowledge,
           knownLetters: c.level !== "reader" && c.letters === "some" ? c.knownLetters : [],
+          letterForms: c.level !== "reader" && c.letters === "all" ? c.letterForms : null,
+          knownLetterForms: c.level !== "reader" && c.letters === "all" && c.letterForms === "some" ? c.knownLetterForms : [],
           vocabulary: c.vocabulary as VocabularyLevel,
           vocabularyDomains: c.vocabulary === "some" ? c.vocabularyDomains : [],
           vocabularyOther: c.vocabulary === "some" ? c.vocabularyOther.trim() || null : null,
@@ -262,6 +269,43 @@ export default function EnrollmentPage() {
                                   <input type="checkbox" className="sr-only" checked={on} aria-label={l.nameTranslit}
                                     onChange={(e) => updateChild(child.key, { knownLetters: toggle(child.knownLetters, l.id, e.target.checked) })} />
                                   <span lang="ar" className="text-2xl leading-none text-[#2D2D2D]">{l.isolated}</span>
+                                  <span dir="ltr" className="mt-1 text-[10px] leading-none text-[#2D2D2D]/50">{l.nameTranslit}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>}
+
+                    {/* Formes attachées : seulement si le débutant reconnaît toutes les lettres isolées. */}
+                    {child.level !== "reader" && child.letters === "all" && <div>
+                      <p className={label}>Reconnaît-il des lettres attachées (au début, au milieu et à la fin d&apos;un mot) ?</p>
+                      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Lettres attachées connues">
+                        {LETTER_KNOWLEDGE.map((k) => (
+                          <label key={k} className={pill(child.letterForms === k)}>
+                            <input type="radio" name={`letterForms-${child.key}`} value={k} checked={child.letterForms === k}
+                              onChange={() => updateChild(child.key, { letterForms: k })} className="accent-[#6B705C]" />
+                            {LETTER_KNOWLEDGE_LABELS[k]}
+                          </label>
+                        ))}
+                      </div>
+                      {child.letterForms === "some" && (
+                        <div className="mt-3">
+                          <p className={hint}>Cochez les lettres qu&apos;il reconnaît au début, au milieu et à la fin d&apos;un mot.</p>
+                          <div dir="rtl" className="grid grid-cols-4 gap-2" role="group" aria-label="Lettres attachées qu'il reconnaît">
+                            {ARABIC_ALPHABET.map((l) => {
+                              const on = child.knownLetterForms.includes(l.id);
+                              return (
+                                <label key={l.id} title={l.nameTranslit}
+                                  className={`flex flex-col items-center justify-center rounded-xl border-2 py-2 cursor-pointer transition-all has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[#6B705C]/40 ${
+                                    on ? "border-[#6B705C] bg-[#999B84]/10" : "border-[#EDE5D8] hover:border-[#999B84]"
+                                  }`}>
+                                  <input type="checkbox" className="sr-only" checked={on} aria-label={l.nameTranslit}
+                                    onChange={(e) => updateChild(child.key, { knownLetterForms: toggle(child.knownLetterForms, l.id, e.target.checked) })} />
+                                  <span lang="ar" className="text-xl leading-none text-[#2D2D2D] whitespace-nowrap">
+                                    {l.initial} {l.medial} {l.final}
+                                  </span>
                                   <span dir="ltr" className="mt-1 text-[10px] leading-none text-[#2D2D2D]/50">{l.nameTranslit}</span>
                                 </label>
                               );

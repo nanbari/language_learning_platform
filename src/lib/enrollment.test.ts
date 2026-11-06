@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { MAX_CHILDREN, parseEnrollmentHandled, parseEnrollmentInput } from "@/lib/enrollment";
 
 const ADAM = { name: " Adam ", age: 7, level: "beginner", letters: "none", vocabulary: "none" };
-const NOTHING = { letters: "none", knownLetters: [], vocabulary: "none", vocabularyDomains: [], vocabularyOther: null };
+const NOTHING = { letters: "none", knownLetters: [], letterForms: null, knownLetterForms: [], vocabulary: "none", vocabularyDomains: [], vocabularyOther: null };
 const VALID = {
   parentName: "  Léa   Martin ",
   email: " Lea.Martin@Example.BE ",
@@ -36,8 +36,26 @@ describe("parseEnrollmentInput", () => {
   it("garde les lettres connues (dédoublonnées, dans l'ordre de l'alphabet) seulement pour « quelques-unes »", () => {
     const some = parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, letters: "some", knownLetters: [3, 1, 3] }] });
     expect(some.ok && some.value.children[0]).toMatchObject({ letters: "some", knownLetters: [1, 3] });
-    const all = parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, letters: "all", knownLetters: [1, 2] }] });
+    const all = parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, letters: "all", knownLetters: [1, 2], letterForms: "none" }] });
     expect(all.ok && all.value.children[0]).toMatchObject({ letters: "all", knownLetters: [] });
+  });
+
+  it("demande les lettres attachées (début, milieu, fin) seulement au débutant qui connaît toutes les lettres isolées", () => {
+    const all = { ...ADAM, letters: "all" };
+    // Réponse requise quand la question est posée.
+    expect(parseEnrollmentInput({ ...VALID, children: [all] }).ok).toBe(false);
+    expect(parseEnrollmentInput({ ...VALID, children: [{ ...all, letterForms: "beaucoup" }] }).ok).toBe(false);
+    const none = parseEnrollmentInput({ ...VALID, children: [{ ...all, letterForms: "none", knownLetterForms: [1] }] });
+    expect(none.ok && none.value.children[0]).toMatchObject({ letters: "all", letterForms: "none", knownLetterForms: [] });
+    const some = parseEnrollmentInput({ ...VALID, children: [{ ...all, letterForms: "some", knownLetterForms: [5, 2, 5] }] });
+    expect(some.ok && some.value.children[0]).toMatchObject({ letterForms: "some", knownLetterForms: [2, 5] });
+    expect(parseEnrollmentInput({ ...VALID, children: [{ ...all, letterForms: "some", knownLetterForms: [] }] }).ok).toBe(false);
+    expect(parseEnrollmentInput({ ...VALID, children: [{ ...all, letterForms: "some", knownLetterForms: [99] }] }).ok).toBe(false);
+    // Question non posée : la réponse envoyée est ignorée.
+    const partial = parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, letters: "some", knownLetters: [1], letterForms: "some", knownLetterForms: [1] }] });
+    expect(partial.ok && partial.value.children[0]).toMatchObject({ letterForms: null, knownLetterForms: [] });
+    const reader = parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, level: "reader", letterForms: "all" }] });
+    expect(reader.ok && reader.value.children[0]).toMatchObject({ letters: "all", letterForms: null, knownLetterForms: [] });
   });
 
   it("un lecteur connaît toutes les lettres : la réponse envoyée est ignorée", () => {

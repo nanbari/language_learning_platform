@@ -6,7 +6,7 @@ import { serverError } from "@/server/errors";
 
 /**
  * POST /api/enrollment  { parentName, email, phone, children: [{ name, age, level, letters, knownLetters,
- *   vocabulary, vocabularyDomains, vocabularyOther }], consent, website }
+ *   letterForms, knownLetterForms, vocabulary, vocabularyDomains, vocabularyOther }], consent, website }
  * Enregistre une demande par enfant, avec les coordonnées du parent, que l'équipe traite à la
  * main (recontact de la famille). `website` est un champ piège invisible :
  * rempli, c'est un robot ; on répond comme si tout allait bien sans rien
@@ -41,6 +41,8 @@ export async function POST(req: NextRequest) {
       level: child.level,
       letters: child.letters,
       known_letters: child.knownLetters,
+      letter_forms: child.letterForms,
+      known_letter_forms: child.knownLetterForms,
       vocabulary: child.vocabulary,
       vocabulary_domains: child.vocabularyDomains,
       vocabulary_other: child.vocabularyOther,

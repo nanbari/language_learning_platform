@@ -6,7 +6,7 @@ import { fetchSignupRequests, reviewSignupRequest } from "@/lib/api/signup";
 import type { SignupRequestRow } from "@/lib/signup";
 import { fetchEnrollments, markEnrollmentHandled } from "@/lib/api/enrollment";
 import {
-  LEVEL_LABELS, LETTER_KNOWLEDGE_LABELS, VOCABULARY_LABELS, VOCABULARY_DOMAIN_LABELS, type EnrollmentRow,
+  LEVEL_LABELS, LETTER_KNOWLEDGE_LABELS, VOCABULARY_LABELS, VOCABULARY_DOMAIN_LABELS, type EnrollmentRow, type LetterKnowledge,
 } from "@/lib/enrollment";
 import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";
 import { Button, ICON_STROKE, InlineNotice, StatusPill } from "@/components/platform/ui";
@@ -17,12 +17,20 @@ function knownLetterGlyphs(ids: number[]): string {
   return ARABIC_ALPHABET.filter((l) => ids.includes(l.id)).map((l) => l.isolated).join(" ");
 }
 
+/** Réponse « aucune / quelques-unes (lettres) / toutes » à l'une des deux questions sur les lettres. */
+function letterAnswer(knowledge: LetterKnowledge | null, ids: number[] | null) {
+  if (knowledge === "some" && ids && ids.length > 0) {
+    return <>{LETTER_KNOWLEDGE_LABELS.some} : <span lang="ar" dir="rtl" className="text-base text-ms-ink">{knownLetterGlyphs(ids)}</span></>;
+  }
+  return knowledge ? LETTER_KNOWLEDGE_LABELS[knowledge].toLowerCase() : null;
+}
+
 /** Ce que la famille a dit du niveau (lettres, vocabulaire) ; vide pour les demandes d'avant novembre 2026. */
 function LevelDetails({ r }: { r: EnrollmentRow }) {
   if (!r.letters && !r.vocabulary) return null;
-  const letters = r.letters === "some" && r.known_letters && r.known_letters.length > 0
-    ? <>{LETTER_KNOWLEDGE_LABELS.some} : <span lang="ar" dir="rtl" className="text-base text-ms-ink">{knownLetterGlyphs(r.known_letters)}</span></>
-    : r.letters ? LETTER_KNOWLEDGE_LABELS[r.letters].toLowerCase() : null;
+  const letters = letterAnswer(r.letters, r.known_letters);
+  // Formes attachées (début, milieu, fin) : demandées au débutant qui connaît toutes les lettres isolées.
+  const forms = letterAnswer(r.letter_forms, r.known_letter_forms);
   const domains = [
     ...(r.vocabulary_domains ?? []).map((d) => VOCABULARY_DOMAIN_LABELS[d] ?? d),
     ...(r.vocabulary_other ? [r.vocabulary_other] : []),
@@ -30,6 +38,7 @@ function LevelDetails({ r }: { r: EnrollmentRow }) {
   return (
     <p className="mt-1 text-ms-muted">
       {letters && <>Lettres : {letters}</>}
+      {forms && <> · Lettres attachées : {forms}</>}
       {letters && r.vocabulary && " · "}
       {r.vocabulary && <>Vocabulaire : {VOCABULARY_LABELS[r.vocabulary].toLowerCase()}{domains.length > 0 && <> ({domains.join(", ")})</>}</>}
     </p>

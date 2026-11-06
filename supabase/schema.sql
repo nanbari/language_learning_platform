@@ -177,6 +177,9 @@ create table public.enrollment_requests (
   -- Précisions sur le niveau (novembre 2026) ; null pour les demandes antérieures.
   letters text check (letters in ('none', 'some', 'all')),
   known_letters smallint[],
+  -- Formes attachées (début, milieu, fin), demandées au débutant qui connaît toutes les lettres isolées.
+  letter_forms text check (letter_forms in ('none', 'some', 'all')),
+  known_letter_forms smallint[],
   vocabulary text check (vocabulary in ('none', 'some', 'lots')),
   vocabulary_domains text[],
   vocabulary_other text check (char_length(vocabulary_other) <= 200),
