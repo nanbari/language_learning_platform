@@ -236,7 +236,6 @@ export default function EnrollmentPage() {
 
                     <div>
                       <p className={label}>Reconnaît-il des lettres isolées de l&apos;alphabet arabe ?</p>
-                      <p className={hint}>Reconnaître les lettres une à une, ce n&apos;est pas encore lire : les deux questions sont séparées.</p>
                       <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Lettres connues">
                         {LETTER_KNOWLEDGE.map((k) => (
                           <label key={k} className={pill(child.letters === k)}>
