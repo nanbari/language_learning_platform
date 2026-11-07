@@ -1,12 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronDown, Inbox, Mail, Phone, X } from "lucide-react";
+import { Check, ChevronDown, Inbox, Mail, Phone, UserMinus, X } from "lucide-react";
 import { fetchSignupRequests, reviewSignupRequest } from "@/lib/api/signup";
 import type { SignupRequestRow } from "@/lib/signup";
-import { fetchEnrollments, markEnrollmentHandled } from "@/lib/api/enrollment";
+import { decideEnrollment, fetchEnrollments } from "@/lib/api/enrollment";
 import {
-  LEVEL_LABELS, LETTER_KNOWLEDGE_LABELS, VOCABULARY_LABELS, VOCABULARY_DOMAIN_LABELS, type EnrollmentRow, type LetterKnowledge,
+  LEVEL_LABELS, LETTER_KNOWLEDGE_LABELS, VOCABULARY_LABELS, VOCABULARY_DOMAIN_LABELS, RETENTION_CLOSED_MONTHS,
+  type EnrollmentAction, type EnrollmentRow, type LetterKnowledge,
 } from "@/lib/enrollment";
 import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";
 import { Button, ICON_STROKE, InlineNotice, StatusPill } from "@/components/platform/ui";
@@ -45,11 +46,25 @@ function LevelDetails({ r }: { r: EnrollmentRow }) {
   );
 }
 
+/** Où en est la demande, et ce que la conservation (mention RGPD du formulaire) en fera. */
+function statusLine(r: EnrollmentRow): string | null {
+  const when = (iso: string) => relativeDay(iso).toLowerCase();
+  if (r.status === "enrolled") {
+    if (r.ended_at) return `inscription terminée ${when(r.ended_at)}, effacée un an plus tard`;
+    return r.handled_at ? `inscrit ${when(r.handled_at)}` : "inscrit";
+  }
+  if (r.status === "closed") {
+    return `${r.handled_at ? `sans suite ${when(r.handled_at)}` : "sans suite"}, effacée ${RETENTION_CLOSED_MONTHS} mois plus tard`;
+  }
+  return null;
+}
+
 /** null = chargement ; "error" = échec du chargement (à ne pas confondre avec une liste vide). */
 type Loaded<T> = T[] | null | "error";
 
 /** Une demande d'inscription : l'enfant, ce que la famille a dit de son niveau, les coordonnées. */
 function EnrollmentItem({ r, children }: { r: EnrollmentRow; children?: React.ReactNode }) {
+  const status = statusLine(r);
   return (
     <li className="flex flex-col gap-3 p-3 sm:flex-row sm:items-start">
       <div className="min-w-0 flex-1 text-sm">
@@ -59,7 +74,7 @@ function EnrollmentItem({ r, children }: { r: EnrollmentRow; children?: React.Re
         <LevelDetails r={r} />
         <p className="text-ms-muted">
           {r.parent_name} · {relativeDay(r.created_at)}
-          {r.handled_at && <> · traitée {relativeDay(r.handled_at).toLowerCase()}</>}
+          {status && <> · {status}</>}
         </p>
         <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
           <a href={`mailto:${r.email}`} className="inline-flex min-h-11 items-center gap-1.5 [overflow-wrap:anywhere] text-ms-ink underline-offset-2 hover:underline">
@@ -104,19 +119,24 @@ function Category({ title, help, items, done = false, children }: {
  * « À traiter » (admins) : inscriptions des familles et comptes élèves à
  * valider, dans un seul encadré compact. Mêmes API et mêmes actions qu'avant ;
  * les droits restent vérifiés côté serveur.
+ *
+ * Une demande d'inscription est soit « inscrit » (coordonnées conservées tant
+ * que l'enfant suit les cours, puis un an après « Fin d'inscription »), soit
+ * « sans suite » (effacée 6 mois plus tard). Les effacements sont faits par la
+ * base ; ici on ne fait qu'enregistrer la décision.
  */
 export default function RequestInbox() {
-  const [enrollments, setEnrollments] = useState<Loaded<EnrollmentRow>>(null);
-  // Demandes déjà traitées : l'historique des familles reste sous la main.
-  const [handled, setHandled] = useState<Loaded<EnrollmentRow>>(null);
+  const [pending, setPending] = useState<Loaded<EnrollmentRow>>(null);
+  const [enrolled, setEnrolled] = useState<Loaded<EnrollmentRow>>(null);
+  const [closed, setClosed] = useState<Loaded<EnrollmentRow>>(null);
   const [signups, setSignups] = useState<Loaded<SignupRequestRow>>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: "info" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     fetchEnrollments()
-      .then((r) => { setEnrollments(r.pending); setHandled(r.handled); })
-      .catch(() => { setEnrollments("error"); setHandled("error"); });
+      .then((r) => { setPending(r.pending); setEnrolled(r.enrolled); setClosed(r.closed); })
+      .catch(() => { setPending("error"); setEnrolled("error"); setClosed("error"); });
     fetchSignupRequests().then((r) => setSignups(r.pending)).catch(() => setSignups("error"));
   }, []);
 
@@ -132,20 +152,28 @@ export default function RequestInbox() {
     }
   };
 
-  const handleEnrollment = (id: string) => run(id, async () => {
-    const done = await markEnrollmentHandled(id);
-    setEnrollments((prev) => (Array.isArray(prev) ? prev.filter((r) => r.id !== id) : prev));
-    setHandled((prev) => (Array.isArray(prev) ? [done, ...prev] : [done]));
-    return `Demande de ${done.parent_name} pour ${done.child_name} marquée comme traitée. Elle reste consultable dans « Demandes traitées ».`;
+  const decide = (id: string, action: EnrollmentAction) => run(id, async () => {
+    const done = await decideEnrollment(id, action);
+    if (action === "end") {
+      setEnrolled((prev) => (Array.isArray(prev) ? prev.map((r) => (r.id === done.id ? done : r)) : prev));
+      return `Inscription de ${done.child_name} terminée. Ses informations seront effacées automatiquement dans un an.`;
+    }
+    setPending((prev) => (Array.isArray(prev) ? prev.filter((r) => r.id !== done.id) : prev));
+    if (action === "enroll") {
+      setEnrolled((prev) => (Array.isArray(prev) ? [done, ...prev] : [done]));
+      return `Inscription de ${done.child_name} enregistrée. Les coordonnées de ${done.parent_name} restent dans « Enfants inscrits ».`;
+    }
+    setClosed((prev) => (Array.isArray(prev) ? [done, ...prev] : [done]));
+    return `Demande de ${done.parent_name} pour ${done.child_name} classée sans suite. Elle sera effacée automatiquement dans ${RETENTION_CLOSED_MONTHS} mois.`;
   });
 
-  const decide = (id: string, action: "approve" | "reject") => run(id, async () => {
+  const review = (id: string, action: "approve" | "reject") => run(id, async () => {
     const done = await reviewSignupRequest(id, action);
     setSignups((prev) => (Array.isArray(prev) ? prev.filter((r) => r.id !== id) : prev));
     return action === "approve" ? `Compte créé pour ${done.name} (${done.email}).` : `Demande de ${done.name} refusée.`;
   });
 
-  const empty = Array.isArray(enrollments) && Array.isArray(signups) && enrollments.length + signups.length === 0;
+  const empty = Array.isArray(pending) && Array.isArray(signups) && pending.length + signups.length === 0;
 
   return (
     <section aria-labelledby="a-traiter" className="ms-panel flex flex-col overflow-hidden">
@@ -162,17 +190,22 @@ export default function RequestInbox() {
 
       <Category
         title="Inscriptions des familles"
-        items={enrollments}
-        help={<>Envoyées depuis le formulaire <Link href="/demande-inscription" className="font-semibold text-ms-ink underline underline-offset-2">demande d&apos;inscription</Link>. Recontactez la famille, puis marquez la demande comme traitée.</>}
+        items={pending}
+        help={<>Envoyées depuis le formulaire <Link href="/demande-inscription" className="font-semibold text-ms-ink underline underline-offset-2">demande d&apos;inscription</Link>. Recontactez la famille, puis indiquez si l&apos;enfant est inscrit ou si la demande reste sans suite.</>}
       >
-        {enrollments === "error" && <InlineNotice tone="error">Les demandes d&apos;inscription n&apos;ont pas pu être chargées. Rechargez la page.</InlineNotice>}
-        {Array.isArray(enrollments) && enrollments.length > 0 && (
+        {pending === "error" && <InlineNotice tone="error">Les demandes d&apos;inscription n&apos;ont pas pu être chargées. Rechargez la page.</InlineNotice>}
+        {Array.isArray(pending) && pending.length > 0 && (
           <ul className="divide-y divide-ms-line rounded-xl border border-ms-line">
-            {enrollments.map((r) => (
+            {pending.map((r) => (
               <EnrollmentItem key={r.id} r={r}>
-                <Button variant="primary" onClick={() => handleEnrollment(r.id)} disabled={busy === r.id}>
-                  <Check size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> {busy === r.id ? "Enregistrement…" : "Marquer traitée"}
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="secondary" onClick={() => decide(r.id, "close")} disabled={busy === r.id}>
+                    <X size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Sans suite
+                  </Button>
+                  <Button variant="primary" onClick={() => decide(r.id, "enroll")} disabled={busy === r.id}>
+                    <Check size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> {busy === r.id ? "Enregistrement…" : "Inscrit"}
+                  </Button>
+                </div>
               </EnrollmentItem>
             ))}
           </ul>
@@ -180,15 +213,37 @@ export default function RequestInbox() {
       </Category>
 
       <Category
-        title="Demandes traitées"
-        items={handled}
+        title="Enfants inscrits"
+        items={enrolled}
         done
-        help="Les familles déjà recontactées, les plus récentes d'abord : niveau, lettres connues, vocabulaire et coordonnées restent consultables."
+        help="Les coordonnées des familles inscrites restent ici tant que l'enfant suit les cours. Quand il arrête, cliquez « Fin d'inscription » : la demande est effacée automatiquement un an plus tard."
       >
-        {handled === "error" && <InlineNotice tone="error">Les demandes traitées n&apos;ont pas pu être chargées. Rechargez la page.</InlineNotice>}
-        {Array.isArray(handled) && handled.length > 0 && (
+        {enrolled === "error" && <InlineNotice tone="error">Les enfants inscrits n&apos;ont pas pu être chargés. Rechargez la page.</InlineNotice>}
+        {Array.isArray(enrolled) && enrolled.length > 0 && (
           <ul className="divide-y divide-ms-line rounded-xl border border-ms-line">
-            {handled.map((r) => <EnrollmentItem key={r.id} r={r} />)}
+            {enrolled.map((r) => (
+              <EnrollmentItem key={r.id} r={r}>
+                {!r.ended_at && (
+                  <Button variant="secondary" onClick={() => decide(r.id, "end")} disabled={busy === r.id}>
+                    <UserMinus size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> {busy === r.id ? "Enregistrement…" : "Fin d'inscription"}
+                  </Button>
+                )}
+              </EnrollmentItem>
+            ))}
+          </ul>
+        )}
+      </Category>
+
+      <Category
+        title="Demandes sans suite"
+        items={closed}
+        done
+        help={`Familles recontactées sans inscription, les plus récentes d'abord. Chaque demande est effacée automatiquement ${RETENTION_CLOSED_MONTHS} mois après avoir été classée.`}
+      >
+        {closed === "error" && <InlineNotice tone="error">Les demandes sans suite n&apos;ont pas pu être chargées. Rechargez la page.</InlineNotice>}
+        {Array.isArray(closed) && closed.length > 0 && (
+          <ul className="divide-y divide-ms-line rounded-xl border border-ms-line">
+            {closed.map((r) => <EnrollmentItem key={r.id} r={r} />)}
           </ul>
         )}
       </Category>
@@ -204,10 +259,10 @@ export default function RequestInbox() {
                   <p className="text-ms-muted"><span className="[overflow-wrap:anywhere]">{r.email}</span> · {relativeDay(r.created_at)}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="danger" onClick={() => decide(r.id, "reject")} disabled={busy === r.id}>
+                  <Button variant="danger" onClick={() => review(r.id, "reject")} disabled={busy === r.id}>
                     <X size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Refuser
                   </Button>
-                  <Button variant="primary" onClick={() => decide(r.id, "approve")} disabled={busy === r.id}>
+                  <Button variant="primary" onClick={() => review(r.id, "approve")} disabled={busy === r.id}>
                     <Check size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> {busy === r.id ? "Enregistrement…" : "Approuver"}
                   </Button>
                 </div>

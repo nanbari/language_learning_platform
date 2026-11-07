@@ -6,6 +6,7 @@ import {
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import Reveal from "@/components/home/Reveal";
+import { CONTACT_EMAIL } from "@/lib/contact";
 
 /* ─── Styles partagés ──────────────────────────────────────────────────
    Formes : boutons et puces en pilule, conteneurs à 1.75rem.
@@ -293,10 +294,10 @@ export default function HomePage() {
                 Inscription, niveau de votre enfant ou simple curiosité : je réponds sous 48h.
               </p>
               <a
-                href="mailto:nabilaanbari@zohomail.eu"
+                href={`mailto:${CONTACT_EMAIL}`}
                 className="mt-8 inline-block break-all font-display text-xl font-semibold text-ms-moss underline decoration-ms-moss/30 underline-offset-8 transition-colors hover:decoration-ms-moss sm:text-2xl"
               >
-                nabilaanbari@zohomail.eu
+                {CONTACT_EMAIL}
               </a>
             </Reveal>
 

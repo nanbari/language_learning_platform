@@ -11,6 +11,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle, Plus, Send, X } from "lucide-react";
 import { submitEnrollment } from "@/lib/api/enrollment";
+import { CONTACT_EMAIL } from "@/lib/contact";
 import {
   ENROLLMENT_LEVELS, LEVEL_LABELS, MAX_CHILD_AGE, MAX_CHILDREN, MIN_CHILD_AGE, MAX_VOCABULARY_OTHER,
   LETTER_KNOWLEDGE, LETTER_KNOWLEDGE_LABELS, VOCABULARY_LEVELS, VOCABULARY_LABELS, VOCABULARY_DOMAINS, VOCABULARY_DOMAIN_LABELS,
@@ -367,8 +368,42 @@ export default function EnrollmentPage() {
               <label className="flex items-start gap-3 text-sm text-[#2D2D2D]/70 cursor-pointer">
                 <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)}
                   className="mt-0.5 w-5 h-5 accent-[#6B705C] flex-shrink-0" />
-                <span>J&apos;accepte que l&apos;ASBL Monte &amp; Souris utilise ces informations pour organiser les cours et me recontacter.</span>
+                <span>J&apos;ai pris connaissance des informations ci-dessous et j&apos;accepte que l&apos;ASBL Monte &amp; Souris utilise ces données pour traiter cette demande, organiser les cours et me recontacter.</span>
               </label>
+
+              {/* Information RGPD (art. 13) : responsable, finalités, base, destinataires, durées, droits. */}
+              <details className="rounded-xl border border-[#EDE5D8] bg-[#F5EEE8]/60 px-4 py-3 text-xs text-[#2D2D2D]/70 leading-relaxed">
+                <summary className="cursor-pointer font-bold text-[#6B705C]">Protection des données : comment vos informations sont utilisées</summary>
+                <div className="mt-3 space-y-2">
+                  <p>
+                    <strong>Responsable du traitement :</strong> Monte &amp; Souris ASBL, Bruxelles. Contact :{" "}
+                    <a href={`mailto:${CONTACT_EMAIL}`} className="underline">{CONTACT_EMAIL}</a>.
+                  </p>
+                  <p>
+                    <strong>Pourquoi :</strong> traiter votre demande, vous recontacter, et proposer à votre enfant un groupe
+                    adapté à son niveau. Les réponses sur les lettres et le vocabulaire ne servent qu&apos;à cela.
+                  </p>
+                  <p>
+                    <strong>Sur quelle base :</strong> votre accord (case ci-dessus) et les démarches préalables à l&apos;inscription.
+                    Vous pouvez retirer votre accord à tout moment ; la demande est alors effacée.
+                  </p>
+                  <p>
+                    <strong>Qui y accède :</strong> uniquement l&apos;équipe de l&apos;ASBL. Les données sont stockées chez nos
+                    prestataires techniques (hébergement du site et de la base de données) et ne sont ni vendues ni transmises
+                    à des tiers à des fins commerciales.
+                  </p>
+                  <p>
+                    <strong>Combien de temps :</strong> si l&apos;inscription n&apos;a pas lieu, la demande est supprimée au plus tard
+                    6 mois après son traitement. Si votre enfant est inscrit, ses informations sont conservées pendant la durée de
+                    l&apos;inscription, puis un an.
+                  </p>
+                  <p>
+                    <strong>Vos droits :</strong> accès, rectification, effacement, limitation et opposition, par simple e-mail à
+                    l&apos;adresse ci-dessus. Vous pouvez aussi introduire une réclamation auprès de l&apos;Autorité de protection des
+                    données (<a href="https://www.autoriteprotectiondonnees.be" target="_blank" rel="noopener noreferrer" className="underline">autoriteprotectiondonnees.be</a>).
+                  </p>
+                </div>
+              </details>
 
               {error && <div className="bg-red-50 text-red-500 text-sm rounded-xl px-4 py-2 border border-red-100" role="alert">{error}</div>}
 

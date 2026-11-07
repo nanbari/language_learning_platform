@@ -45,3 +45,12 @@ Nouveaux éléments, par priorité :
 | Ops | Sauvegardes Supabase (plan gratuit = aucune), `NEXT_PUBLIC_SITE_URL`, liste des URL de redirection, matrice en CI | opérateur |
 
 Les décisions ⚑ 1 à 5 ci-dessus restent ouvertes.
+
+## Point du 7 novembre 2026 — données des familles (RGPD)
+
+| # | Élément | Statut |
+|---|---|---|
+| R1 | Mention d'information (art. 13) sur `/demande-inscription` : responsable, finalités, base, destinataires, durées, droits, recours APD | **fait le 7 nov.** |
+| R2 | Adresse de contact centralisée (`src/lib/contact.ts`) : `contact@monteetsouris.com` (Zoho Mail ; MX et SPF posés chez Netlify le 7 nov., DKIM à faire) | **fait le 7 nov.** |
+| R3 | Décisions « inscrit » / « sans suite » / « fin d'inscription » dans la boîte de réception ; purge pg_cron : sans suite +6 mois, inscription terminée +1 an | **code fait le 7 nov.** ; migration `2026-11-07_enrollment_requests_retention` **à exécuter** |
+| R4 | Opérateur : `NEXT_PUBLIC_SITE_URL` et `SUPABASE_JWT_SECRET` sur Netlify (liste vérifiée le 7 nov. : absents) | reporté par l'association |

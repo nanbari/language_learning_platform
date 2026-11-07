@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo, Wordmark } from "@/components/layout/Header";
+import { CONTACT_EMAIL } from "@/lib/contact";
 
 const navigation = [
   ["Accueil", "/"],
@@ -33,10 +34,10 @@ export default function Footer() {
             <p><a href="tel:+32499289766" className="transition-colors hover:text-ms-moss">+32 499 28 97 66</a></p>
             <p>
               <a
-                href="mailto:nabilaanbari@zohomail.eu"
+                href={`mailto:${CONTACT_EMAIL}`}
                 className="font-semibold text-ms-moss underline decoration-ms-moss/30 underline-offset-4 transition-colors hover:decoration-ms-moss"
               >
-                nabilaanbari@zohomail.eu
+                {CONTACT_EMAIL}
               </a>
             </p>
           </address>

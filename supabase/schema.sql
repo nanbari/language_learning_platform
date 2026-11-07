@@ -184,13 +184,24 @@ create table public.enrollment_requests (
   vocabulary_domains text[],
   vocabulary_other text check (char_length(vocabulary_other) <= 200),
   consent_at timestamptz not null,
-  status text not null default 'new' check (status in ('new', 'handled')),
+  -- new : à traiter ; enrolled : enfant inscrit (coordonnées conservées) ;
+  -- closed : recontactée sans inscription. (« handled » d'avant novembre 2026 → enrolled.)
+  status text not null default 'new' check (status in ('new', 'enrolled', 'closed')),
   created_at timestamptz not null default now(),
+  -- Date de la décision (inscrit ou sans suite) et admin qui l'a prise.
   handled_at timestamptz,
-  handled_by uuid references public.users(id) on delete set null
+  handled_by uuid references public.users(id) on delete set null,
+  -- Fin de l'inscription d'un enfant inscrit ; null tant qu'il suit les cours.
+  ended_at timestamptz
 );
 
 create index enrollment_requests_status_idx on public.enrollment_requests (status, created_at);
+
+-- Conservation (RGPD, mention affichée sur le formulaire) : une demande sans
+-- suite est effacée 6 mois après son classement, une inscription terminée un
+-- an après sa fin (ended_at). Tâche pg_cron quotidienne, voir la migration
+-- 2026-11-07_enrollment_requests_retention.sql. Une inscription en cours
+-- (ended_at null) n'est jamais effacée.
 
 -- Aucune policy : la table n’est accessible que par le serveur (service role)
 alter table public.enrollment_requests enable row level security;

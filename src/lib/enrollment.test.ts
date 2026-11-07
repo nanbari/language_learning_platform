@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_CHILDREN, parseEnrollmentHandled, parseEnrollmentInput } from "@/lib/enrollment";
+import { MAX_CHILDREN, parseEnrollmentAction, parseEnrollmentInput } from "@/lib/enrollment";
 
 const ADAM = { name: " Adam ", age: 7, level: "beginner", letters: "none", vocabulary: "none" };
 const NOTHING = { letters: "none", knownLetters: [], letterForms: null, knownLetterForms: [], vocabulary: "none", vocabularyDomains: [], vocabularyOther: null };
@@ -126,10 +126,15 @@ describe("parseEnrollmentInput", () => {
   });
 });
 
-describe("parseEnrollmentHandled", () => {
-  it("n'accepte qu'un identifiant uuid", () => {
-    expect(parseEnrollmentHandled({ id: "11111111-1111-4111-8111-111111111111" }).ok).toBe(true);
-    expect(parseEnrollmentHandled({ id: "1" }).ok).toBe(false);
-    expect(parseEnrollmentHandled(null).ok).toBe(false);
+describe("parseEnrollmentAction", () => {
+  const ID = "11111111-1111-4111-8111-111111111111";
+  it("n'accepte qu'un identifiant uuid et une des trois décisions", () => {
+    expect(parseEnrollmentAction({ id: ID, action: "enroll" })).toEqual({ ok: true, id: ID, action: "enroll" });
+    expect(parseEnrollmentAction({ id: ID, action: "close" }).ok).toBe(true);
+    expect(parseEnrollmentAction({ id: ID, action: "end" }).ok).toBe(true);
+    expect(parseEnrollmentAction({ id: ID, action: "handled" }).ok).toBe(false);
+    expect(parseEnrollmentAction({ id: ID }).ok).toBe(false);
+    expect(parseEnrollmentAction({ id: "1", action: "enroll" }).ok).toBe(false);
+    expect(parseEnrollmentAction(null).ok).toBe(false);
   });
 });

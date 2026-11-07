@@ -69,7 +69,24 @@ export const MAX_VOCABULARY_OTHER = 200;
 
 const LETTER_IDS = new Set(ARABIC_ALPHABET.map((l) => l.id));
 
-type EnrollmentStatus = "new" | "handled";
+/**
+ * Cycle de vie d'une demande (décisions de l'admin, voir EnrollmentAction) :
+ *  - "new"      : à traiter ;
+ *  - "enrolled" : enfant inscrit, la demande (coordonnées du parent) est
+ *                 conservée tant que l'inscription dure ; `ended_at` marque la fin ;
+ *  - "closed"   : famille recontactée, pas d'inscription.
+ * Conservation (mention RGPD du formulaire) : une demande sans suite est
+ * effacée RETENTION_CLOSED_MONTHS après son classement, une inscription
+ * terminée RETENTION_ENDED_MONTHS après sa fin — par la tâche planifiée de
+ * la base (migration 2026-11-07_enrollment_requests_retention).
+ */
+export type EnrollmentStatus = "new" | "enrolled" | "closed";
+export const RETENTION_CLOSED_MONTHS = 6;
+export const RETENTION_ENDED_MONTHS = 12;
+
+export const ENROLLMENT_ACTIONS = ["enroll", "close", "end"] as const;
+/** "enroll" : inscrit ; "close" : sans suite ; "end" : fin d'inscription d'un enfant inscrit. */
+export type EnrollmentAction = (typeof ENROLLMENT_ACTIONS)[number];
 
 interface ChildInput {
   name: string;
@@ -121,7 +138,10 @@ export interface EnrollmentRow {
   vocabulary_other: string | null;
   status: EnrollmentStatus;
   created_at: string;
+  /** Date de la décision (inscrit ou sans suite). */
   handled_at: string | null;
+  /** Fin de l'inscription d'un enfant inscrit ; null tant qu'il suit les cours. */
+  ended_at: string | null;
 }
 
 type ParseResult = { ok: true; value: EnrollmentInput } | { ok: false; error: string };
@@ -236,10 +256,11 @@ function parseKnownLetters(raw: unknown, knowledge: LetterKnowledge): { ok: true
   return { ok: true, value: ids };
 }
 
-/** Valide le corps « marquer comme traitée » envoyé par l'admin. */
-export function parseEnrollmentHandled(input: unknown): { ok: true; id: string } | { ok: false; error: string } {
+/** Valide la décision envoyée par l'admin : { id, action }. */
+export function parseEnrollmentAction(input: unknown): { ok: true; id: string; action: EnrollmentAction } | { ok: false; error: string } {
   if (typeof input !== "object" || input === null) return { ok: false, error: "corps invalide" };
-  const { id } = input as Record<string, unknown>;
+  const { id, action } = input as Record<string, unknown>;
   if (typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id)) return { ok: false, error: "id invalide" };
-  return { ok: true, id };
+  if (!ENROLLMENT_ACTIONS.includes(action as EnrollmentAction)) return { ok: false, error: "action invalide" };
+  return { ok: true, id, action: action as EnrollmentAction };
 }
