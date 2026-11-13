@@ -11,6 +11,8 @@ import { isFamilyAlias, type FamilyProfile } from "@/lib/family";
 const ICON_STROKE = 1.75;
 const TITLE = "Connexion";
 const SUBTITLE = "Accédez à votre espace d'apprentissage";
+const FAMILY_TITLE = "Qui est là ?";
+const FAMILY_SUBTITLE = "Choisis ton prénom pour ouvrir tes leçons";
 
 /** Espace d'une personne connectée. */
 function dashboardFor(u: Pick<SessionUser, "role" | "isAdmin">): string {
@@ -41,6 +43,9 @@ function LoginForm() {
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
   const clearStore = useAuthStore((s) => s.logout);
+  // Ce que ce navigateur sait déjà de la session, avant la réponse du serveur.
+  const knownUser = useAuthStore((s) => s.user);
+  const knownFamily = useAuthStore((s) => s.family);
 
   // Vérifie côté serveur si une session est encore valide dans ce navigateur.
   useEffect(() => {
@@ -139,9 +144,23 @@ function LoginForm() {
     }
   };
 
+  // Session probablement ouverte (« Changer d'élève », retour sur /login) : on attend la
+  // réponse du serveur sous la forme de l'écran à venir, sans montrer le formulaire de connexion.
+  if (current === undefined && knownUser) {
+    if (!knownFamily) return <LoginSkeleton />;
+    return (
+      <AuthShell title={FAMILY_TITLE} subtitle={FAMILY_SUBTITLE} footer={null}>
+        <div aria-busy="true" aria-label="Chargement des prénoms" className="flex flex-col gap-3">
+          <div className="ms-skeleton h-14 w-full" />
+          <div className="ms-skeleton h-14 w-full" />
+        </div>
+      </AuthShell>
+    );
+  }
+
   if (current && family.length > 1) {
     return (
-      <AuthShell title="Qui est là ?" subtitle="Choisis ton prénom pour ouvrir tes leçons" footer={null}>
+      <AuthShell title={FAMILY_TITLE} subtitle={FAMILY_SUBTITLE} footer={null}>
         <div className="flex flex-col gap-5">
           <ul className="flex flex-col gap-3">
             {family.map((p) => (
