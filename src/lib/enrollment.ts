@@ -12,7 +12,7 @@
  * Ce module est pur (validation, types) et testé à part ; l'accès base est
  * dans les routes serveur.
  */
-import { normaliseEmail } from "@/lib/signup";
+import { normaliseEmail } from "@/lib/account";
 import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";
 
 export const MIN_CHILD_AGE = 4;

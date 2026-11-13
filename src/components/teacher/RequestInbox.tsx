@@ -2,8 +2,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Check, ChevronDown, Inbox, Mail, Phone, UserMinus, X } from "lucide-react";
-import { fetchSignupRequests, reviewSignupRequest } from "@/lib/api/signup";
-import type { SignupRequestRow } from "@/lib/signup";
 import { decideEnrollment, fetchEnrollments } from "@/lib/api/enrollment";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -140,9 +138,8 @@ function Category({ title, help, items, done = false, children }: {
 }
 
 /**
- * « À traiter » (admins) : inscriptions des familles et comptes élèves à
- * valider, dans un seul encadré compact. Mêmes API et mêmes actions qu'avant ;
- * les droits restent vérifiés côté serveur.
+ * « À traiter » (admins) : inscriptions des familles, dans un seul encadré
+ * compact. Les droits restent vérifiés côté serveur.
  *
  * Une demande d'inscription est soit « inscrit » (coordonnées conservées tant
  * que l'enfant suit les cours, puis un an après « Fin d'inscription »), soit
@@ -153,7 +150,6 @@ export default function RequestInbox() {
   const [pending, setPending] = useState<Loaded<EnrollmentRow>>(null);
   const [enrolled, setEnrolled] = useState<Loaded<EnrollmentRow>>(null);
   const [closed, setClosed] = useState<Loaded<EnrollmentRow>>(null);
-  const [signups, setSignups] = useState<Loaded<SignupRequestRow>>(null);
   // Une décision à la fois : tous les boutons sont inactifs pendant un envoi (deux
   // « Inscrit » simultanés pour une fratrie créeraient deux fois le compte de la famille).
   const [busy, setBusy] = useState<string | null>(null);
@@ -166,9 +162,7 @@ export default function RequestInbox() {
   useEffect(() => {
     fetchEnrollments()
       .then((r) => { setPending(r.pending); setEnrolled(r.enrolled); setClosed(r.closed); })
-      .catch(() => { setPending("error"); setEnrolled("error"); setClosed("error"); });
-    fetchSignupRequests().then((r) => setSignups(r.pending)).catch(() => setSignups("error"));
-  }, []);
+      .catch(() => { setPending("error"); setEnrolled("error"); setClosed("error"); });  }, []);
 
   const run = async (id: string, action: () => Promise<string>) => {
     setBusy(id);
@@ -216,13 +210,7 @@ export default function RequestInbox() {
     return `Demande de ${done.parent_name} pour ${done.child_name} classée sans suite. Elle sera effacée automatiquement dans ${RETENTION_CLOSED_MONTHS} mois.`;
   });
 
-  const review = (id: string, action: "approve" | "reject") => run(id, async () => {
-    const done = await reviewSignupRequest(id, action);
-    setSignups((prev) => (Array.isArray(prev) ? prev.filter((r) => r.id !== id) : prev));
-    return action === "approve" ? `Compte créé pour ${done.name} (${done.email}).` : `Demande de ${done.name} refusée.`;
-  });
-
-  const empty = Array.isArray(pending) && Array.isArray(signups) && pending.length + signups.length === 0;
+  const empty = Array.isArray(pending) && pending.length === 0;
 
   return (
     <section aria-labelledby="a-traiter" className="ms-panel flex flex-col overflow-hidden">
@@ -310,30 +298,6 @@ export default function RequestInbox() {
         {Array.isArray(closed) && closed.length > 0 && (
           <ul className="divide-y divide-ms-line rounded-xl border border-ms-line">
             {closed.map((r) => <EnrollmentItem key={r.id} r={r} />)}
-          </ul>
-        )}
-      </Category>
-
-      <Category title="Comptes élèves à valider" items={signups} help="Le compte n'est créé qu'après votre approbation.">
-        {signups === "error" && <InlineNotice tone="error">Les demandes de compte n&apos;ont pas pu être chargées. Rechargez la page.</InlineNotice>}
-        {Array.isArray(signups) && signups.length > 0 && (
-          <ul className="divide-y divide-ms-line rounded-xl border border-ms-line">
-            {signups.map((r) => (
-              <li key={r.id} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
-                <div className="min-w-0 flex-1 text-sm">
-                  <p className="font-semibold">{r.name}</p>
-                  <p className="text-ms-muted"><span className="[overflow-wrap:anywhere]">{r.email}</span> · {relativeDay(r.created_at)}</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="danger" onClick={() => review(r.id, "reject")} disabled={busy !== null}>
-                    <X size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Refuser
-                  </Button>
-                  <Button variant="primary" onClick={() => review(r.id, "approve")} disabled={busy !== null}>
-                    <Check size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> {busy === r.id ? "Enregistrement…" : "Approuver"}
-                  </Button>
-                </div>
-              </li>
-            ))}
           </ul>
         )}
       </Category>

@@ -20,7 +20,6 @@ export interface RateRule {
 export const RATE_RULES = {
   /** Connexion : par IP + e-mail, pour ne pas bloquer toute une école derrière une seule adresse. */
   login: { limit: 10, windowSeconds: 10 * 60 },
-  signup: { limit: 5, windowSeconds: 60 * 60 },
   enrollment: { limit: 5, windowSeconds: 60 * 60 },
   passwordReset: { limit: 5, windowSeconds: 60 * 60 },
 } as const satisfies Record<string, RateRule>;

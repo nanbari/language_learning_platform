@@ -19,8 +19,8 @@ function dashboardFor(u: Pick<SessionUser, "role" | "isAdmin">): string {
 
 const SIGNUP_FOOTER = (
   <>
-    Pas encore de compte élève ?{" "}
-    <Link href="/inscription" className="inline-flex min-h-11 items-center font-semibold text-ms-ink underline-offset-4 hover:underline">Faire une demande</Link>
+    Pas encore inscrit ?{" "}
+    <Link href="/demande-inscription" className="inline-flex min-h-11 items-center font-semibold text-ms-ink underline-offset-4 hover:underline">Faire une demande d&apos;inscription</Link>
   </>
 );
 

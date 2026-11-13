@@ -141,33 +141,10 @@ create policy "Teachers can read practice sets" on public.practice_sets
   );
 
 -- ─────────────────────────────────────────────────────────────
--- Demandes de compte élève (voir src/lib/signup.ts)
--- Le formulaire public /inscription enregistre une demande ; un admin
--- l’approuve ou la refuse depuis son tableau de bord. Le compte Auth et le
--- profil `users` ne sont créés qu’à l’approbation, avec password_hash
--- (bcrypt) fourni à l’inscription, puis effacé.
--- ─────────────────────────────────────────────────────────────
-create table public.signup_requests (
-  id uuid primary key default gen_random_uuid(),
-  email text not null,
-  name text not null,
-  password_hash text,
-  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
-  created_at timestamptz not null default now(),
-  reviewed_at timestamptz,
-  reviewed_by uuid references public.users(id) on delete set null
-);
-
--- Une seule demande en attente par adresse
-create unique index signup_requests_pending_email_idx
-  on public.signup_requests (email) where status = 'pending';
-
--- Aucune policy : la table n’est accessible que par le serveur (service role)
-alter table public.signup_requests enable row level security;
-
--- ─────────────────────────────────────────────────────────────
 -- Demandes d'inscription des familles (formulaire public
--- /demande-inscription) : traitées à la main par un admin.
+-- /demande-inscription) : traitées à la main par un admin, qui crée le
+-- compte élève en marquant la demande « inscrit ». L'ancienne table
+-- signup_requests (demandes de compte) a été supprimée le 13 novembre 2026.
 -- ─────────────────────────────────────────────────────────────
 create table public.enrollment_requests (
   id uuid primary key default gen_random_uuid(),

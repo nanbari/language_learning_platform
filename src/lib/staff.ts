@@ -7,7 +7,7 @@
  * Il peut aussi créer un compte enseignant : il obtient un lien d'invitation
  * à transmettre, et l'enseignant y choisit lui-même son mot de passe.
  */
-import { MAX_EMAIL, MAX_NAME, MIN_NAME, normaliseEmail } from "@/lib/signup";
+import { MAX_EMAIL, MAX_NAME, MIN_NAME, normaliseEmail } from "@/lib/account";
 import { isUuid } from "@/lib/uuid";
 
 export interface StaffRow {

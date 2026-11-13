@@ -101,6 +101,9 @@ const nextConfig: NextConfig = {
     // en place pour le jour où l'on retire cette redirection.
     return [
       { source: "/", destination: "/login", permanent: false },
+      // Ancienne page « Demander un compte élève » (retirée le 13 novembre 2026) :
+      // le compte est désormais créé à l'inscription. Les anciens liens mènent au formulaire.
+      { source: "/inscription", destination: "/demande-inscription", permanent: true },
     ];
   },
 };

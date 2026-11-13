@@ -54,3 +54,16 @@ Les décisions ⚑ 1 à 5 ci-dessus restent ouvertes.
 | R2 | Adresse de contact centralisée (`src/lib/contact.ts`) : `contact@monteetsouris.com` (Zoho Mail ; MX et SPF posés chez Netlify le 7 nov., DKIM à faire) | **fait le 7 nov.** |
 | R3 | Décisions « inscrit » / « sans suite » / « fin d'inscription » dans la boîte de réception ; purge pg_cron : sans suite +6 mois, inscription terminée +1 an | **code fait le 7 nov.** ; migration `2026-11-07_enrollment_requests_retention` **à exécuter** |
 | R4 | Opérateur : `NEXT_PUBLIC_SITE_URL` et `SUPABASE_JWT_SECRET` sur Netlify (liste vérifiée le 7 nov. : absents) | reporté par l'association |
+
+## Point du 13 novembre 2026 — fin des demandes de compte
+
+Le compte élève est créé à l'inscription (« Inscrit » dans la boîte de réception, depuis le 12 nov.). L'ancien chemin
+est retiré : page `/inscription` (redirigée vers `/demande-inscription`), `POST /api/signup`, `/api/admin/signups`,
+catégorie « Comptes élèves à valider », règle de débit `signup`, dépendance `bcryptjs`. Les constantes partagées
+passent de `src/lib/signup.ts` à `src/lib/account.ts`.
+
+| # | Élément | Statut |
+|---|---|---|
+| A8 | Énumération d'e-mails sur `/api/signup` | **clos le 13 nov.** : la route n'existe plus |
+| A10 | Texte d'erreur brut dans `admin/signups` | **clos le 13 nov.** pour cette route (restent `admin/teachers`, `live-deck`, `practice`) |
+| S1 | Migration `2026-11-13_drop_signup_requests` (supprime la table ; refuse s'il reste une demande en attente) | **à exécuter après le déploiement** |

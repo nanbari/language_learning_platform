@@ -5,7 +5,7 @@ import TeacherShell from "@/components/teacher/TeacherShell";
 import { useTeacherSession } from "@/components/teacher/useTeacherSession";
 import { Button, EmptyState, ICON_STROKE, InlineNotice, SectionHeader, SkeletonRows, StatusPill } from "@/components/platform/ui";
 import { createTeacher, fetchStaff, setStaffAdmin, type CreatedTeacher } from "@/lib/api/staff";
-import { MIN_NAME } from "@/lib/signup";
+import { MIN_NAME } from "@/lib/account";
 import type { StaffRow } from "@/lib/staff";
 
 /** Formulaire admin : crée un compte enseignant ; l'invitation part par e-mail (ou lien de secours). */

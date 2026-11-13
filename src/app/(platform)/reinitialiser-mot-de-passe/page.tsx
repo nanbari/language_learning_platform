@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { KeyRound, Link2Off } from "lucide-react";
 import { AuthError, AuthField, AuthShell, PasswordInput, authButtonClass } from "@/components/layout/AuthShell";
-import { MIN_PASSWORD } from "@/lib/signup";
+import { MIN_PASSWORD } from "@/lib/account";
 import { readRecoveryHash } from "@/lib/passwordReset";
 
 export default function ResetPasswordPage() {

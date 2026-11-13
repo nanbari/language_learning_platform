@@ -12,7 +12,7 @@ vi.mock("@/server/r2", async (importOriginal) => {
 import { PATCH as lessonsPatch, DELETE as lessonsDelete } from "@/app/api/lessons/route";
 import { POST as eventsPost } from "@/app/api/events/route";
 import { POST as authPost } from "@/app/api/auth/route";
-import { POST as signupPost } from "@/app/api/signup/route";
+import { POST as enrollmentPost } from "@/app/api/enrollment/route";
 import { PUT as vocabPut } from "@/app/api/vocab-sounds/route";
 
 const db = fakeDb();
@@ -143,13 +143,16 @@ describe("limitation de débit des routes publiques", () => {
     expect(other.status).toBe(401);
   });
 
-  it("demande de compte : 5 par heure et par IP", async () => {
-    const body = (i: number) => ({ name: "Enfant Test", email: `enfant${i}@test.invalid`, password: "MotDePasse123!" });
+  it("demande d'inscription : 5 par heure et par IP", async () => {
+    const body = (i: number) => ({
+      parentName: "Parent Test", email: `parent${i}@test.invalid`, phone: "+32 470 12 34 56", consent: true,
+      children: [{ name: "Enfant Test", age: 7, level: "beginner", letters: "none", vocabulary: "none" }],
+    });
     const statuses: number[] = [];
-    for (let i = 0; i < 6; i++) statuses.push((await signupPost(await request("POST", "/api/signup", { body: body(i) }))).status);
+    for (let i = 0; i < 6; i++) statuses.push((await enrollmentPost(await request("POST", "/api/enrollment", { body: body(i) }))).status);
     expect(statuses.slice(0, 5).every((s) => s === 201)).toBe(true);
     expect(statuses[5]).toBe(429);
-    expect(db.rows("signup_requests")).toHaveLength(5);
+    expect(db.rows("enrollment_requests")).toHaveLength(5);
   });
 
   it("fonction SQL absente (migration pas passée) : on laisse passer, signalé une fois", async () => {

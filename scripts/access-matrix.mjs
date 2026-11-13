@@ -55,7 +55,7 @@ async function probe(name, actor, method, url, body, expect, forbidden = []) {
 }
 
 // ── Sans session : chaque route privée refuse ──
-for (const [m, u] of [["GET", "/api/lessons"], ["GET", "/api/classes"], ["GET", "/api/events"], ["GET", "/api/progress"], ["GET", "/api/practice/summary"], ["GET", "/api/teacher/insights"], ["GET", "/api/letter-sounds"], ["GET", "/api/vocab-sounds"], ["GET", "/api/admin/signups"], ["GET", "/api/admin/staff"], ["POST", "/api/media"], ["POST", "/api/live-deck"], ["POST", "/api/lessons"], ["POST", "/api/classes"], ["POST", "/api/events"], ["PUT", "/api/letter-sounds"], ["POST", "/api/admin/teachers"],
+for (const [m, u] of [["GET", "/api/lessons"], ["GET", "/api/classes"], ["GET", "/api/events"], ["GET", "/api/progress"], ["GET", "/api/practice/summary"], ["GET", "/api/teacher/insights"], ["GET", "/api/letter-sounds"], ["GET", "/api/vocab-sounds"], ["GET", "/api/admin/enrollments"], ["GET", "/api/admin/staff"], ["POST", "/api/media"], ["POST", "/api/live-deck"], ["POST", "/api/lessons"], ["POST", "/api/classes"], ["POST", "/api/events"], ["PUT", "/api/letter-sounds"], ["POST", "/api/admin/teachers"],
   ["GET", `/api/classes/${UNKNOWN_CLASS}/live/state?room=${ROOM}`], ["GET", `/api/classes/${UNKNOWN_CLASS}/live/token?room=${ROOM}`], ["POST", `/api/classes/${UNKNOWN_CLASS}/live/answers?room=${ROOM}`], ["PUT", `/api/classes/${UNKNOWN_CLASS}/live/state?room=${ROOM}`],
   ["GET", "/api/classes/live"], ["GET", `/api/lessons/${id()}`]]) {
   await probe("unauthenticated refused", "none", m, u, m === "GET" ? undefined : {}, 401);
@@ -94,7 +94,9 @@ await probe("admin (no account) staff list", "ADMIN", "GET", "/api/admin/staff",
 await probe("health public", "none", "GET", "/api/health", undefined, 200);
 // `db: "ok"` est attendu par keepalive.yml ; seul le texte d'une erreur serait une fuite.
 await probe("health deep: no DB error text", "none", "GET", "/api/health?deep=1", undefined, [200, 503], ["relation", "does not exist", "password", "permission denied", "ECONN", "message"]);
-await probe("signup rejects empty body", "none", "POST", "/api/signup", {}, [400, 422]);
+// Création de compte publique retirée (13 novembre 2026) : les routes n'existent plus.
+await probe("signup route removed", "none", "POST", "/api/signup", {}, [404, 405]);
+await probe("admin signups route removed", "none", "GET", "/api/admin/signups", undefined, [401, 404]);
 await probe("enrollment rejects empty body", "none", "POST", "/api/enrollment", {}, [400, 422]);
 await probe("password reset rejects empty body", "none", "POST", "/api/auth/password", {}, [400, 422]);
 await probe("login rejects empty body", "none", "POST", "/api/auth", {}, [400, 401]);
