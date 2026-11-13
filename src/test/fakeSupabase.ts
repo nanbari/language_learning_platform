@@ -56,10 +56,25 @@ export class FakeDb {
   /** La fonction SQL rate_limit_hit existe-t-elle ? */
   rateLimitFunction = true;
   rateHits = new Map<string, number>();
+  /** Comptes Supabase Auth créés par invitation (e-mail → id) ; les profils semés par seed() n'y figurent pas. */
+  authUsers = new Map<string, string>();
+  /** E-mails d'invitation « envoyés » par l'API Auth simulée. */
+  invitations: { email: string; data: Row; redirectTo?: string }[] = [];
+  /** L'envoi d'e-mails fonctionne-t-il ? (false = SMTP absent ou limite d'envoi atteinte) */
+  smtp = true;
+  /** Adresses invitées dont le compte n'est pas encore activé (mot de passe pas encore choisi). */
+  invited = new Set<string>();
+  /** Comptes Auth qui ont un mot de passe (e-mail → id et mot de passe), pour signInWithPassword. */
+  passwords = new Map<string, { id: string; password: string }>();
   private failures: { table: string; op: Op; error: DbError }[] = [];
   private nextId = 1;
 
-  reset() { this.tables.clear(); this.pokes = []; this.failures = []; this.nextId = 1; this.authLinks = true; this.rateLimitFunction = true; this.rateHits = new Map(); }
+  reset() { this.tables.clear(); this.pokes = []; this.failures = []; this.nextId = 1; this.authLinks = true; this.rateLimitFunction = true; this.rateHits = new Map(); this.authUsers = new Map(); this.invitations = []; this.smtp = true; this.passwords = new Map(); this.invited = new Set(); }
+  createAuthUser(email: string): string {
+    const id = `00000000-0000-4000-9000-${String(this.authUsers.size + 1).padStart(12, "0")}`;
+    this.authUsers.set(email, id);
+    return id;
+  }
   seed(table: string, rows: Row[]) { this.tables.set(table, [...(this.tables.get(table) ?? []), ...rows.map((r) => ({ ...r }))]); }
   rows(table: string): Row[] { return (this.tables.get(table) ?? []).map((r) => ({ ...r })); }
   /** Copie profonde de toute la base, pour prouver qu'une requête refusée n'a rien changé. */
@@ -202,10 +217,46 @@ export function fakeClient(db: FakeDb) {
       httpSend: async (event: string) => { db.pokes.push({ topic, event }); return "ok"; },
     }),
     auth: {
-      signInWithPassword: async () => ({ data: { user: null }, error: { message: "non simulé" } }),
+      /** Mots de passe simulés : db.passwords (e-mail → id du compte et mot de passe). */
+      signInWithPassword: async ({ email, password }: { email: string; password: string }) => {
+        const known = db.passwords.get(email);
+        if (!known || known.password !== password) return { data: { user: null }, error: { message: "Invalid login credentials" } };
+        return { data: { user: { id: known.id, email, user_metadata: {} } }, error: null };
+      },
       admin: {
         /** Lien magique simulé : le jeton porte l'e-mail, verifyOtp le reconnaît. */
-        generateLink: async ({ email }: { email: string }) => {
+        /** Invitation : crée le compte Auth et « envoie » l'e-mail (db.invitations), sauf si db.smtp est coupé. */
+        inviteUserByEmail: async (email: string, options?: { data?: Row; redirectTo?: string }) => {
+          // Comme Supabase : un compte invité mais pas encore activé n'est pas refusé,
+          // son invitation est renvoyée et le MÊME compte est rendu.
+          const pendingInvite = db.authUsers.has(email) && db.invited.has(email);
+          if (db.authUsers.has(email) && !pendingInvite) return { data: { user: null }, error: { status: 422, message: "A user with this email address has already been registered" } };
+          if (!db.smtp) return { data: { user: null }, error: { status: 500, message: "Error sending invite email" } };
+          const id = pendingInvite ? db.authUsers.get(email)! : db.createAuthUser(email);
+          db.invited.add(email);
+          db.invitations.push({ email, data: options?.data ?? {}, redirectTo: options?.redirectTo });
+          return { data: { user: { id, email } }, error: null };
+        },
+        /** Création directe (sans e-mail) : profil rattaché à un compte famille. */
+        createUser: async ({ email }: { email: string; email_confirm?: boolean; user_metadata?: Row }) => {
+          if (db.authUsers.has(email)) return { data: { user: null }, error: { status: 422, message: "A user with this email address has already been registered" } };
+          return { data: { user: { id: db.createAuthUser(email), email } }, error: null };
+        },
+        deleteUser: async (id: string) => {
+          for (const [email, uid] of db.authUsers) if (uid === id) { db.authUsers.delete(email); db.invited.delete(email); }
+          // Comme la base réelle : le profil suit le compte Auth (users.id → auth.users on delete cascade).
+          db.tables.set("users", (db.tables.get("users") ?? []).filter((u) => u.id !== id));
+          return { data: {}, error: null };
+        },
+        generateLink: async ({ type, email }: { type?: string; email: string; options?: unknown }) => {
+          // Liens d'invitation / de récupération (comptes créés par un admin) : compte Auth, sans e-mail envoyé.
+          if (type === "invite" || type === "recovery") {
+            const known = db.authUsers.get(email);
+            if (type === "invite" && known) return { data: { user: null, properties: null }, error: { status: 422, message: "A user with this email address has already been registered" } };
+            if (type === "recovery" && !known) return { data: { user: null, properties: null }, error: { status: 404, message: "User not found" } };
+            const id = known ?? db.createAuthUser(email);
+            return { data: { user: { id, email }, properties: { action_link: `https://auth.test.invalid/verify?type=${type}&email=${encodeURIComponent(email)}` } }, error: null };
+          }
           const user = (db.tables.get("users") ?? []).find((u) => u.email === email);
           if (!db.authLinks || !user) return { data: { properties: null }, error: { message: "User not found" } };
           return { data: { properties: { hashed_token: `hash:${email}` } }, error: null };

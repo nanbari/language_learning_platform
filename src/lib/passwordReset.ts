@@ -61,7 +61,7 @@ export function readRecoveryHash(hash: string):
   }
   const accessToken = params.get("access_token");
   const type = params.get("type");
-  // « invite » : lien d'invitation d'un enseignant créé par un admin, qui choisit ici son premier mot de passe.
+  // « invite » : lien d'invitation d'un compte créé par un admin (enseignant, ou élève à l'inscription) : premier mot de passe.
   if (accessToken && (type === "recovery" || type === "invite")) return { kind: "token", accessToken, invite: type === "invite" };
   return { kind: "none" };
 }

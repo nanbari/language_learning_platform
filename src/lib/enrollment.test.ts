@@ -138,3 +138,13 @@ describe("parseEnrollmentAction", () => {
     expect(parseEnrollmentAction(null).ok).toBe(false);
   });
 });
+
+describe("parseEnrollmentAction — adresse du compte élève", () => {
+  const ID = "00000000-0000-4000-8000-000000000001";
+  it("accountEmail : normalisée, acceptée seulement avec « enroll », refusée si invalide", () => {
+    expect(parseEnrollmentAction({ id: ID, action: "enroll", accountEmail: " Adam@Example.BE " })).toEqual({ ok: true, id: ID, action: "enroll", accountEmail: "adam@example.be" });
+    expect(parseEnrollmentAction({ id: ID, action: "enroll", accountEmail: "adam" }).ok).toBe(false);
+    expect(parseEnrollmentAction({ id: ID, action: "enroll", accountEmail: 3 }).ok).toBe(false);
+    expect(parseEnrollmentAction({ id: ID, action: "close", accountEmail: "adam@example.be" })).toEqual({ ok: true, id: ID, action: "close" });
+  });
+});

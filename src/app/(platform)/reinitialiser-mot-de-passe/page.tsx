@@ -20,12 +20,17 @@ export default function ResetPasswordPage() {
   const [mismatch, setMismatch] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null);
 
+  // Le fragment n'est lu qu'une fois : il est effacé aussitôt, et en développement
+  // React rejoue les effets (mode strict) — une seconde lecture ne trouverait plus le jeton.
+  const firstRead = useRef<ReturnType<typeof readRecoveryHash> | null>(null);
+
   useEffect(() => {
-    const read = readRecoveryHash(window.location.hash);
-    // Le jeton ne doit pas rester dans la barre d'adresse ni dans l'historique.
-    if (window.location.hash) window.history.replaceState(null, "", window.location.pathname);
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- lecture unique du fragment au montage
-    setLink(read);
+    if (!firstRead.current) {
+      firstRead.current = readRecoveryHash(window.location.hash);
+      // Le jeton ne doit pas rester dans la barre d'adresse ni dans l'historique.
+      if (window.location.hash) window.history.replaceState(null, "", window.location.pathname);
+    }
+    setLink(firstRead.current);
   }, []);
 
   // Après un envoi raté, le focus va sur le message (les saisies restent).
@@ -33,7 +38,7 @@ export default function ResetPasswordPage() {
     if (error) errorRef.current?.focus();
   }, [error]);
 
-  // Lien d'invitation (compte enseignant créé par un admin) : premier mot de passe.
+  // Lien d'invitation (compte enseignant créé par un admin, ou compte élève créé à l'inscription) : premier mot de passe.
   const invite = link?.kind === "token" && link.invite;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -69,7 +74,7 @@ export default function ResetPasswordPage() {
   return (
     <AuthShell
       title={invite ? "Bienvenue" : "Nouveau mot de passe"}
-      subtitle={invite ? "Choisissez le mot de passe de votre compte enseignant" : "Choisissez le mot de passe de votre compte"}
+      subtitle={invite ? "Choisissez le mot de passe de votre nouveau compte" : "Choisissez le mot de passe de votre compte"}
     >
       {link === undefined && (
         <div aria-busy="true" aria-label="Lecture du lien" className="flex flex-col gap-5">

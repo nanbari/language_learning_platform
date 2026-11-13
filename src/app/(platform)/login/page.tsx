@@ -2,10 +2,11 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, LogIn, LogOut } from "lucide-react";
+import { ArrowRight, CheckCircle2, LogIn, LogOut, UserRound } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import type { SessionUser } from "@/server/auth";
 import { AuthError, AuthField, AuthShell, PasswordInput } from "@/components/layout/AuthShell";
+import { isFamilyAlias, type FamilyProfile } from "@/lib/family";
 
 const ICON_STROKE = 1.75;
 const TITLE = "Connexion";
@@ -34,6 +35,8 @@ function LoginForm() {
   const [error, setError] = useState("");
   // Session déjà ouverte dans ce navigateur (undefined = pas encore vérifié)
   const [current, setCurrent] = useState<SessionUser | null | undefined>(undefined);
+  // Compte famille : profils que cette session peut ouvrir (« Qui est là ? »).
+  const [family, setFamily] = useState<FamilyProfile[]>([]);
   const errorRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
@@ -44,7 +47,11 @@ function LoginForm() {
     let cancelled = false;
     fetch("/api/auth", { cache: "no-store" })
       .then((r) => r.json())
-      .then((d: { user: SessionUser | null }) => { if (!cancelled) setCurrent(d.user ?? null); })
+      .then((d: { user: SessionUser | null; profiles?: FamilyProfile[] }) => {
+        if (cancelled) return;
+        setCurrent(d.user ?? null);
+        setFamily(d.user ? d.profiles ?? [] : []);
+      })
       .catch(() => { if (!cancelled) setCurrent(null); });
     return () => { cancelled = true; };
   }, []);
@@ -62,6 +69,41 @@ function LoginForm() {
     }).catch(() => {});
     clearStore();
     setCurrent(null);
+    setFamily([]);
+  };
+
+  const goToDashboard = (u: SessionUser) => {
+    const next = params.get("next");
+    router.push(next && next.startsWith("/") ? next : dashboardFor(u));
+  };
+
+  /** Compte famille : entre avec le profil choisi (le serveur vérifie qu'il est bien de la famille). */
+  const chooseProfile = async (id: string) => {
+    if (!current) return;
+    setLoading(true);
+    setError("");
+    try {
+      let user = current;
+      if (id !== current.id) {
+        const res = await fetch("/api/auth", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "profile", id }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.user) {
+          setError(data.error || "Ce profil n'est pas disponible.");
+          setLoading(false);
+          return;
+        }
+        user = data.user;
+      }
+      login(user, true);
+      goToDashboard(user);
+    } catch {
+      setError("Erreur réseau. Réessayez.");
+      setLoading(false);
+    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -80,15 +122,46 @@ function LoginForm() {
         setLoading(false);
         return;
       }
+      // Compte famille : la session est ouverte, reste à choisir le prénom.
+      if (Array.isArray(data.profiles) && data.profiles.length > 1) {
+        login(data.user, true);
+        setCurrent(data.user);
+        setFamily(data.profiles);
+        setLoading(false);
+        return;
+      }
       // Mirror server-validated user into Zustand for UI use
       login(data.user);
-      const next = params.get("next");
-      router.push(next && next.startsWith("/") ? next : dashboardFor(data.user));
+      goToDashboard(data.user);
     } catch {
       setError("Erreur réseau. Réessayez.");
       setLoading(false);
     }
   };
+
+  if (current && family.length > 1) {
+    return (
+      <AuthShell title="Qui est là ?" subtitle="Choisis ton prénom pour ouvrir tes leçons" footer={null}>
+        <div className="flex flex-col gap-5">
+          <ul className="flex flex-col gap-3">
+            {family.map((p) => (
+              <li key={p.id}>
+                <button type="button" onClick={() => chooseProfile(p.id)} disabled={loading}
+                  data-variant={p.id === current.id ? "primary" : "secondary"} className="ms-button min-h-14 w-full justify-start text-lg">
+                  <UserRound size={22} strokeWidth={ICON_STROKE} aria-hidden="true" />
+                  <span className="[overflow-wrap:anywhere]">{p.name}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <AuthError id="login-error" message={error} ref={errorRef} />
+          <button type="button" onClick={handleSwitchAccount} data-variant="quiet" className="ms-button w-full text-ms-muted">
+            <LogOut size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Se déconnecter
+          </button>
+        </div>
+      </AuthShell>
+    );
+  }
 
   if (current) {
     return (
@@ -100,15 +173,12 @@ function LoginForm() {
               <span className="text-lg font-semibold [overflow-wrap:anywhere]">{current.name}</span>
               <span className="ms-status" data-state="info">{current.role === "teacher" ? "Enseignant" : "Élève"}</span>
             </p>
-            <p className="mt-1 text-sm text-ms-muted [overflow-wrap:anywhere]">{current.email}</p>
+            {!isFamilyAlias(current.email) && <p className="mt-1 text-sm text-ms-muted [overflow-wrap:anywhere]">{current.email}</p>}
           </div>
           <div className="flex flex-col gap-3">
             <button
               type="button"
-              onClick={() => {
-                const next = params.get("next");
-                router.push(next && next.startsWith("/") ? next : dashboardFor(current));
-              }}
+              onClick={() => goToDashboard(current)}
               data-variant="primary"
               className="ms-button w-full"
             >

@@ -10,6 +10,9 @@ create table public.users (
   -- admin). L'ancienne valeur role = 'admin' reste acceptée et vaut
   -- enseignant + admin (voir src/app/api/auth/route.ts).
   is_admin boolean not null default false,
+  -- Compte famille (src/lib/family.ts) : profil d'un frère ou d'une sœur,
+  -- ouvert avec l'adresse et le mot de passe de ce compte ; null sinon.
+  family_account_id uuid references public.users(id) on delete set null,
   points integer default 0,
   created_at timestamptz default now()
 );
@@ -192,7 +195,9 @@ create table public.enrollment_requests (
   handled_at timestamptz,
   handled_by uuid references public.users(id) on delete set null,
   -- Fin de l'inscription d'un enfant inscrit ; null tant qu'il suit les cours.
-  ended_at timestamptz
+  ended_at timestamptz,
+  -- Compte élève créé à « inscrit » (invitation par e-mail) ; null avant.
+  student_id uuid references public.users(id) on delete set null
 );
 
 create index enrollment_requests_status_idx on public.enrollment_requests (status, created_at);

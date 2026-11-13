@@ -5,6 +5,7 @@ import { Check, ChevronDown, Inbox, Mail, Phone, UserMinus, X } from "lucide-rea
 import { fetchSignupRequests, reviewSignupRequest } from "@/lib/api/signup";
 import type { SignupRequestRow } from "@/lib/signup";
 import { decideEnrollment, fetchEnrollments } from "@/lib/api/enrollment";
+import { ApiError } from "@/lib/api/client";
 import {
   LEVEL_LABELS, LETTER_KNOWLEDGE_LABELS, VOCABULARY_LABELS, VOCABULARY_DOMAIN_LABELS, RETENTION_CLOSED_MONTHS,
   type EnrollmentAction, type EnrollmentRow, type LetterKnowledge,
@@ -57,6 +58,29 @@ function statusLine(r: EnrollmentRow): string | null {
     return `${r.handled_at ? `sans suite ${when(r.handled_at)}` : "sans suite"}, effacée ${RETENTION_CLOSED_MONTHS} mois plus tard`;
   }
   return null;
+}
+
+/** Lien d'invitation du compte élève tout juste créé, à copier et transmettre à la famille quand l'e-mail n'est pas parti. */
+function InviteLinkBox({ name, email, link, onClose }: { name: string; email: string; link: string; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(link); setCopied(true); } catch { /* sélection manuelle possible */ }
+  };
+  return (
+    <InlineNotice>
+      <p>
+        Lien pour choisir le mot de passe du compte de <span className="font-semibold">{name}</span> ({email}) :
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <input readOnly value={link} onFocus={(e) => e.target.select()} aria-label="Lien d'invitation" className="ms-field min-w-0 flex-1 text-ms-ink" />
+        <Button variant="primary" onClick={copy}>{copied ? "Copié" : "Copier"}</Button>
+      </div>
+      <p className="mt-2">
+        Le lien ne sert qu&apos;une fois et expire. Passé ce délai, la famille peut utiliser « Mot de passe oublié » sur la page de connexion.
+      </p>
+      <Button variant="quiet" onClick={onClose} className="mt-1 -ml-3">Fermer</Button>
+    </InlineNotice>
+  );
 }
 
 /** null = chargement ; "error" = échec du chargement (à ne pas confondre avec une liste vide). */
@@ -130,8 +154,14 @@ export default function RequestInbox() {
   const [enrolled, setEnrolled] = useState<Loaded<EnrollmentRow>>(null);
   const [closed, setClosed] = useState<Loaded<EnrollmentRow>>(null);
   const [signups, setSignups] = useState<Loaded<SignupRequestRow>>(null);
+  // Une décision à la fois : tous les boutons sont inactifs pendant un envoi (deux
+  // « Inscrit » simultanés pour une fratrie créeraient deux fois le compte de la famille).
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: "info" | "error"; text: string } | null>(null);
+  /** Lien d'invitation à transmettre soi-même quand l'e-mail du compte élève n'est pas parti. */
+  const [invite, setInvite] = useState<{ name: string; email: string; link: string } | null>(null);
+  /** Demande dont l'adresse est déjà prise par un compte : autre adresse saisie par l'admin. */
+  const [altEmail, setAltEmail] = useState<{ id: string; value: string } | null>(null);
 
   useEffect(() => {
     fetchEnrollments()
@@ -152,17 +182,36 @@ export default function RequestInbox() {
     }
   };
 
-  const decide = (id: string, action: EnrollmentAction) => run(id, async () => {
-    const done = await decideEnrollment(id, action);
+  const decide = (id: string, action: EnrollmentAction, accountEmail?: string) => run(id, async () => {
+    setInvite(null);
+    let result: Awaited<ReturnType<typeof decideEnrollment>>;
+    try {
+      result = await decideEnrollment(id, action, accountEmail);
+    } catch (err) {
+      // Adresse déjà prise par un autre compte : l'admin en indique une autre pour cet enfant.
+      if (action === "enroll" && err instanceof ApiError && err.status === 409) setAltEmail((prev) => (prev?.id === id ? prev : { id, value: "" }));
+      throw err;
+    }
+    const { request: done, account } = result;
+    if (action === "enroll" && account) {
+      setAltEmail(null);
+      setPending((prev) => (Array.isArray(prev) ? prev.filter((r) => r.id !== done.id) : prev));
+      setEnrolled((prev) => (Array.isArray(prev) ? [done, ...prev] : [done]));
+      if (account.kind === "link") {
+        setInvite({ name: done.child_name, email: account.email, link: account.inviteLink });
+        return `${done.child_name} est inscrit et son compte élève est créé, mais l'e-mail n'a pas pu être envoyé : transmettez le lien ci-dessous à la famille.`;
+      }
+      if (account.kind === "family") {
+        return `${done.child_name} est inscrit. Son profil rejoint le compte famille de ${account.email} : même adresse et même mot de passe que son frère ou sa sœur, le prénom se choisit à la connexion. Aucun nouvel e-mail n'est envoyé.`;
+      }
+      return `${done.child_name} est inscrit. Son compte élève est créé : un e-mail a été envoyé à ${account.email} avec le lien pour choisir le mot de passe.`;
+    }
     if (action === "end") {
       setEnrolled((prev) => (Array.isArray(prev) ? prev.map((r) => (r.id === done.id ? done : r)) : prev));
       return `Inscription de ${done.child_name} terminée. Ses informations seront effacées automatiquement dans un an.`;
     }
     setPending((prev) => (Array.isArray(prev) ? prev.filter((r) => r.id !== done.id) : prev));
-    if (action === "enroll") {
-      setEnrolled((prev) => (Array.isArray(prev) ? [done, ...prev] : [done]));
-      return `Inscription de ${done.child_name} enregistrée. Les coordonnées de ${done.parent_name} restent dans « Enfants inscrits ».`;
-    }
+    if (altEmail?.id === id) setAltEmail(null);
     setClosed((prev) => (Array.isArray(prev) ? [done, ...prev] : [done]));
     return `Demande de ${done.parent_name} pour ${done.child_name} classée sans suite. Elle sera effacée automatiquement dans ${RETENTION_CLOSED_MONTHS} mois.`;
   });
@@ -187,24 +236,41 @@ export default function RequestInbox() {
         {empty && <p className="mt-1 text-sm text-ms-muted">Aucune demande en attente.</p>}
       </div>
       {message && <div className="px-4 pt-4 sm:px-5"><InlineNotice tone={message.tone}>{message.text}</InlineNotice></div>}
+      {invite && <div className="px-4 pt-4 sm:px-5"><InviteLinkBox {...invite} onClose={() => setInvite(null)} /></div>}
 
       <Category
         title="Inscriptions des familles"
         items={pending}
-        help={<>Envoyées depuis le formulaire <Link href="/demande-inscription" className="font-semibold text-ms-ink underline underline-offset-2">demande d&apos;inscription</Link>. Recontactez la famille, puis indiquez si l&apos;enfant est inscrit ou si la demande reste sans suite.</>}
+        help={<>Envoyées depuis le formulaire <Link href="/demande-inscription" className="font-semibold text-ms-ink underline underline-offset-2">demande d&apos;inscription</Link>. Recontactez la famille, puis indiquez si l&apos;enfant est inscrit ou si la demande reste sans suite. « Inscrit » crée le compte élève de l&apos;enfant et envoie à la famille l&apos;e-mail pour en choisir le mot de passe. Pour un frère ou une sœur, le profil rejoint le compte de la famille : une seule adresse, un seul mot de passe.</>}
       >
         {pending === "error" && <InlineNotice tone="error">Les demandes d&apos;inscription n&apos;ont pas pu être chargées. Rechargez la page.</InlineNotice>}
         {Array.isArray(pending) && pending.length > 0 && (
           <ul className="divide-y divide-ms-line rounded-xl border border-ms-line">
             {pending.map((r) => (
               <EnrollmentItem key={r.id} r={r}>
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="secondary" onClick={() => decide(r.id, "close")} disabled={busy === r.id}>
-                    <X size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Sans suite
-                  </Button>
-                  <Button variant="primary" onClick={() => decide(r.id, "enroll")} disabled={busy === r.id}>
-                    <Check size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> {busy === r.id ? "Enregistrement…" : "Inscrit"}
-                  </Button>
+                <div className="flex flex-col gap-3 sm:items-end">
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="secondary" onClick={() => decide(r.id, "close")} disabled={busy !== null}>
+                      <X size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Sans suite
+                    </Button>
+                    <Button variant="primary" onClick={() => decide(r.id, "enroll")} disabled={busy !== null}>
+                      <Check size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> {busy === r.id ? "Enregistrement…" : "Inscrit"}
+                    </Button>
+                  </div>
+                  {altEmail?.id === r.id && (
+                    <form
+                      className="flex w-full flex-col gap-2 sm:max-w-xs"
+                      onSubmit={(e) => { e.preventDefault(); decide(r.id, "enroll", altEmail.value.trim()); }}
+                    >
+                      <label htmlFor={`alt-${r.id}`} className="text-sm font-semibold">Autre adresse e-mail pour le compte de {r.child_name}</label>
+                      <input id={`alt-${r.id}`} className="ms-field" type="email" required autoComplete="off" value={altEmail.value}
+                        onChange={(e) => setAltEmail({ id: r.id, value: e.target.value })} aria-describedby={`alt-${r.id}-h`} />
+                      <p id={`alt-${r.id}-h`} className="text-sm text-ms-muted">
+                        Cette adresse sert déjà à un compte qui ne peut pas accueillir un élève (un compte enseignant, par exemple).
+                      </p>
+                      <Button type="submit" variant="primary" disabled={busy !== null}>Inscrire avec cette adresse</Button>
+                    </form>
+                  )}
                 </div>
               </EnrollmentItem>
             ))}
@@ -224,7 +290,7 @@ export default function RequestInbox() {
             {enrolled.map((r) => (
               <EnrollmentItem key={r.id} r={r}>
                 {!r.ended_at && (
-                  <Button variant="secondary" onClick={() => decide(r.id, "end")} disabled={busy === r.id}>
+                  <Button variant="secondary" onClick={() => decide(r.id, "end")} disabled={busy !== null}>
                     <UserMinus size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> {busy === r.id ? "Enregistrement…" : "Fin d'inscription"}
                   </Button>
                 )}
@@ -259,10 +325,10 @@ export default function RequestInbox() {
                   <p className="text-ms-muted"><span className="[overflow-wrap:anywhere]">{r.email}</span> · {relativeDay(r.created_at)}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="danger" onClick={() => review(r.id, "reject")} disabled={busy === r.id}>
+                  <Button variant="danger" onClick={() => review(r.id, "reject")} disabled={busy !== null}>
                     <X size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Refuser
                   </Button>
-                  <Button variant="primary" onClick={() => review(r.id, "approve")} disabled={busy === r.id}>
+                  <Button variant="primary" onClick={() => review(r.id, "approve")} disabled={busy !== null}>
                     <Check size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> {busy === r.id ? "Enregistrement…" : "Approuver"}
                   </Button>
                 </div>

@@ -30,6 +30,8 @@ Hébergement : Netlify (site `monte-et-souris`, domaine monteetsouris.com) · ba
 ## 4. Comptes
 
 - Création d'enseignant : espace admin → Équipe (invitation Supabase). Désactivation : `update users set disabled_at = now() where id = …` (prend effet à la requête suivante).
+- Création d'élève : espace admin → À traiter → « Inscrit » sur une demande d'inscription. Le compte (prénom de l'enfant, adresse de la demande) est créé sans mot de passe et Supabase envoie l'e-mail d'invitation (même modèle « Invite user » que pour les enseignants ; `{{ .Data.role }}` vaut `student` ou `teacher`). E-mail non parti : le lien s'affiche pour l'admin. Lien expiré : « Mot de passe oublié ». Adresse prise par un compte enseignant : l'admin indique une autre adresse.
+- Fratrie (compte famille, `src/lib/family.ts`) : si l'adresse de la demande porte déjà un compte élève, le nouvel enfant y est rattaché (`users.family_account_id`), sans e-mail ni mot de passe propre ; son adresse `eleve-…@famille.monteetsouris.com` est technique. La famille se connecte avec l'adresse du parent puis choisit le prénom ; tout profil de la famille peut ouvrir les autres sans mot de passe. Détacher un profil : `update users set family_account_id = null where id = …`. Avant de **supprimer** le compte porteur, rattacher les autres profils ailleurs, sinon ils ne peuvent plus se connecter (le **désactiver** ne gêne pas les autres).
 - Suppression : supprimer l'utilisateur dans Supabase Auth puis dans `users` (les événements d'exercice suivent en cascade).
 
 ## 5. Secrets

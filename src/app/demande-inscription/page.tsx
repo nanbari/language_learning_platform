@@ -381,7 +381,8 @@ export default function EnrollmentPage() {
                   </p>
                   <p>
                     <strong>Pourquoi :</strong> traiter votre demande, vous recontacter, et proposer à votre enfant un groupe
-                    adapté à son niveau. Les réponses sur les lettres et le vocabulaire ne servent qu&apos;à cela.
+                    adapté à son niveau. Les réponses sur les lettres et le vocabulaire ne servent qu&apos;à cela. Si votre enfant
+                    est inscrit, son compte élève est créé à votre adresse e-mail et vous recevez le lien pour en choisir le mot de passe.
                   </p>
                   <p>
                     <strong>Sur quelle base :</strong> votre accord (case ci-dessus) et les démarches préalables à l&apos;inscription.

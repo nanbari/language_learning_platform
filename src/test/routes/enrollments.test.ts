@@ -19,7 +19,7 @@ const row = (id: string, extra: Record<string, unknown>) => ({
   id, parent_name: "Léa Martin", email: "lea@example.be", phone: "+32 470 12 34 56", child_name: "Adam", child_age: 7,
   level: "beginner", letters: "none", known_letters: [], letter_forms: null, known_letter_forms: [], vocabulary: "none",
   vocabulary_domains: [], vocabulary_other: null, consent_at: "2026-01-01T00:00:00Z", status: "new",
-  created_at: "2026-01-01T00:00:00Z", handled_at: null, handled_by: null, ended_at: null, ...extra,
+  created_at: "2026-01-01T00:00:00Z", handled_at: null, handled_by: null, ended_at: null, student_id: null, ...extra,
 });
 
 beforeEach(() => {
@@ -83,6 +83,183 @@ describe("POST /api/admin/enrollments — décisions (inscrit, sans suite, fin d
     // Déjà décidée : plus modifiable par « inscrit » ni « sans suite ».
     expect((await post({ id: NEW, action: "close" })).status).toBe(404);
     expect(find(NEW).status).toBe("enrolled");
+  });
+
+  it("« inscrit » : le compte élève est créé au prénom de l'enfant, rôle élève, et l'invitation part à l'adresse de la demande", async () => {
+    const res = await post({ id: NEW, action: "enroll" });
+    expect(res.status).toBe(200);
+    const body = await json(res) as unknown as { request: { student_id: string }; account: unknown };
+    expect(body.account).toEqual({ kind: "invited", email: "lea@example.be" });
+
+    const accountId = db.authUsers.get("lea@example.be")!;
+    expect(accountId).toBeTruthy();
+    const profile = db.rows("users").find((u) => u.id === accountId)!;
+    expect(profile).toMatchObject({ email: "lea@example.be", name: "Adam", role: "student" });
+    expect(profile.is_admin).toBeUndefined();
+    expect(find(NEW).student_id).toBe(accountId);
+    expect(body.request.student_id).toBe(accountId);
+
+    // Un seul e-mail, vers la page où l'on choisit le mot de passe.
+    expect(db.invitations).toHaveLength(1);
+    expect(db.invitations[0]).toMatchObject({ email: "lea@example.be", data: { name: "Adam", role: "student" } });
+    expect(db.invitations[0].redirectTo).toMatch(/\/reinitialiser-mot-de-passe$/);
+  });
+
+  it("le rôle et le nom du compte ne viennent jamais de la requête", async () => {
+    const res = await post({ id: NEW, action: "enroll", role: "teacher", is_admin: true, isAdmin: true, name: "Intrus" });
+    expect(res.status).toBe(200);
+    const profile = db.rows("users").find((u) => u.id === db.authUsers.get("lea@example.be"))!;
+    expect(profile).toMatchObject({ name: "Adam", role: "student" });
+    expect(profile.is_admin).toBeUndefined();
+    expect(db.invitations[0].data).toEqual({ name: "Adam", role: "student" });
+  });
+
+  it("fratrie : l'adresse du parent porte déjà un compte élève → profil rattaché au compte famille, sans e-mail ni mot de passe", async () => {
+    // Premier enfant : invitation à l'adresse du parent.
+    expect((await post({ id: NEW, action: "enroll" })).status).toBe(200);
+    const elder = db.authUsers.get("lea@example.be")!;
+    // Deuxième enfant de la même famille (même adresse).
+    const SIBLING = uuid(310);
+    db.seed("enrollment_requests", [row(SIBLING, { child_name: "Inès", child_age: 6 })]);
+
+    const res = await post({ id: SIBLING, action: "enroll" });
+    expect(res.status).toBe(200);
+    expect((await json(res)).account).toEqual({ kind: "family", email: "lea@example.be" });
+    expect(db.invitations).toHaveLength(1); // seulement celle du premier enfant
+
+    const profile = db.rows("users").find((u) => u.name === "Inès")!;
+    expect(profile).toMatchObject({ role: "student", family_account_id: elder });
+    expect(profile.is_admin).toBeUndefined();
+    expect(String(profile.email)).toMatch(/^eleve-[0-9a-f-]{36}@famille\.monteetsouris\.com$/);
+    expect(db.authUsers.get(String(profile.email))).toBe(profile.id);
+    expect(find(SIBLING)).toMatchObject({ status: "enrolled", student_id: profile.id, email: "lea@example.be" });
+    // Le compte du premier enfant n'est pas touché.
+    expect(db.rows("users").find((u) => u.id === elder)).toMatchObject({ email: "lea@example.be", name: "Adam" });
+  });
+
+  it("fratrie inscrite au même instant : le compte du premier enfant n'est jamais défait, le second le rejoint", async () => {
+    expect((await post({ id: NEW, action: "enroll" })).status).toBe(200);
+    const elder = db.authUsers.get("lea@example.be")!;
+    const SIBLING = uuid(311);
+    db.seed("enrollment_requests", [row(SIBLING, { child_name: "Inès" })]);
+    // Deux clics rapprochés : la seconde requête a cherché le profil avant que la
+    // première ne l'écrive (ici : recherche par adresse qui ne le trouve pas), et
+    // Supabase lui rend le compte déjà invité du premier enfant.
+    const elderRow = db.tables.get("users")!.find((u) => u.id === elder)!;
+    elderRow.email = "pas-encore-visible@example.be";
+
+    const res = await post({ id: SIBLING, action: "enroll" });
+    elderRow.email = "lea@example.be";
+    expect(res.status).toBe(200);
+    expect((await json(res)).account).toEqual({ kind: "family", email: "lea@example.be" });
+
+    // Le compte et le profil du premier enfant sont intacts, sa demande garde son lien.
+    expect(db.authUsers.get("lea@example.be")).toBe(elder);
+    expect(db.rows("users").find((u) => u.id === elder)).toMatchObject({ name: "Adam", role: "student" });
+    expect(find(NEW).student_id).toBe(elder);
+    // Le second a son propre profil, rattaché.
+    const sibling = db.rows("users").find((u) => u.name === "Inès")!;
+    expect(sibling.family_account_id).toBe(elder);
+    expect(find(SIBLING)).toMatchObject({ status: "enrolled", student_id: sibling.id });
+  });
+
+  it("fratrie : échec en cours de route → profil et compte rattachés défaits, demande à traiter", async () => {
+    db.seed("users", [profileRow({ ...A, email: "lea@example.be" })]);
+    db.failNext("enrollment_requests", "update");
+    expect((await post({ id: NEW, action: "enroll" })).status).toBe(500);
+    expect(db.authUsers.size).toBe(0);
+    expect(db.rows("users")).toHaveLength(4);
+    expect(find(NEW).status).toBe("new");
+  });
+
+  it("jamais de rattachement au compte d'un enseignant ou d'un admin, ni à une adresse saisie par l'admin", async () => {
+    // Adresse saisie = celle d'un élève d'une autre famille : refusé, pas rattaché.
+    const other = await post({ id: NEW, action: "enroll", accountEmail: A.email });
+    expect(other.status).toBe(409);
+    // Élève avec droit admin à l'adresse de la demande : refusé aussi.
+    db.seed("users", [profileRow({ ...makeUser(50, "student", true), email: "lea@example.be" })]);
+    expect((await post({ id: NEW, action: "enroll" })).status).toBe(409);
+    expect(db.rows("users").some((u) => u.family_account_id)).toBe(false);
+    expect(db.authUsers.size).toBe(0);
+    expect(find(NEW).status).toBe("new");
+  });
+
+  it("adresse prise par un compte enseignant : 409, rien ne change, puis inscription avec une autre adresse", async () => {
+    db.seed("users", [profileRow({ ...T, id: uuid(11), email: "lea@example.be" })]);
+    const before = db.snapshot();
+    const refused = await post({ id: NEW, action: "enroll" });
+    expect(refused.status).toBe(409);
+    expect((await json(refused)).code).toBe("email_taken");
+    expect(db.snapshot()).toBe(before);
+    expect(db.authUsers.size).toBe(0);
+    expect(db.invitations).toHaveLength(0);
+
+    expect((await post({ id: NEW, action: "enroll", accountEmail: "pas une adresse" })).status).toBe(400);
+    expect(db.snapshot()).toBe(before);
+
+    const res = await post({ id: NEW, action: "enroll", accountEmail: " Adam.Martin@Example.be " });
+    expect(res.status).toBe(200);
+    expect(db.invitations.map((i) => i.email)).toEqual(["adam.martin@example.be"]);
+    expect(find(NEW).status).toBe("enrolled");
+    // L'adresse du parent reste celle de la demande.
+    expect(find(NEW).email).toBe("lea@example.be");
+  });
+
+  it("compte Auth existant à cette adresse : 409 et la demande reste à traiter", async () => {
+    db.authUsers.set("lea@example.be", uuid(900));
+    const res = await post({ id: NEW, action: "enroll" });
+    expect(res.status).toBe(409);
+    expect(find(NEW).status).toBe("new");
+    expect(db.rows("users")).toHaveLength(3);
+  });
+
+  it("e-mail non parti : le compte est créé quand même et le lien est rendu à l'admin seulement", async () => {
+    db.smtp = false;
+    const res = await post({ id: NEW, action: "enroll" });
+    expect(res.status).toBe(200);
+    const body = await json(res) as unknown as { account: { kind: string; inviteLink: string } };
+    expect(body.account.kind).toBe("link");
+    expect(body.account.inviteLink).toContain("type=invite");
+    expect(db.invitations).toHaveLength(0);
+    expect(find(NEW).status).toBe("enrolled");
+    expect(db.rows("users").some((u) => u.id === db.authUsers.get("lea@example.be") && u.role === "student")).toBe(true);
+  });
+
+  it("échec en cours de route : le compte créé à l'instant est défait, la demande reste à traiter", async () => {
+    // Profil impossible à créer.
+    db.failNext("users", "insert");
+    expect((await post({ id: NEW, action: "enroll" })).status).toBe(500);
+    expect(db.authUsers.size).toBe(0);
+    expect(db.rows("users")).toHaveLength(3);
+    expect(find(NEW).status).toBe("new");
+
+    // Demande impossible à marquer : profil et compte Auth retirés.
+    db.failNext("enrollment_requests", "update");
+    const res = await post({ id: NEW, action: "enroll" });
+    expect(res.status).toBe(500);
+    await assertAbsent(res, ["enrollment_requests", "42P01"]);
+    expect(db.authUsers.size).toBe(0);
+    expect(db.rows("users")).toHaveLength(3);
+    expect(find(NEW)).toMatchObject({ status: "new", handled_at: null, student_id: null });
+
+    // Puis l'admin réessaie : tout passe.
+    expect((await post({ id: NEW, action: "enroll" })).status).toBe(200);
+    expect(find(NEW).status).toBe("enrolled");
+  });
+
+  it("demande déjà décidée ou inconnue : 404, aucun compte, aucun e-mail", async () => {
+    for (const id of [ENROLLED, ENDED, CLOSED, uuid(999)]) {
+      expect((await post({ id, action: "enroll" })).status).toBe(404);
+    }
+    expect(db.authUsers.size).toBe(0);
+    expect(db.invitations).toHaveLength(0);
+    expect(db.rows("users")).toHaveLength(3);
+  });
+
+  it("non admin : aucun compte créé, aucun e-mail envoyé", async () => {
+    for (const who of [A, T]) expect((await post({ id: NEW, action: "enroll", accountEmail: "x@example.be" }, who)).status).toBe(403);
+    expect(db.authUsers.size).toBe(0);
+    expect(db.invitations).toHaveLength(0);
   });
 
   it("« sans suite » : la demande passe en closed, datée", async () => {

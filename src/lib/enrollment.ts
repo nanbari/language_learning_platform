@@ -3,9 +3,11 @@
  *
  * Un parent remplit le formulaire public (/demande-inscription), partagé avec
  * la vidéo de présentation, pour un ou plusieurs de ses enfants. Rien n'est
- * créé côté élève : chaque enfant devient une ligne de `enrollment_requests`
- * (avec les coordonnées du parent) ; un administrateur recontacte la famille,
- * puis marque chaque demande comme traitée depuis son tableau de bord.
+ * créé côté élève à ce moment : chaque enfant devient une ligne de
+ * `enrollment_requests` (avec les coordonnées du parent) ; un administrateur
+ * recontacte la famille, puis décide depuis son tableau de bord. À
+ * « inscrit », le compte élève de l'enfant est créé et la famille reçoit par
+ * e-mail le lien pour en choisir le mot de passe (voir /api/admin/enrollments).
  *
  * Ce module est pur (validation, types) et testé à part ; l'accès base est
  * dans les routes serveur.
@@ -142,6 +144,8 @@ export interface EnrollmentRow {
   handled_at: string | null;
   /** Fin de l'inscription d'un enfant inscrit ; null tant qu'il suit les cours. */
   ended_at: string | null;
+  /** Compte élève créé à l'inscription ; null avant, ou pour une inscription antérieure au 12 novembre 2026. */
+  student_id: string | null;
 }
 
 type ParseResult = { ok: true; value: EnrollmentInput } | { ok: false; error: string };
@@ -256,11 +260,37 @@ function parseKnownLetters(raw: unknown, knowledge: LetterKnowledge): { ok: true
   return { ok: true, value: ids };
 }
 
-/** Valide la décision envoyée par l'admin : { id, action }. */
-export function parseEnrollmentAction(input: unknown): { ok: true; id: string; action: EnrollmentAction } | { ok: false; error: string } {
+/**
+ * Compte élève créé à l'inscription (`email` : adresse avec laquelle la famille se connecte) :
+ *  - "invited" : l'invitation (lien pour choisir le mot de passe) est partie par e-mail ;
+ *  - "link"    : l'envoi a échoué, le lien est rendu à l'admin pour qu'il le transmette ;
+ *  - "family"  : un frère ou une sœur a déjà un compte à cette adresse ; le profil
+ *                de l'enfant y est rattaché (même mot de passe, choix du prénom à
+ *                la connexion — voir lib/family), aucun e-mail n'est envoyé.
+ */
+export type EnrollmentAccount =
+  | { kind: "invited"; email: string }
+  | { kind: "link"; email: string; inviteLink: string }
+  | { kind: "family"; email: string };
+
+/**
+ * Valide la décision envoyée par l'admin : { id, action, accountEmail? }.
+ * `accountEmail` (seulement avec "enroll") : adresse du compte élève quand
+ * celle de la demande est déjà prise par un compte qui ne peut pas servir de
+ * compte famille (un parent qui est aussi enseignant, par exemple).
+ */
+export function parseEnrollmentAction(input: unknown):
+  | { ok: true; id: string; action: EnrollmentAction; accountEmail?: string }
+  | { ok: false; error: string } {
   if (typeof input !== "object" || input === null) return { ok: false, error: "corps invalide" };
-  const { id, action } = input as Record<string, unknown>;
+  const { id, action, accountEmail } = input as Record<string, unknown>;
   if (typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id)) return { ok: false, error: "id invalide" };
   if (!ENROLLMENT_ACTIONS.includes(action as EnrollmentAction)) return { ok: false, error: "action invalide" };
-  return { ok: true, id, action: action as EnrollmentAction };
+  if (action !== "enroll" || accountEmail === undefined || accountEmail === null) {
+    return { ok: true, id, action: action as EnrollmentAction };
+  }
+  if (typeof accountEmail !== "string") return { ok: false, error: "Adresse e-mail invalide" };
+  const email = normaliseEmail(accountEmail);
+  if (email.length > MAX_EMAIL || !EMAIL_RE.test(email)) return { ok: false, error: "Adresse e-mail invalide" };
+  return { ok: true, id, action: "enroll", accountEmail: email };
 }

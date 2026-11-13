@@ -1,8 +1,8 @@
 "use client";
-import type { ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { LogOut, Users } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { BrandMark, Wordmark } from "@/components/ui/BrandMark";
 
@@ -16,6 +16,8 @@ export const STUDENT_ICON = 28;
 export default function StudentShell({ children }: { children: ReactNode }) {
   const logout = useAuthStore((s) => s.logout);
   const router = useRouter();
+  // Compte famille : lien vers « Qui est là ? » (lu après l'hydratation : le store vit dans le navigateur).
+  const family = useSyncExternalStore(useAuthStore.subscribe, () => useAuthStore.getState().family, () => false);
 
   const handleLogout = async () => {
     await fetch("/api/auth", {
@@ -42,9 +44,16 @@ export default function StudentShell({ children }: { children: ReactNode }) {
               <Wordmark className="text-lg leading-none" />
             </span>
           </Link>
-          <button type="button" onClick={handleLogout} data-variant="quiet" className="ms-button text-ms-muted">
-            <LogOut size={STUDENT_ICON} strokeWidth={1.75} aria-hidden="true" /> Sortir
-          </button>
+          <div className="flex items-center gap-1">
+            {family && (
+              <Link href="/login" data-variant="quiet" className="ms-button text-ms-muted" aria-label="Changer d'élève">
+                <Users size={STUDENT_ICON} strokeWidth={1.75} aria-hidden="true" /> <span className="hidden sm:inline">Changer</span>
+              </Link>
+            )}
+            <button type="button" onClick={handleLogout} data-variant="quiet" className="ms-button text-ms-muted">
+              <LogOut size={STUDENT_ICON} strokeWidth={1.75} aria-hidden="true" /> Sortir
+            </button>
+          </div>
         </div>
       </header>
       <main id="contenu" tabIndex={-1} className="mx-auto w-full max-w-[66rem] px-4 py-6 sm:px-6 sm:py-8 focus:outline-none">

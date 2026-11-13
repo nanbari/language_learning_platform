@@ -27,6 +27,9 @@ export interface ProfileRow {
   is_admin?: boolean | null;
   /** Compte désactivé par un admin (migration 2026-10-28) : plus aucun accès. */
   disabled_at?: string | null;
+  /** Profil rattaché au compte famille d'un frère ou d'une sœur (migration 2026-11-12, voir lib/family). */
+  family_account_id?: string | null;
+  created_at?: string | null;
 }
 
 /** Convertit une ligne de public.users en session. L'ancien rôle "admin" vaut enseignant + admin. */
