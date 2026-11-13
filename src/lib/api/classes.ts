@@ -1,4 +1,4 @@
-import type { ClassUpdate, LiveClass, TeacherClasses } from "@/lib/classes";
+import type { ClassSchedule, ClassUpdate, LiveClass, TeacherClasses } from "@/lib/classes";
 import { jsonOrThrow } from "@/lib/api/client";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
@@ -13,8 +13,8 @@ export async function fetchLiveClasses() {
   return jsonOrThrow<LiveClass[]>(await fetch("/api/classes/live", { cache: "no-store" }));
 }
 
-export async function createClass(name: string) {
-  return jsonOrThrow<{ id: string }>(await fetch("/api/classes", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ name }) }));
+export async function createClass(name: string, schedule: ClassSchedule | null = null) {
+  return jsonOrThrow<{ id: string }>(await fetch("/api/classes", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ name, schedule }) }));
 }
 
 export async function updateClass(id: string, update: ClassUpdate) {

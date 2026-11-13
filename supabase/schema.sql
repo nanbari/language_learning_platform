@@ -198,7 +198,16 @@ create table public.classes (
   name text not null,
   live_room text,
   live_started_at timestamptz,
-  created_at timestamptz not null default now()
+  -- Horaire hebdomadaire (calendrier de « Mes classes ») : 1 = lundi … 7 = dimanche,
+  -- heure de début "HH:MM", durée en minutes. Vides ensemble ou remplis ensemble.
+  schedule_day smallint check (schedule_day between 1 and 7),
+  schedule_start text check (schedule_start ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'),
+  schedule_minutes smallint check (schedule_minutes between 15 and 480),
+  created_at timestamptz not null default now(),
+  constraint classes_schedule_complete check (
+    (schedule_day is null and schedule_start is null and schedule_minutes is null)
+    or (schedule_day is not null and schedule_start is not null and schedule_minutes is not null)
+  )
 );
 
 create index classes_teacher_idx on public.classes (teacher_id);

@@ -137,6 +137,24 @@ describe("enseignant sans lien avec la classe (AUTH-11)", () => {
     expect(db.rows("classes").find((c) => c.id === CLASS)?.name).toBe("Les abeilles 2");
   });
 
+  it("horaire : l'enseignante de la classe le fixe, le lit et le retire ; un autre enseignant non", async () => {
+    const schedule = { day: 3, start: "14:00", minutes: 90 };
+    const set = await classPatch(await request("PATCH", `/api/classes/${CLASS}`, { as: T, body: { schedule } }), params(CLASS));
+    expect(set.status).toBe(200);
+    expect(db.rows("classes").find((c) => c.id === CLASS)).toMatchObject({ schedule_day: 3, schedule_start: "14:00", schedule_minutes: 90, name: "Les abeilles" });
+    const list = await json(await classesGet(await request("GET", "/api/classes", { as: T }))) as unknown as { classes: { id: string; schedule: unknown }[] };
+    expect(list.classes.find((c) => c.id === CLASS)?.schedule).toEqual(schedule);
+
+    const before = db.snapshot();
+    expect((await classPatch(await request("PATCH", `/api/classes/${CLASS}`, { as: U, body: { schedule: null } }), params(CLASS))).status).toBe(404);
+    expect((await classPatch(await request("PATCH", `/api/classes/${CLASS}`, { as: A, body: { schedule: null } }), params(CLASS))).status).not.toBe(200);
+    expect((await classPatch(await request("PATCH", `/api/classes/${CLASS}`, { as: T, body: { schedule: { day: 8, start: "14:00", minutes: 60 } } }), params(CLASS))).status).toBe(400);
+    expect(db.snapshot()).toBe(before);
+
+    expect((await classPatch(await request("PATCH", `/api/classes/${CLASS}`, { as: T, body: { schedule: null } }), params(CLASS))).status).toBe(200);
+    expect(db.rows("classes").find((c) => c.id === CLASS)).toMatchObject({ schedule_day: null, schedule_start: null, schedule_minutes: null });
+  });
+
   it("un enseignant n'a pas les routes admin ; l'admin les a", async () => {
     expect((await staffGet(await request("GET", "/api/admin/staff", { as: T }))).status).toBe(403);
     expect((await staffGet(await request("GET", "/api/admin/staff", { as: ADMIN }))).status).toBe(200);

@@ -1,12 +1,13 @@
 "use client";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { BookOpen, ChartNoAxesColumn, Ellipsis, Pencil, Plus, Presentation, Radio, Search, Trash2, Users } from "lucide-react";
+import { BookOpen, CalendarClock, ChartNoAxesColumn, Ellipsis, Pencil, Plus, Presentation, Radio, Search, Trash2, Users } from "lucide-react";
 import TeacherShell from "@/components/teacher/TeacherShell";
 import { useTeacherSession } from "@/components/teacher/useTeacherSession";
 import { DeckStatusPill } from "@/components/teacher/DeckStatusPill";
+import ClassCalendar from "@/components/teacher/ClassCalendar";
 import { Button, ButtonLink, EmptyState, ICON_STROKE, InlineNotice, SectionHeader, SkeletonRows, StatusPill } from "@/components/platform/ui";
-import { MAX_CLASS_NAME, type ClassRow, type StudentRef } from "@/lib/classes";
+import { DEFAULT_CLASS_MINUTES, MAX_CLASS_NAME, WEEKDAYS, formatSchedule, type ClassRow, type ClassSchedule, type StudentRef } from "@/lib/classes";
 import { createClass, deleteClass, fetchTeacherClasses, updateClass } from "@/lib/api/classes";
 import { fetchLessons, type ApiLesson } from "@/lib/api/lessons";
 
@@ -17,23 +18,70 @@ const TILES = ["bg-ms-slate-soft text-ms-slate-ink", "bg-ms-sage-soft text-ms-sa
 
 const MENU_ITEM = "flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-3 text-[0.9375rem] font-semibold outline-none data-[highlighted]:bg-ms-surface-muted";
 
+/** Saisie d'un horaire : jour vide = classe sans horaire. */
+interface ScheduleDraft { day: string; start: string; minutes: number }
+
+const NO_SCHEDULE: ScheduleDraft = { day: "", start: "", minutes: DEFAULT_CLASS_MINUTES };
+const DURATIONS = [30, 45, 50, 60, 75, 90, 105, 120, 150, 180];
+
+const draftOf = (schedule: ClassSchedule | null): ScheduleDraft =>
+  schedule ? { day: String(schedule.day), start: schedule.start, minutes: schedule.minutes } : NO_SCHEDULE;
+/** Jour choisi mais heure manquante : la saisie n'est pas terminée. */
+const draftIncomplete = (d: ScheduleDraft) => d.day !== "" && !/^\d{2}:\d{2}/.test(d.start);
+const scheduleOf = (d: ScheduleDraft): ClassSchedule | null =>
+  d.day === "" || draftIncomplete(d) ? null : { day: Number(d.day), start: d.start.slice(0, 5), minutes: d.minutes };
+const durationLabel = (minutes: number) =>
+  minutes < 60 ? `${minutes} min` : minutes % 60 === 0 ? `${minutes / 60} h` : `${Math.floor(minutes / 60)} h ${minutes % 60}`;
+
+/** Jour, heure de début et durée du cours hebdomadaire. */
+function ScheduleFields({ ids, value, onChange }: { ids: string; value: ScheduleDraft; onChange: (value: ScheduleDraft) => void }) {
+  const none = value.day === "";
+  const durations = DURATIONS.includes(value.minutes) ? DURATIONS : [...DURATIONS, value.minutes].sort((a, b) => a - b);
+  return (
+    <div className="grid max-w-xl gap-3 sm:grid-cols-3">
+      <div className="flex flex-col gap-2">
+        <label htmlFor={`${ids}-day`} className="text-sm font-semibold">Jour du cours</label>
+        <select id={`${ids}-day`} className="ms-field" value={value.day} onChange={(e) => onChange({ ...value, day: e.target.value })}>
+          <option value="">Sans horaire</option>
+          {WEEKDAYS.map((day, i) => <option key={day} value={i + 1}>{day}</option>)}
+        </select>
+      </div>
+      <div className="flex flex-col gap-2">
+        <label htmlFor={`${ids}-start`} className="text-sm font-semibold">Heure de début</label>
+        <input
+          id={`${ids}-start`} type="time" step={300} className="ms-field" disabled={none} required={!none}
+          value={value.start} onChange={(e) => onChange({ ...value, start: e.target.value })}
+        />
+      </div>
+      <div className="flex flex-col gap-2">
+        <label htmlFor={`${ids}-len`} className="text-sm font-semibold">Durée</label>
+        <select id={`${ids}-len`} className="ms-field" disabled={none} value={value.minutes} onChange={(e) => onChange({ ...value, minutes: Number(e.target.value) })}>
+          {durations.map((m) => <option key={m} value={m}>{durationLabel(m)}</option>)}
+        </select>
+      </div>
+    </div>
+  );
+}
+
 /** Formulaire de création, replié derrière « Créer une classe ». */
 function NewClassForm({ open, onOpenChange, onCreated }: {
   open: boolean; onOpenChange: (open: boolean) => void; onCreated: () => void;
 }) {
   const [name, setName] = useState("");
+  const [schedule, setSchedule] = useState<ScheduleDraft>(NO_SCHEDULE);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const ids = useId();
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || draftIncomplete(schedule)) return;
     setBusy(true);
     setError(null);
     try {
-      await createClass(name);
+      await createClass(name, scheduleOf(schedule));
       setName("");
+      setSchedule(NO_SCHEDULE);
       onOpenChange(false);
       onCreated();
     } catch (err) {
@@ -60,11 +108,13 @@ function NewClassForm({ open, onOpenChange, onCreated }: {
           id={`${ids}-n`} className="ms-field" value={name} onChange={(e) => setName(e.target.value)}
           maxLength={MAX_CLASS_NAME} autoFocus autoComplete="off" aria-describedby={`${ids}-h`}
         />
-        <p id={`${ids}-h`} className="text-sm text-ms-muted">Par exemple : Mercredi 14 h. {MAX_CLASS_NAME} caractères au maximum.</p>
+        <p id={`${ids}-h`} className="text-sm text-ms-muted">Par exemple : Les débutants. {MAX_CLASS_NAME} caractères au maximum.</p>
       </div>
+      <ScheduleFields ids={ids} value={schedule} onChange={setSchedule} />
+      <p className="text-sm text-ms-muted">L&apos;horaire place la classe dans le calendrier. Vous pourrez l&apos;indiquer ou le changer plus tard.</p>
       {error && <InlineNotice tone="error">{error}</InlineNotice>}
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" variant="primary" accent="blush" disabled={busy || !name.trim()}>{busy ? "Création…" : "Créer la classe"}</Button>
+        <Button type="submit" variant="primary" accent="blush" disabled={busy || !name.trim() || draftIncomplete(schedule)}>{busy ? "Création…" : "Créer la classe"}</Button>
         <Button variant="secondary" onClick={() => { onOpenChange(false); setError(null); }}>Annuler</Button>
       </div>
     </form>
@@ -85,10 +135,12 @@ export default function TeacherClassesPage() {
   const [lessons, setLessons] = useState<ApiLesson[] | null>(null);
   const [lessonsError, setLessonsError] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  // Jour courant (1 = lundi … 7 = dimanche), lu à l'arrivée des classes : mis en avant dans le calendrier.
+  const [today, setToday] = useState<number | null>(null);
 
   const load = useCallback(() => {
     fetchTeacherClasses()
-      .then((data) => { setClasses(data.classes); setStudents(data.students); setLoadError(null); })
+      .then((data) => { setClasses(data.classes); setStudents(data.students); setLoadError(null); setToday(((new Date().getDay() + 6) % 7) + 1); })
       .catch((e: Error) => { setLoadError(e.message); setClasses((c) => c ?? []); });
   }, []);
 
@@ -113,6 +165,9 @@ export default function TeacherClassesPage() {
     return map;
   }, [lessons]);
 
+  /** Couleurs d'une classe : les mêmes dans le calendrier et dans la liste. */
+  const tileOf = useCallback((cls: ClassRow) => TILES[Math.max(0, (classes ?? []).findIndex((c) => c.id === cls.id)) % TILES.length], [classes]);
+
   return (
     <TeacherShell name={user?.name || "Enseignant"} isAdmin={isAdmin} onLogout={handleLogout}>
       <div className="space-y-6">
@@ -123,6 +178,22 @@ export default function TeacherClassesPage() {
             est visible par ses élèves aussitôt ; le cours en direct, lui, projette le diaporama de la leçon.
           </p>
         </header>
+
+        {classes && classes.length > 0 && (
+          <section aria-labelledby="calendrier" className="space-y-3">
+            <SectionHeader
+              id="calendrier"
+              title="Calendrier de la semaine"
+              description="Chaque classe à son jour et à son heure de cours. Choisissez une classe pour l'ouvrir."
+            />
+            <ClassCalendar
+              classes={classes}
+              tileOf={tileOf}
+              teacherOf={(c) => (isAdmin && c.teacherId !== user?.id ? c.teacherName : null)}
+              today={today}
+            />
+          </section>
+        )}
 
         <SectionHeader
           title="Classes"
@@ -153,11 +224,11 @@ export default function TeacherClassesPage() {
           )}
           {classes && classes.length > 0 && (
             <ul className="divide-y divide-ms-line">
-              {classes.map((c, i) => (
+              {classes.map((c) => (
                 <ClassItem
                   key={c.id}
                   cls={c}
-                  tile={TILES[i % TILES.length]}
+                  tile={tileOf(c)}
                   students={students}
                   lessons={lessons === null ? null : (lessonsByClass.get(c.id) ?? [])}
                   canEditLesson={(l) => isAdmin || l.authorId === user?.id}
@@ -210,6 +281,8 @@ function ClassItem({
   const [selected, setSelected] = useState<Set<string>>(new Set(cls.studentIds));
   const [renaming, setRenaming] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState(false);
+  const [schedule, setSchedule] = useState<ScheduleDraft>(draftOf(cls.schedule));
   const [name, setName] = useState(cls.name);
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
@@ -247,6 +320,11 @@ function ClassItem({
     if (await run(() => updateClass(cls.id, { name }))) setRenaming(false);
   };
 
+  const saveSchedule = async () => {
+    if (draftIncomplete(schedule)) return;
+    if (await run(() => updateClass(cls.id, { schedule: scheduleOf(schedule) }))) setEditingSchedule(false);
+  };
+
   const remove = async () => {
     if (!(await run(() => deleteClass(cls.id)))) setConfirmingDelete(false);
   };
@@ -263,8 +341,9 @@ function ClassItem({
   const startMembers = () => { setSelected(new Set(cls.studentIds)); setQuery(""); setEditingMembers(true); setError(null); };
   const startRename = () => { setName(cls.name); setRenaming(true); setError(null); };
   const startDelete = () => { setConfirmingDelete(true); setError(null); };
+  const startSchedule = () => { setSchedule(draftOf(cls.schedule)); setEditingSchedule(true); setError(null); };
 
-  const idle = !renaming && !editingMembers && !confirmingDelete;
+  const idle = !renaming && !editingMembers && !confirmingDelete && !editingSchedule;
   const lessonCount = lessons?.length ?? 0;
 
   return (
@@ -296,7 +375,7 @@ function ClassItem({
                   {cls.live && <StatusPill state="info" icon={Radio}>En direct</StatusPill>}
                 </h3>
                 <p className="mt-0.5 text-sm text-ms-muted tabular-nums">
-                  {plural(members.length, "élève")}
+                  {cls.schedule ? formatSchedule(cls.schedule) : "Sans horaire"} · {plural(members.length, "élève")}
                   {lessons !== null && <> · {plural(lessonCount, "leçon")}</>}
                   {showTeacher && <> · {cls.teacherName}</>}
                 </p>
@@ -321,6 +400,9 @@ function ClassItem({
                 <DropdownMenu.Item className={MENU_ITEM} onSelect={() => { menuPicked.current = true; startMembers(); }}>
                   <Users size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Choisir les élèves
                 </DropdownMenu.Item>
+                <DropdownMenu.Item className={MENU_ITEM} onSelect={() => { menuPicked.current = true; startSchedule(); }}>
+                  <CalendarClock size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Horaire
+                </DropdownMenu.Item>
                 <DropdownMenu.Item className={MENU_ITEM} onSelect={() => { menuPicked.current = true; startRename(); }}>
                   <Pencil size={18} strokeWidth={ICON_STROKE} aria-hidden="true" /> Renommer
                 </DropdownMenu.Item>
@@ -336,6 +418,20 @@ function ClassItem({
           </DropdownMenu.Root>
         )}
       </div>
+
+      {editingSchedule && (
+        <form
+          aria-label={`Horaire de « ${cls.name} »`} className="space-y-3 rounded-xl border border-ms-line p-4 sm:ml-[3.25rem]"
+          onSubmit={(e) => { e.preventDefault(); void saveSchedule(); }}
+        >
+          <ScheduleFields ids={`${ids}-sch`} value={schedule} onChange={setSchedule} />
+          <p className="text-sm text-ms-muted">Le cours revient chaque semaine, ce jour-là à cette heure. « Sans horaire » retire la classe du calendrier.</p>
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" variant="primary" disabled={busy || draftIncomplete(schedule)}>{busy ? "Enregistrement…" : "Enregistrer l'horaire"}</Button>
+            <Button variant="secondary" onClick={() => { setEditingSchedule(false); setError(null); }}>Annuler</Button>
+          </div>
+        </form>
+      )}
 
       {confirmingDelete && (
         <div role="group" aria-label={`Supprimer « ${cls.name} »`} className="flex flex-wrap items-center gap-2 rounded-xl bg-ms-danger-soft p-3 sm:pl-4">

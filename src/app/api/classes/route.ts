@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isStaff } from "@/server/auth";
-import { isLive, parseNewClass, type ClassRow, type LiveClass, type TeacherClasses } from "@/lib/classes";
+import { isLive, parseNewClass, scheduleColumns, scheduleFromRow, type ClassRow, type LiveClass, type TeacherClasses } from "@/lib/classes";
 import { supabaseAdmin } from "@/server/supabase";
 import { currentUser } from "@/server/session";
 import { serverError } from "@/server/errors";
@@ -11,6 +11,9 @@ interface ClassDbRow {
   teacher_id: string;
   live_room: string | null;
   live_started_at: string | null;
+  schedule_day: number | null;
+  schedule_start: string | null;
+  schedule_minutes: number | null;
   teacher: { name: string } | null;
   class_members: { student_id: string }[];
 }
@@ -36,7 +39,7 @@ export async function GET(req: NextRequest) {
 
     const now = Date.now();
     const live: LiveClass[] = [];
-    for (const row of (data ?? []) as unknown as { class: Omit<ClassDbRow, "teacher_id" | "class_members"> | null }[]) {
+    for (const row of (data ?? []) as unknown as { class: Pick<ClassDbRow, "id" | "name" | "live_room" | "live_started_at" | "teacher"> | null }[]) {
       const c = row.class;
       if (c && c.live_room && isLive(c.live_room, c.live_started_at, now)) {
         live.push({ id: c.id, name: c.name, teacherName: c.teacher?.name ?? "", room: c.live_room });
@@ -47,7 +50,7 @@ export async function GET(req: NextRequest) {
 
   let q = db
     .from("classes")
-    .select("id, name, teacher_id, live_room, live_started_at, teacher:users!classes_teacher_id_fkey(name), class_members(student_id)")
+    .select("id, name, teacher_id, live_room, live_started_at, schedule_day, schedule_start, schedule_minutes, teacher:users!classes_teacher_id_fkey(name), class_members(student_id)")
     .order("created_at", { ascending: true });
   if (!session.isAdmin) q = q.eq("teacher_id", session.id);
 
@@ -67,13 +70,14 @@ export async function GET(req: NextRequest) {
       teacherName: c.teacher?.name ?? "",
       studentIds: c.class_members.map((m) => m.student_id),
       live: isLive(c.live_room, c.live_started_at, now),
+      schedule: scheduleFromRow(c),
     })),
     students: (students ?? []) as { id: string; name: string }[],
   };
   return NextResponse.json(body);
 }
 
-/** POST /api/classes — { name } : nouvelle classe de l'enseignant connecté. */
+/** POST /api/classes — { name, schedule? } : nouvelle classe de l'enseignant connecté. */
 export async function POST(req: NextRequest) {
   const auth = await currentUser(req);
   if ("error" in auth) return auth.error;
@@ -85,7 +89,7 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await supabaseAdmin()
     .from("classes")
-    .insert({ teacher_id: session.id, name: parsed.value.name })
+    .insert({ teacher_id: session.id, name: parsed.value.name, ...scheduleColumns(parsed.value.schedule) })
     .select("id")
     .single();
   if (error) return serverError("/api/classes error", error);

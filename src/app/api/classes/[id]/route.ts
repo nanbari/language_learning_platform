@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@/server/session";
-import { parseClassUpdate } from "@/lib/classes";
+import { parseClassUpdate, scheduleColumns } from "@/lib/classes";
 import { supabaseAdmin } from "@/server/supabase";
 import { ownedClass } from "@/server/classAccess";
 import { serverError } from "@/server/errors";
 
-/** PATCH /api/classes/:id — { name?, studentIds? } : renomme la classe et/ou remplace ses élèves. */
+/** PATCH /api/classes/:id — { name?, studentIds?, schedule? } : renomme la classe, remplace ses élèves et/ou fixe son horaire (null le retire). */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await currentUser(req);
   if ("error" in auth) return auth.error;
@@ -14,11 +14,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const parsed = parseClassUpdate(await req.json().catch(() => null));
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
-  const { name, studentIds } = parsed.value;
+  const { name, studentIds, schedule } = parsed.value;
   const db = supabaseAdmin();
 
-  if (name !== undefined) {
-    const { error } = await db.from("classes").update({ name }).eq("id", owned.id);
+  if (name !== undefined || schedule !== undefined) {
+    const { error } = await db.from("classes")
+      .update({ ...(name !== undefined ? { name } : {}), ...(schedule !== undefined ? scheduleColumns(schedule) : {}) })
+      .eq("id", owned.id);
     if (error) return serverError("/api/classes/[id] error", error);
   }
 
