@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_CHILDREN, parseEnrollmentAction, parseEnrollmentInput } from "@/lib/enrollment";
+import { MAX_CHILDREN, ageLabel, parseEnrollmentAction, parseEnrollmentInput } from "@/lib/enrollment";
 
 const ADAM = { name: " Adam ", age: 7, level: "beginner", letters: "none", vocabulary: "none" };
 const NOTHING = { letters: "none", knownLetters: [], letterForms: null, knownLetterForms: [], vocabulary: "none", vocabularyDomains: [], vocabularyOther: null };
@@ -97,15 +97,24 @@ describe("parseEnrollmentInput", () => {
     expect(parseEnrollmentInput({ ...VALID, children: ADAM }).ok).toBe(false);
   });
 
-  it("refuse un âge hors de 4 à 12 ans", () => {
+  it("accepte enfants, adolescents et adultes (18 = « 18 ans ou plus ») ; refuse moins de 4 ans, plus de 18 et un âge non entier", () => {
+    for (const age of [4, 12, 13, 17, 18]) {
+      expect(parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, age }] }).ok).toBe(true);
+    }
     expect(parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, age: 3 }] }).ok).toBe(false);
-    expect(parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, age: 13 }] }).ok).toBe(false);
+    expect(parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, age: 19 }] }).ok).toBe(false);
     expect(parseEnrollmentInput({ ...VALID, children: [{ ...ADAM, age: 6.5 }] }).ok).toBe(false);
+  });
+
+  it("écrit l'âge comme on le dit", () => {
+    expect(ageLabel(7)).toBe("7 ans");
+    expect(ageLabel(17)).toBe("17 ans");
+    expect(ageLabel(18)).toBe("adulte");
   });
 
   it("indique quel enfant corriger quand il y en a plusieurs", () => {
     expect(parseEnrollmentInput({ ...VALID, children: [ADAM, { ...ADAM, name: "  " }] }))
-      .toEqual({ ok: false, error: "Enfant 2 : le prénom est requis" });
+      .toEqual({ ok: false, error: "Élève 2 : le prénom est requis" });
   });
 
   it("refuse un e-mail ou un téléphone invalides", () => {

@@ -152,7 +152,8 @@ create table public.enrollment_requests (
   email text not null,
   phone text not null,
   child_name text not null,
-  child_age smallint not null check (child_age between 4 and 12),
+  -- 4 à 17 ans ; 18 = adulte (« 18 ans ou plus », l'âge exact n'est pas demandé).
+  child_age smallint not null check (child_age between 4 and 18),
   level text not null check (level in ('beginner', 'reader')),
   -- Précisions sur le niveau (novembre 2026) ; null pour les demandes antérieures.
   letters text check (letters in ('none', 'some', 'all')),

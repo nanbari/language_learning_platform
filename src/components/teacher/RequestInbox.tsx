@@ -5,7 +5,7 @@ import { Check, ChevronDown, Inbox, Mail, Phone, UserMinus, X } from "lucide-rea
 import { decideEnrollment, fetchEnrollments } from "@/lib/api/enrollment";
 import { ApiError } from "@/lib/api/client";
 import {
-  LEVEL_LABELS, LETTER_KNOWLEDGE_LABELS, VOCABULARY_LABELS, VOCABULARY_DOMAIN_LABELS, RETENTION_CLOSED_MONTHS,
+  LEVEL_LABELS, LETTER_KNOWLEDGE_LABELS, ageLabel, VOCABULARY_LABELS, VOCABULARY_DOMAIN_LABELS, RETENTION_CLOSED_MONTHS,
   type EnrollmentAction, type EnrollmentRow, type LetterKnowledge,
 } from "@/lib/enrollment";
 import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";
@@ -84,14 +84,14 @@ function InviteLinkBox({ name, email, link, onClose }: { name: string; email: st
 /** null = chargement ; "error" = échec du chargement (à ne pas confondre avec une liste vide). */
 type Loaded<T> = T[] | null | "error";
 
-/** Une demande d'inscription : l'enfant, ce que la famille a dit de son niveau, les coordonnées. */
+/** Une demande d'inscription : l'élève (enfant, adolescent ou adulte), ce qui a été dit de son niveau, les coordonnées. */
 function EnrollmentItem({ r, children }: { r: EnrollmentRow; children?: React.ReactNode }) {
   const status = statusLine(r);
   return (
     <li className="flex flex-col gap-3 p-3 sm:flex-row sm:items-start">
       <div className="min-w-0 flex-1 text-sm">
         <p className="font-semibold">
-          {r.child_name}, {r.child_age} ans <span className="font-normal text-ms-muted">· {LEVEL_LABELS[r.level].title}</span>
+          {r.child_name}, {ageLabel(r.child_age)} <span className="font-normal text-ms-muted">· {LEVEL_LABELS[r.level].title}</span>
         </p>
         <LevelDetails r={r} />
         <p className="text-ms-muted">
@@ -229,7 +229,7 @@ export default function RequestInbox() {
       <Category
         title="Inscriptions des familles"
         items={pending}
-        help={<>Envoyées depuis le formulaire <Link href="/demande-inscription" className="font-semibold text-ms-ink underline underline-offset-2">demande d&apos;inscription</Link>. Recontactez la famille, puis indiquez si l&apos;enfant est inscrit ou si la demande reste sans suite. « Inscrit » crée le compte élève de l&apos;enfant et envoie à la famille l&apos;e-mail pour en choisir le mot de passe. Pour un frère ou une sœur, le profil rejoint le compte de la famille : une seule adresse, un seul mot de passe.</>}
+        help={<>Envoyées depuis le formulaire <Link href="/demande-inscription" className="font-semibold text-ms-ink underline underline-offset-2">demande d&apos;inscription</Link>. Recontactez la famille, puis indiquez si l&apos;élève est inscrit ou si la demande reste sans suite. « Inscrit » crée le compte élève et envoie à la famille l&apos;e-mail pour en choisir le mot de passe. Pour une seconde personne à la même adresse (frère, sœur, parent), le profil rejoint le compte de la famille : une seule adresse, un seul mot de passe.</>}
       >
         {pending === "error" && <InlineNotice tone="error">Les demandes d&apos;inscription n&apos;ont pas pu être chargées. Rechargez la page.</InlineNotice>}
         {Array.isArray(pending) && pending.length > 0 && (
@@ -267,12 +267,12 @@ export default function RequestInbox() {
       </Category>
 
       <Category
-        title="Enfants inscrits"
+        title="Élèves inscrits"
         items={enrolled}
         done
-        help="Les coordonnées des familles inscrites restent ici tant que l'enfant suit les cours. Quand il arrête, cliquez « Fin d'inscription » : la demande est effacée automatiquement un an plus tard."
+        help="Les coordonnées des familles inscrites restent ici tant que l'élève suit les cours. Quand il arrête, cliquez « Fin d'inscription » : la demande est effacée automatiquement un an plus tard."
       >
-        {enrolled === "error" && <InlineNotice tone="error">Les enfants inscrits n&apos;ont pas pu être chargés. Rechargez la page.</InlineNotice>}
+        {enrolled === "error" && <InlineNotice tone="error">Les élèves inscrits n&apos;ont pas pu être chargés. Rechargez la page.</InlineNotice>}
         {Array.isArray(enrolled) && enrolled.length > 0 && (
           <ul className="divide-y divide-ms-line rounded-xl border border-ms-line">
             {enrolled.map((r) => (

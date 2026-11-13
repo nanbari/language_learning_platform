@@ -1,0 +1,64 @@
+<!--
+  Modèle de l'e-mail d'invitation (Supabase → Authentication → Emails → « Invite user »).
+  Supabase l'envoie quand un admin clique « Inscrit » (compte élève) ou invite un
+  enseignant (page Équipe). Le même modèle sert aux deux : la partie familles
+  n'apparaît que pour un compte élève (rôle fixé par le serveur dans les données du compte).
+  Objet conseillé : Monte & Souris : choisissez votre mot de passe
+  Ce fichier est la copie de référence : collez-le dans Supabase après chaque modification.
+-->
+<div style="margin:0;padding:24px 12px;background:#F5EEE8;font-family:Arial,Helvetica,sans-serif;color:#2A2B27;font-size:16px;line-height:24px;">
+  <div style="max-width:560px;margin:0 auto;background:#FFFDF8;border:1px solid #DAD3C7;border-radius:16px;padding:28px 24px;">
+
+    <p style="margin:0 0 4px;font-size:13px;color:#65675E;">ASBL Monte &amp; Souris</p>
+    <h1 style="margin:0 0 16px;font-size:22px;line-height:30px;">Bienvenue sur Monte &amp; Souris</h1>
+
+    {{ if eq .Data.role "teacher" }}
+    <p style="margin:0 0 16px;">Bonjour {{ .Data.name }},</p>
+    <p style="margin:0 0 16px;">Un compte enseignant vient d'être créé pour vous. Choisissez votre mot de passe pour y accéder.</p>
+    {{ else }}
+    <p style="margin:0 0 16px;">Bonjour,</p>
+    <p style="margin:0 0 16px;">
+      L'inscription de <strong>{{ .Data.name }}</strong> est confirmée. Le compte élève est prêt : il ne reste qu'à choisir le mot de passe.
+    </p>
+    {{ end }}
+
+    <p style="margin:24px 0;">
+      <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#46606E;color:#FFFFFF;text-decoration:none;font-weight:bold;padding:14px 22px;border-radius:12px;">Choisir mon mot de passe</a>
+    </p>
+    <p style="margin:0 0 16px;font-size:14px;line-height:21px;color:#65675E;">
+      Ce lien ne sert qu'une fois et expire. S'il ne fonctionne plus, ouvrez
+      <a href="{{ .SiteURL }}/login" style="color:#46606E;">la page de connexion</a> et cliquez « Mot de passe oublié ? ».
+    </p>
+
+    {{ if ne .Data.role "teacher" }}
+    <h2 style="margin:28px 0 8px;font-size:18px;line-height:26px;">Se connecter ensuite</h2>
+    <p style="margin:0 0 16px;">
+      Rendez-vous sur <a href="{{ .SiteURL }}/login" style="color:#46606E;">{{ .SiteURL }}/login</a>, avec l'adresse
+      <strong>{{ .Email }}</strong> et le mot de passe que vous aurez choisi.
+    </p>
+
+    <h2 style="margin:28px 0 8px;font-size:18px;line-height:26px;">Rejoindre le cours en direct (cours d'essai compris)</h2>
+    <ol style="margin:0 0 16px;padding-left:22px;">
+      <li style="margin-bottom:6px;">Quelques minutes avant l'heure du cours, connectez-vous au compte élève (ou connectez-y votre enfant).</li>
+      <li style="margin-bottom:6px;">Dès que l'enseignant·e ouvre le cours, la page d'accueil affiche <strong>« Le cours a commencé »</strong> : cliquez <strong>« Rejoindre le cours »</strong>.</li>
+      <li style="margin-bottom:6px;">Si le cours n'a pas encore commencé, cliquez <strong>« Salle du cours en direct »</strong> et patientez : la page se met à jour toute seule.</li>
+      <li>Si le navigateur demande l'accès au micro et à la caméra, acceptez.</li>
+    </ol>
+
+    <h2 style="margin:28px 0 8px;font-size:18px;line-height:26px;">Plusieurs inscrits dans la famille ?</h2>
+    <p style="margin:0 0 8px;">
+      Les élèves inscrits avec la même adresse e-mail (frères et sœurs, parent et enfant…) partagent un seul compte : la même adresse et le même mot de passe. Vous ne recevez qu'un seul e-mail comme celui-ci.
+    </p>
+    <ul style="margin:0 0 16px;padding-left:22px;">
+      <li style="margin-bottom:6px;"><strong>À la connexion</strong>, la page « Qui est là ? » s'affiche : choisissez le prénom de l'élève.</li>
+      <li><strong>Pour passer d'un élève à l'autre</strong> sans se déconnecter, cliquez le bouton <strong>« Changer »</strong> (deux petits personnages, en haut à droite), puis choisissez l'autre prénom.</li>
+    </ul>
+    <p style="margin:0 0 16px;">Chaque élève garde ses propres leçons et sa propre progression.</p>
+    {{ end }}
+
+    <p style="margin:28px 0 0;font-size:14px;line-height:21px;color:#65675E;">
+      Une question ? Écrivez-nous à <a href="mailto:contact@monteetsouris.com" style="color:#46606E;">contact@monteetsouris.com</a>.<br>
+      Si vous n'attendiez pas ce message, vous pouvez l'ignorer.
+    </p>
+  </div>
+</div>

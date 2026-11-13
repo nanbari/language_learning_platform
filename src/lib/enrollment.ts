@@ -1,13 +1,17 @@
 /**
  * Demandes d'inscription aux cours d'arabe — modèle partagé client / serveur.
  *
- * Un parent remplit le formulaire public (/demande-inscription), partagé avec
- * la vidéo de présentation, pour un ou plusieurs de ses enfants. Rien n'est
- * créé côté élève à ce moment : chaque enfant devient une ligne de
- * `enrollment_requests` (avec les coordonnées du parent) ; un administrateur
- * recontacte la famille, puis décide depuis son tableau de bord. À
- * « inscrit », le compte élève de l'enfant est créé et la famille reçoit par
- * e-mail le lien pour en choisir le mot de passe (voir /api/admin/enrollments).
+ * Le formulaire public (/demande-inscription), partagé avec la vidéo de
+ * présentation, est rempli par un parent pour un ou plusieurs enfants ou
+ * adolescents, ou par un adulte pour lui-même (et, s'il le veut, ses enfants).
+ * Rien n'est créé côté élève à ce moment : chaque élève devient une ligne de
+ * `enrollment_requests` (avec les coordonnées de la personne à contacter) ;
+ * un administrateur la recontacte, puis décide depuis son tableau de bord. À
+ * « inscrit », le compte élève est créé et la famille reçoit par e-mail le
+ * lien pour en choisir le mot de passe (voir /api/admin/enrollments).
+ *
+ * Les colonnes gardent leurs noms d'origine : `parent_name` est la personne
+ * à contacter, `child_name` et `child_age` l'élève, quel que soit son âge.
  *
  * Ce module est pur (validation, types) et testé à part ; l'accès base est
  * dans les routes serveur.
@@ -16,19 +20,29 @@ import { normaliseEmail } from "@/lib/account";
 import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";
 
 export const MIN_CHILD_AGE = 4;
-export const MAX_CHILD_AGE = 12;
+/**
+ * Âge enregistré pour un adulte : le formulaire propose chaque âge de
+ * MIN_CHILD_AGE à 17 ans, puis « 18 ans ou plus » — l'âge exact d'un adulte
+ * n'est pas demandé (il ne sert pas à composer les groupes).
+ */
+export const ADULT_AGE = 18;
+
+/** « 7 ans », « 15 ans », « adulte ». */
+export function ageLabel(age: number): string {
+  return age >= ADULT_AGE ? "adulte" : `${age} ans`;
+}
 const MAX_NAME = 80;
 const MAX_EMAIL = 254;
 const MAX_PHONE = 30;
-/** Enfants par envoi du formulaire. */
+/** Élèves par envoi du formulaire (le nom date du formulaire réservé aux enfants). */
 export const MAX_CHILDREN = 6;
 
 export const ENROLLMENT_LEVELS = ["beginner", "reader"] as const;
 export type EnrollmentLevel = (typeof ENROLLMENT_LEVELS)[number];
 
 export const LEVEL_LABELS: Record<EnrollmentLevel, { title: string; hint: string }> = {
-  beginner: { title: "Débutant", hint: "Ne sait pas encore lire l'arabe, même s'il connaît des lettres" },
-  reader: { title: "Lecteur", hint: "Sait lire des mots en arabe, même lentement" },
+  beginner: { title: "Débutant", hint: "Ne lit pas encore l'arabe, même en connaissant des lettres" },
+  reader: { title: "Lecteur", hint: "Lit des mots en arabe, même lentement" },
 };
 
 // Précisions sur le niveau (ajoutées en novembre 2026) : lettres déjà
@@ -158,7 +172,7 @@ function cleanText(value: unknown): string | null {
   return typeof value === "string" ? value.trim().replace(/\s+/g, " ") : null;
 }
 
-/** Valide et normalise le formulaire d'inscription (un parent, un ou plusieurs enfants). */
+/** Valide et normalise le formulaire d'inscription (une personne à contacter, un ou plusieurs élèves). */
 export function parseEnrollmentInput(input: unknown): ParseResult {
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
     return { ok: false, error: "formulaire invalide" };
@@ -166,8 +180,8 @@ export function parseEnrollmentInput(input: unknown): ParseResult {
   const raw = input as Record<string, unknown>;
 
   const parentName = cleanText(raw.parentName);
-  if (!parentName || parentName.length < 2) return { ok: false, error: "Le nom du parent est requis" };
-  if (parentName.length > MAX_NAME) return { ok: false, error: `Le nom du parent doit faire au plus ${MAX_NAME} caractères` };
+  if (!parentName || parentName.length < 2) return { ok: false, error: "Votre nom est requis" };
+  if (parentName.length > MAX_NAME) return { ok: false, error: `Votre nom doit faire au plus ${MAX_NAME} caractères` };
 
   if (typeof raw.email !== "string") return { ok: false, error: "L'adresse e-mail est requise" };
   const email = normaliseEmail(raw.email);
@@ -179,13 +193,13 @@ export function parseEnrollmentInput(input: unknown): ParseResult {
     return { ok: false, error: "Numéro de téléphone invalide" };
   }
 
-  if (!Array.isArray(raw.children) || raw.children.length === 0) return { ok: false, error: "Ajoutez au moins un enfant" };
-  if (raw.children.length > MAX_CHILDREN) return { ok: false, error: `${MAX_CHILDREN} enfants au plus par demande` };
+  if (!Array.isArray(raw.children) || raw.children.length === 0) return { ok: false, error: "Ajoutez au moins un élève" };
+  if (raw.children.length > MAX_CHILDREN) return { ok: false, error: `${MAX_CHILDREN} élèves au plus par demande` };
   const children: ChildInput[] = [];
   for (const [i, item] of raw.children.entries()) {
     const child = parseChild(item);
-    // « Enfant 2 : … » quand il y en a plusieurs, pour savoir lequel corriger.
-    if (!child.ok) return { ok: false, error: raw.children.length > 1 ? `Enfant ${i + 1} : ${child.error}` : child.error };
+    // « Élève 2 : … » quand il y en a plusieurs, pour savoir lequel corriger.
+    if (!child.ok) return { ok: false, error: raw.children.length > 1 ? `Élève ${i + 1} : ${child.error}` : child.error };
     children.push(child.value);
   }
 
@@ -195,7 +209,7 @@ export function parseEnrollmentInput(input: unknown): ParseResult {
 }
 
 function parseChild(input: unknown): { ok: true; value: ChildInput } | { ok: false; error: string } {
-  if (typeof input !== "object" || input === null || Array.isArray(input)) return { ok: false, error: "enfant invalide" };
+  if (typeof input !== "object" || input === null || Array.isArray(input)) return { ok: false, error: "élève invalide" };
   const raw = input as Record<string, unknown>;
 
   const name = cleanText(raw.name);
@@ -203,8 +217,8 @@ function parseChild(input: unknown): { ok: true; value: ChildInput } | { ok: fal
   if (name.length > MAX_NAME) return { ok: false, error: `le prénom doit faire au plus ${MAX_NAME} caractères` };
 
   const age = typeof raw.age === "string" ? Number(raw.age) : raw.age;
-  if (typeof age !== "number" || !Number.isInteger(age) || age < MIN_CHILD_AGE || age > MAX_CHILD_AGE) {
-    return { ok: false, error: `l'âge doit être entre ${MIN_CHILD_AGE} et ${MAX_CHILD_AGE} ans` };
+  if (typeof age !== "number" || !Number.isInteger(age) || age < MIN_CHILD_AGE || age > ADULT_AGE) {
+    return { ok: false, error: `indiquez l'âge (à partir de ${MIN_CHILD_AGE} ans)` };
   }
 
   if (!ENROLLMENT_LEVELS.includes(raw.level as EnrollmentLevel)) return { ok: false, error: "choisissez le niveau" };
@@ -212,7 +226,7 @@ function parseChild(input: unknown): { ok: true; value: ChildInput } | { ok: fal
   const level = raw.level as EnrollmentLevel;
   // Un lecteur connaît forcément les lettres : la question ne lui est pas posée.
   if (level === "reader") raw.letters = "all";
-  if (!LETTER_KNOWLEDGE.includes(raw.letters as LetterKnowledge)) return { ok: false, error: "indiquez s'il connaît des lettres" };
+  if (!LETTER_KNOWLEDGE.includes(raw.letters as LetterKnowledge)) return { ok: false, error: "indiquez les lettres déjà connues" };
   const letters = raw.letters as LetterKnowledge;
   const known = parseKnownLetters(raw.knownLetters, letters);
   if (!known.ok) return known;
@@ -223,7 +237,7 @@ function parseChild(input: unknown): { ok: true; value: ChildInput } | { ok: fal
   let knownLetterForms: number[] = [];
   if (level === "beginner" && letters === "all") {
     if (!LETTER_KNOWLEDGE.includes(raw.letterForms as LetterKnowledge)) {
-      return { ok: false, error: "indiquez s'il connaît des lettres attachées (début, milieu, fin)" };
+      return { ok: false, error: "indiquez les lettres attachées déjà connues (début, milieu, fin)" };
     }
     letterForms = raw.letterForms as LetterKnowledge;
     const forms = parseKnownLetters(raw.knownLetterForms, letterForms);
@@ -231,7 +245,7 @@ function parseChild(input: unknown): { ok: true; value: ChildInput } | { ok: fal
     knownLetterForms = forms.value;
   }
 
-  if (!VOCABULARY_LEVELS.includes(raw.vocabulary as VocabularyLevel)) return { ok: false, error: "indiquez s'il a du vocabulaire" };
+  if (!VOCABULARY_LEVELS.includes(raw.vocabulary as VocabularyLevel)) return { ok: false, error: "indiquez le vocabulaire déjà acquis" };
   const vocabulary = raw.vocabulary as VocabularyLevel;
   let vocabularyDomains: VocabularyDomain[] = [];
   let vocabularyOther: string | null = null;
@@ -253,10 +267,10 @@ function parseChild(input: unknown): { ok: true; value: ChildInput } | { ok: fal
 /** Lettres cochées (dédoublonnées, dans l'ordre de l'alphabet) ; requises et non vides seulement pour « quelques-unes ». */
 function parseKnownLetters(raw: unknown, knowledge: LetterKnowledge): { ok: true; value: number[] } | { ok: false; error: string } {
   if (knowledge !== "some") return { ok: true, value: [] };
-  if (!Array.isArray(raw)) return { ok: false, error: "cochez les lettres qu'il connaît" };
+  if (!Array.isArray(raw)) return { ok: false, error: "cochez les lettres connues" };
   if (!raw.every((id) => typeof id === "number" && LETTER_IDS.has(id))) return { ok: false, error: "lettre inconnue" };
   const ids = [...new Set(raw as number[])].sort((a, b) => a - b);
-  if (ids.length === 0) return { ok: false, error: "cochez les lettres qu'il connaît" };
+  if (ids.length === 0) return { ok: false, error: "cochez les lettres connues" };
   return { ok: true, value: ids };
 }
 

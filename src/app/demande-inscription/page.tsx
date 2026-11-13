@@ -1,7 +1,8 @@
 "use client";
 /**
- * Demande d'inscription aux cours d'arabe (page publique) : un parent, un ou
- * plusieurs enfants.
+ * Demande d'inscription aux cours d'arabe (page publique) : une personne à
+ * contacter (un parent, ou l'adulte qui s'inscrit lui-même) et un ou plusieurs
+ * élèves, enfants, adolescents ou adultes.
  *
  * Lien partagé avec la vidéo de présentation. Aucun compte n'est créé :
  * la demande arrive dans le tableau de bord des admins, qui recontactent
@@ -13,15 +14,16 @@ import { CheckCircle, Plus, Send, X } from "lucide-react";
 import { submitEnrollment } from "@/lib/api/enrollment";
 import { CONTACT_EMAIL } from "@/lib/contact";
 import {
-  ENROLLMENT_LEVELS, LEVEL_LABELS, MAX_CHILD_AGE, MAX_CHILDREN, MIN_CHILD_AGE, MAX_VOCABULARY_OTHER,
+  ADULT_AGE, ENROLLMENT_LEVELS, LEVEL_LABELS, MAX_CHILDREN, MIN_CHILD_AGE, MAX_VOCABULARY_OTHER,
   LETTER_KNOWLEDGE, LETTER_KNOWLEDGE_LABELS, VOCABULARY_LEVELS, VOCABULARY_LABELS, VOCABULARY_DOMAINS, VOCABULARY_DOMAIN_LABELS,
   type EnrollmentLevel, type LetterKnowledge, type VocabularyLevel, type VocabularyDomain,
 } from "@/lib/enrollment";
 import { ARABIC_ALPHABET } from "@/data/arabicAlphabet";
 
-const AGES = Array.from({ length: MAX_CHILD_AGE - MIN_CHILD_AGE + 1 }, (_, i) => MIN_CHILD_AGE + i);
+/** Chaque âge jusqu'à 17 ans ; les adultes choisissent « 18 ans ou plus » (ADULT_AGE). */
+const AGES = Array.from({ length: ADULT_AGE - MIN_CHILD_AGE }, (_, i) => MIN_CHILD_AGE + i);
 
-/** Enfant en cours de saisie ; `key` reste stable quand on en retire un. */
+/** Élève en cours de saisie ; `key` reste stable quand on en retire un. */
 interface ChildDraft {
   key: number; name: string; age: string; level: EnrollmentLevel | null;
   letters: LetterKnowledge | null; knownLetters: number[];
@@ -64,21 +66,21 @@ export default function EnrollmentPage() {
     // Le niveau et l'accord n'ont pas de « required » natif fiable.
     const missing = children.findIndex((c) => !c.level);
     if (missing >= 0) {
-      return setError(children.length > 1 ? `Choisissez le niveau de l'enfant ${missing + 1}.` : "Choisissez le niveau de l'enfant.");
+      return setError(children.length > 1 ? `Choisissez le niveau de l'élève ${missing + 1}.` : "Choisissez le niveau en arabe.");
     }
     for (const [i, c] of children.entries()) {
-      const who = children.length > 1 ? `Enfant ${i + 1} : ` : "";
+      const who = children.length > 1 ? `Élève ${i + 1} : ` : "";
       if (c.level !== "reader") {
-        if (!c.letters) return setError(`${who}indiquez s'il connaît des lettres.`);
-        if (c.letters === "some" && c.knownLetters.length === 0) return setError(`${who}cochez les lettres qu'il connaît.`);
+        if (!c.letters) return setError(`${who}indiquez les lettres déjà connues.`);
+        if (c.letters === "some" && c.knownLetters.length === 0) return setError(`${who}cochez les lettres connues.`);
         if (c.letters === "all") {
-          if (!c.letterForms) return setError(`${who}indiquez s'il connaît des lettres attachées (début, milieu, fin).`);
-          if (c.letterForms === "some" && c.knownLetterForms.length === 0) return setError(`${who}cochez les lettres attachées qu'il connaît.`);
+          if (!c.letterForms) return setError(`${who}indiquez les lettres attachées déjà connues (début, milieu, fin).`);
+          if (c.letterForms === "some" && c.knownLetterForms.length === 0) return setError(`${who}cochez les lettres attachées connues.`);
         }
       }
-      if (!c.vocabulary) return setError(`${who}indiquez s'il a du vocabulaire.`);
+      if (!c.vocabulary) return setError(`${who}indiquez le vocabulaire déjà acquis.`);
       if (c.vocabulary === "some" && c.vocabularyDomains.length === 0 && !c.vocabularyOther.trim()) {
-        return setError(`${who}indiquez dans quels domaines il a du vocabulaire.`);
+        return setError(`${who}indiquez les domaines de vocabulaire connus.`);
       }
     }
     if (!consent) return setError("Votre accord est nécessaire pour envoyer la demande.");
@@ -146,14 +148,14 @@ export default function EnrollmentPage() {
             Demande d&apos;inscription aux cours d&apos;arabe
           </h1>
           <p className="text-[#2D2D2D]/60 text-sm mt-2 leading-relaxed">
-            Cours en ligne pour les enfants à partir de {MIN_CHILD_AGE} ans,
+            Cours en ligne à partir de {MIN_CHILD_AGE} ans,
             en petit groupe de 6 élèves maximum, inspirés de la pédagogie Montessori.
           </p>
           <p className="inline-block mt-4 px-4 py-2 rounded-xl bg-[#FFFDF8] border border-[#EDE5D8] text-sm text-[#2D2D2D]">
             Début des cours : <strong className="text-[#6B705C]">mercredi 6 janvier 2027</strong>
             <span className="block mt-1">Un cours d&apos;essai, puis <strong className="text-[#6B705C]">35 € par mois</strong> jusqu&apos;au dimanche 4 juillet 2027</span>
             <span className="block text-xs text-[#2D2D2D]/50">
-              par enfant : une séance de 50 minutes par semaine
+              par élève : une séance de 50 minutes par semaine
               <br />et l&apos;accès à la plateforme de révision entre les cours
             </span>
           </p>
@@ -174,7 +176,8 @@ export default function EnrollmentPage() {
           ) : (
             <form onSubmit={handleSubmit} className="space-y-7">
               <fieldset>
-                <legend className={sectionTitle}>Le parent</legend>
+                <legend className={sectionTitle}>Vos coordonnées</legend>
+                <p className={hint}>Le parent pour un enfant ou un adolescent ; vous-même si vous vous inscrivez.</p>
                 <div className="space-y-4">
                   <div>
                     <label htmlFor="parentName" className={label}>Nom et prénom</label>
@@ -199,7 +202,7 @@ export default function EnrollmentPage() {
                   {/* La légende reste le premier enfant du fieldset (accessibilité). */}
                   <legend className="w-full flex items-center justify-between mb-3">
                     <span className={`${sectionTitle} mb-0`}>
-                      {children.length > 1 ? `Enfant ${i + 1}` : "L'enfant"}
+                      {children.length > 1 ? `Élève ${i + 1}` : "L'élève"}
                     </span>
                     {children.length > 1 && (
                       <button type="button" onClick={() => removeChild(child.key)}
@@ -209,9 +212,9 @@ export default function EnrollmentPage() {
                     )}
                   </legend>
                   <div className="space-y-4">
-                    <div className="grid grid-cols-[1fr_7.5rem] gap-3">
+                    <div className="grid grid-cols-[1fr_9.5rem] gap-3">
                       <div>
-                        <label htmlFor={`childName-${child.key}`} className={label}>Prénom</label>
+                        <label htmlFor={`childName-${child.key}`} className={label}>Prénom de l&apos;élève</label>
                         <input id={`childName-${child.key}`} type="text" value={child.name}
                           onChange={(e) => updateChild(child.key, { name: e.target.value })}
                           required maxLength={80} autoComplete="off" className={input} />
@@ -222,6 +225,7 @@ export default function EnrollmentPage() {
                           onChange={(e) => updateChild(child.key, { age: e.target.value })} required className={input}>
                           <option value="" disabled>—</option>
                           {AGES.map((a) => <option key={a} value={a}>{a} ans</option>)}
+                          <option value={ADULT_AGE}>{ADULT_AGE} ans ou plus</option>
                         </select>
                       </div>
                     </div>
@@ -246,7 +250,7 @@ export default function EnrollmentPage() {
 
                     {/* Un lecteur connaît les lettres : la question n'est posée qu'aux débutants. */}
                     {child.level !== "reader" && <div>
-                      <p className={label}>Reconnaît-il des lettres isolées de l&apos;alphabet arabe ?</p>
+                      <p className={label}>Lettres isolées de l&apos;alphabet arabe déjà reconnues</p>
                       <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Lettres connues">
                         {LETTER_KNOWLEDGE.map((k) => (
                           <label key={k} className={pill(child.letters === k)}>
@@ -258,8 +262,8 @@ export default function EnrollmentPage() {
                       </div>
                       {child.letters === "some" && (
                         <div className="mt-3">
-                          <p className={hint}>Cochez les lettres isolées qu&apos;il reconnaît.</p>
-                          <div dir="rtl" className="grid grid-cols-7 gap-2" role="group" aria-label="Lettres qu'il reconnaît">
+                          <p className={hint}>Cochez les lettres isolées reconnues.</p>
+                          <div dir="rtl" className="grid grid-cols-7 gap-2" role="group" aria-label="Lettres reconnues">
                             {ARABIC_ALPHABET.map((l) => {
                               const on = child.knownLetters.includes(l.id);
                               return (
@@ -281,7 +285,7 @@ export default function EnrollmentPage() {
 
                     {/* Formes attachées : seulement si le débutant reconnaît toutes les lettres isolées. */}
                     {child.level !== "reader" && child.letters === "all" && <div>
-                      <p className={label}>Reconnaît-il des lettres attachées (au début, au milieu et à la fin d&apos;un mot) ?</p>
+                      <p className={label}>Lettres attachées déjà reconnues (au début, au milieu et à la fin d&apos;un mot)</p>
                       <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Lettres attachées connues">
                         {LETTER_KNOWLEDGE.map((k) => (
                           <label key={k} className={pill(child.letterForms === k)}>
@@ -293,8 +297,8 @@ export default function EnrollmentPage() {
                       </div>
                       {child.letterForms === "some" && (
                         <div className="mt-3">
-                          <p className={hint}>Cochez les lettres qu&apos;il reconnaît au début, au milieu et à la fin d&apos;un mot.</p>
-                          <div dir="rtl" className="grid grid-cols-4 gap-2" role="group" aria-label="Lettres attachées qu'il reconnaît">
+                          <p className={hint}>Cochez les lettres reconnues au début, au milieu et à la fin d&apos;un mot.</p>
+                          <div dir="rtl" className="grid grid-cols-4 gap-2" role="group" aria-label="Lettres attachées reconnues">
                             {ARABIC_ALPHABET.map((l) => {
                               const on = child.knownLetterForms.includes(l.id);
                               return (
@@ -317,7 +321,7 @@ export default function EnrollmentPage() {
                     </div>}
 
                     <div>
-                      <p className={label}>A-t-il du vocabulaire en arabe ?</p>
+                      <p className={label}>Vocabulaire en arabe déjà acquis</p>
                       <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Vocabulaire">
                         {VOCABULARY_LEVELS.map((v) => (
                           <label key={v} className={pill(child.vocabulary === v)}>
@@ -355,7 +359,7 @@ export default function EnrollmentPage() {
               {children.length < MAX_CHILDREN && (
                 <button type="button" onClick={addChild}
                   className="w-full py-3 rounded-xl border-2 border-dashed border-[#999B84] text-[#6B705C] font-bold flex items-center justify-center gap-2 hover:bg-[#999B84]/10 transition-all">
-                  <Plus size={16} /> Ajouter un enfant
+                  <Plus size={16} /> Ajouter un élève
                 </button>
               )}
 
@@ -380,9 +384,9 @@ export default function EnrollmentPage() {
                     <a href={`mailto:${CONTACT_EMAIL}`} className="underline">{CONTACT_EMAIL}</a>.
                   </p>
                   <p>
-                    <strong>Pourquoi :</strong> traiter votre demande, vous recontacter, et proposer à votre enfant un groupe
-                    adapté à son niveau. Les réponses sur les lettres et le vocabulaire ne servent qu&apos;à cela. Si votre enfant
-                    est inscrit, son compte élève est créé à votre adresse e-mail et vous recevez le lien pour en choisir le mot de passe.
+                    <strong>Pourquoi :</strong> traiter votre demande, vous recontacter, et proposer à chaque élève un groupe
+                    adapté à son âge et à son niveau. Les réponses sur l&apos;âge, les lettres et le vocabulaire ne servent qu&apos;à cela.
+                    Si l&apos;inscription a lieu, le compte élève est créé à votre adresse e-mail et vous recevez le lien pour en choisir le mot de passe.
                   </p>
                   <p>
                     <strong>Sur quelle base :</strong> votre accord (case ci-dessus) et les démarches préalables à l&apos;inscription.
@@ -395,7 +399,7 @@ export default function EnrollmentPage() {
                   </p>
                   <p>
                     <strong>Combien de temps :</strong> si l&apos;inscription n&apos;a pas lieu, la demande est supprimée au plus tard
-                    6 mois après son traitement. Si votre enfant est inscrit, ses informations sont conservées pendant la durée de
+                    6 mois après son traitement. Si elle a lieu, les informations de l&apos;élève sont conservées pendant la durée de
                     l&apos;inscription, puis un an.
                   </p>
                   <p>
